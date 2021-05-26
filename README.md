@@ -1,13 +1,25 @@
 # A-code-of-ice-and-fire
 
+
 Lenguaje de programación basado en las novelas *"A song of Ice and Fire"*, para la cadena de Lenguajes de Programación (Lenguajes II, Lenguajes III)
 
+### Integrantes
+
+César Alfonso Rosario Escobar (15-11295)
+
+Marcos José Lerones Ramírez (15-10778)
+
+Jesús Raúl de Aguiar de Brito (15-10360)
 
 ### Overview
 
-De manera similar al [lenguaje de programacion Shakespeare](https://en.wikipedia.org/wiki/Shakespeare_Programming_Language) se espera que los desarrolladores de **Inserte nombre de lenguaje** tengan presente que además de programar, están contando una historia. Como no todas las historias son buenas, habrán reglas para orientar al programador en su camino del héroe y con suerte convertirlo en heredero de los 7 reinos. 
+De manera similar al [lenguaje de programacion Shakespeare](https://en.wikipedia.org/wiki/Shakespeare_Programming_Language) se espera que los desarrolladores de **Inserte nombre de lenguaje** tengan presente que además de programar, están contando una historia. Como no todas las historias son buenas, habrán reglas para orientar al programador en su camino del héroe y con suerte convertirlo en el rey de los 7 reinos.
 
 ---
+
+# Especificacion
+
+*A work in progress*
 
 ## Statements
 
