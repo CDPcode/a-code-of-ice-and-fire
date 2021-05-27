@@ -59,7 +59,7 @@ Existen tres declaradores para los tipos de datos:
 La sintaxis para declaración es:
 
 ```
-<Lord|Lady|Knight> <identificador> of House <declarador de tipo>
+<Lord|Lady|Knight> <identificador> of House <declarador de tipo>.
 ```
 
 ## Statements
@@ -73,13 +73,24 @@ clave `take` o `takes`. La sintaxis es la siguiente
 (dependiendo del numero de asignaciones simultaneas):
 
 ```
-<id> takes <expresion>
+<id> takes <expresion>.
 ```
 
 ```
 <lista de ids> take <lista de expresiones> respectively.
 ```
 
+Así mismo, para inicializar un identificador se utiliza:
+
+```
+<Lord|Lady|Knight> <identificador> of house <declarador de tipo> takes <expresion>.
+```
+
+Y de forma análoga, la sintaxis se extiende para asignación multiple
+
+```
+<lista de declaraciones> take <lista de expresiones> respectively.
+```
 
 Por ejemplo: 
 ```
@@ -124,38 +135,71 @@ un caracter literal se debe escribir la palabra
 
 Maneja 6 tipos compuestos a saber
 
-* Registros
-
+* Registros:
+  Estos representan un tipo que contiene a varios tipos a la vez, como
+  un rey gobierna sobre distintas personas:
+ `former <Lady|Lord|Knight> now <id> King of <lista de declaraciones>`
+ 
+  Para declararlos se hace *Por definir*
+ 
 * Uniones: 
  Las uniones representan un tipo que puede tomar
  distintos tipos, pero uno a la vez. La sintaxis 
- para declararlos es 
- `Faceless Man with faces of: <lista de declaraciones serparadas por comas>` 
+ para declararlos es: 
+ `former <Lady|Lord|Knight> now Faceless Man with faces of: <lista de declaraciones serparadas por comas>.` 
+ 
+ Para declararlos se hace *Por definir*
 
 * Arreglos:
  Los arreglos serán de tamaño constante y serán 
- declarados con la sintaxis 
- `Arrayn with [1-9][0-9]+ <tipo> bannermen`.
+ declarados con la sintaxis: 
+ `former <Lord|Lady|Knight> now lord commander with [1-9][0-9]+ <tipo> bannermen.`
  Por ejemplo:
  ```
- Knigth Jon Arrayn with 42 Starkhar bannermen
+ former Lord now lord commander Jon Arrayn with 42 Starkhar bannermen.
  ```
 
-* Strings
+ Para declararlos se hace: *Por definir*
+ 
+* Strings: 
+Serian arreglos de caracteres con sintaxis glorificada:
+`former <Lord|Lady|Knight> now hand of the king with [1-9][0-9]+ <tipo> servants.`
 
+ Para declararlos se hace: 
+`hand of the king with [1-9][0-9]+ <tipo> servants checks scroll <string>`
+ 
+ 
 * Apuntadores (solamente al heap): 
  Los apuntadores solamente pueden apuntar a espacios
  de memoria en el heap y deben ser reservados y
  liberados explícitamente. La sintaxis para 
- declararlos es `Spearwife of <tipo al que apunta>`
+ declararlos es `former <Lady> now Spearwife of <tipo al que apunta>`
 
-* Tuplas
+* Tuplas:
+  Corresponden a Registros sin nombre
 
-*Sintaxis e implementación por definir*
 
 ### Operadores
 
-Los operadores que se manejaran sobre los tipos de datos existentes seran: .. 
+Los operadores que se manejaran sobre los tipos de datos existentes seran
+
+#### Sobre enteros
+
+La mayoria de los operadores cuentan con la siguiente firma `Lanninteger -> Lanninteger -> Lanninteger`
+
++ with :(+)
++ without: (-)
++ times the power of: (*)
++ divided by: (/)
++ picking what remains of: (%)
++ negated : (-)
++ is as powerfull as : (==)
++ not merely powerfull as : (/=)
++ is weaker than : (<)
++ is stronger than : (>) 
++ is almost as weaker than : (<=)
++ is almost as stronger than : (>=) 
+
 
 ## Selección
 
@@ -164,30 +208,41 @@ La selección se realiza con los valores de tipo
 
 ```
 You will be betrayed by <Boolton expression> three times.
-Once for love:
-<bloque de código>
-Once for gold:
-<bloque de código>
-Once for blood:
-<bloque de código>
+ Once for love:
+   <bloque de código>
+ Once for gold:
+   <bloque de código>
+ Once for blood:
+   <bloque de código>
+ So the prophecy says
 ```
 
 Se ejecutará el bloque de código correspondiente al valor de
 la expresión `Boolton`
 
-*Sintaxis e implementación por definir*
+## Repeticion determinada
 
-## Repetición
+La repetición imita un *loop* `for` tradicional, con ciertas sutilezas:
 
-*Sintaxis e implementación por definir*
+```
+the things I do for <declaracion de tipo Lanninteger> from <expresion de tipo Lanninteger> until <expresion de tipo Lanninteger>
+  Valar Morghules
+    ..
+    Code
+    ..
+  Valar Dohaeris
+```
 
-### Determinada
+## Repetición indeterminada
 
-*Sintaxis e implementación por definir*
-
-### Indeterminada
-
-*Sintaxis e implementacion por definir*
+```
+while <expresion de tipo Boolton> flowed down the river
+  Valar Morghules
+    ..
+    Code
+    ..
+  Valar Dohaeris
+```
 
 ### Subrutinas
 
@@ -225,11 +280,41 @@ Table of Contents:
 - Epilogue
 ```
 
-Dado que se manejan tuplas, se cuenta con retorno multivalor.
+La declaración de las subrutinas se dará de la siguiente manera:
+
+```
+<Nombre de la subrutina> 
+  Hereby I introduce the honorable
+    <Identificador> of House <Tipo>,
+      ... ,
+    <Identificador> of House <Tipo>
+  I must warn you, <Tipo de retorno> is coming
+  Valar Morghulis
+    ..
+    Code
+    ..
+  Valar Dohaeris
+```
+Para funciones, y
+```
+<Nombre de la subrutina> 
+  Hereby I introduce the honorable
+    <Identificador> of House <Tipo> ,
+      ... ,
+    <Identificador> of House <Tipo>
+  What do we say to the lord of death? not today
+  Valar Morghulis
+    ..
+    Code
+    ..
+  Valar Dohaeris
+```
+Para procedimientos
+
 
 Para ejecutar las subrutinas se sigue la siguiente sintaxis
 ```
-<lista de identificadores> fight against <nombre subrutina> [with arg1, arg2, ...]
+<lista de identificadores> fight against <nombre subrutina> [alongside arg1, arg2, ...]
 ```
 
 Las variables a la izquierda del `fight against` reciben los 
@@ -240,4 +325,132 @@ se debe usar `Nobody` en lugar de la lista de
 identificadores. Si se retorna 0 ó 1 valor, se debe usar la
 palabra `fights` en lugar de `fight`.
 
-*Sintaxis e implementación por definir*
+Dado que se manejan tuplas, se cuenta con retorno multivalor.
+
+
+### Flujo no estructurado
+
+
+#### Return
+
+```
+<Nombre de la subrutina> 
+  Hereby I introduce the honorable
+    <Identificador> of House <Tipo>,
+      ... ,
+    <Identificador> of House <Tipo>
+  I must warn you, <Tipo de retorno> is coming
+  Valar Morghulis
+    ..
+    Code
+    ..
+    Dracarys <valor de retorno>
+  Valar Dohaeris
+```
+
+#### Continue
+
+```
+the things I do for <declaracion de tipo Lanninteger> from <expresion de tipo Lanninteger> until <expresion de tipo Lanninteger>
+  Valar Morghules
+    ..
+    Code
+    ..
+    What is dead may never die.
+    ..
+    Code
+    ..
+  Valar Dohaeris
+```
+
+#### Break
+
+```
+while <expresion de tipo Boolton> flowed down the river
+  Valar Morghules
+    ..
+    Code
+    ..
+    This is the doom of Valyria
+    ..
+    Code 
+    ..
+  Valar Dohaeris
+```
+
+--- 
+
+Ejemplo de programa:
+
+
+### Programa para determinar un numero de la suerte
+```
+A Song of Ice and Fire: Lucky number
+
+Table of Contents:
+- Prologue
+- Arya III
+- Epilogue
+
+Arya III 
+  Hereby I introduce the honorable
+    Ramsay of house Boolton,
+    Jamie of house Lanninteger
+  I must warn you, Lanninteger is coming
+  Valar Morghulis
+  
+    You will be betrayed by Ramsey three times.
+      Once for love:
+        Dracarys Jamie!.
+      Once for gold:
+        Dracarys 42!.
+      Once for blood:
+        Dracarys 69!.
+      So the prophecy Says
+        
+  Valar Dohaeris
+
+Prologue
+  Valar Morghulis
+    Knigth Tyrion of house Lanninteger takes 42 golden dragon.
+    Lady Cersei of house Lanninteger.
+    Loord Roose of house Boolton takes love.
+
+    Cersei Lanninteger fights against Arya alongside Tyrion and Roose.
+  Valar Dohaeris
+```
+
+### Fibonacci
+
+```
+A song of ice and fire: Fibonacci
+
+Table of contents:
+  - Prologue
+  - Fibonacci I
+  - Epilogue
+  
+Fibonaci I
+  Hereby I introduce the honorable
+    Jamie of house Lanninteger
+  I must warn you, Lanninteger is coming
+  Valar Morghules
+    
+    You will be betrayed by Jamie is as powerfull as 1 three times.
+      Once for love:
+        Dracarys 1!.
+      Once for gold:
+        Dracarys Jamie with fights against Fibonaci alongside (Jamie without 1) !.
+      Once for blood:
+        <undefined>
+      So the prophecy Says
+        
+  Valar Dohaeris
+  
+  Prologue
+    Valar Morghules
+      Lord Tyrion of house Lanninteger takes 3 golden dragons.
+      Lord Tywin of house Lanninteger fights against Fibonnaci alongside Tyrion.
+    Valar Dohaeris
+  
+```
