@@ -40,6 +40,20 @@ Dicho nombre de programa debe cumplir con que es palabras que cumplan con la sig
 regex `[A-Z][a-z]*` separadas por espacios. Dicho nombre del programa podrá ser referenciado
 luego para abortar la ejecución del mismo.  
 
+## Comentarios
+
+Al escribir alguna de las siguientes expresiones se inicia un comentario y se ignorarán todos
+los caracteres hasta el siguiente punto `.`:
+
++ `Suddenly,`
++ `In the midst of`
++ `Therefore`
+
+Los comentarios no se anidan. No puede haber comentarios en medio de una instrucción. Solo
+se permite introducir comentarios entre distintas instrucciones. La idea de estas reglas
+es poder rellenar los espacios entre las instrucciones con partes de la historia para 
+hacerla más interesante.
+
 ## Identificadores
 
 Los identificadores válidos de hielo y fuego son aquellos que comienzan con una letra 
@@ -98,6 +112,17 @@ Cersei Lanninteger takes 7 golden dragons.
 Tyrion Lanninteger, Jamie Lanninteger take 5 golden dragons, Cersei Lanninteger respectively.
 ``` 
 
+### Asignacion desenvolviendo tuplas
+
+Tambien se puede asignar la siguiente sintaxis para extraer los valores de una tupla:
+
+```
+<lista de ids> fight against <expresion de tipo tupla>
+```
+
+El tamaño de la lista de ids debe ser igual al tamaño de la tupla y los tipos deben 
+corresponder. Esta sintaxis es particularmente util cuando se trata con funciones.
+
 ### Abortar programa
 
 En cualquier punto del programa se puede abortar con la siguiente instrucción. 
@@ -109,7 +134,7 @@ The book <nombre del programa> has reaced an unexpected end.
 
 Para leer valores del standard input se usa la siguiente sintaxis. 
 ```
-A raven has come for <r-value>.
+A raven has come for <l-value>.
 ```
 
 Para imprimir valores al standard output se usa la siguiente sintaxis.
@@ -137,7 +162,7 @@ A code of Ice and Fire es fuertemente tipado. Incorpora características como
 
 Maneja 5 tipos basicos a saber:
 
-* Enteros (tamaño de la palabra del sistema): 
+* Enteros (tamaño de la palabra del sistema): Se usan enteros complemento a 2.
  La palabra clave para declarar un entero es `Lanninteger`.
  Para usar enteros literales se debe escribir el número seguido de `golden dragons`
 referenciando la moneda de mayor valor en Westeros. Por ejemplo `10 golden dragons`.
@@ -167,7 +192,7 @@ Maneja 6 tipos compuestos a saber
 * Registros:
   Estos representan un tipo que contiene a varios tipos a la vez, como
   un rey gobierna sobre distintas personas:
- `Former <Lady|Lord|Knight> now <id> King of <lista de declaraciones>`
+ `Former <Lady|Lord|Knight> now King <id> of <lista de declaraciones>`
  
   Para declararlos se hace *Por definir*
  
@@ -175,30 +200,30 @@ Maneja 6 tipos compuestos a saber
  Las uniones representan un tipo que puede tomar
  distintos tipos, pero uno a la vez. La sintaxis 
  para declararlos es: 
- `Former <Lady|Lord|Knight> now Faceless Man with faces of: <lista de declaraciones serparadas por comas>.` 
+ `Former <Lady|Lord|Knight> <id> now Faceless Man holding faces of: <lista de declaraciones serparadas por comas>.` 
  
  Para declararlos se hace *Por definir*
 
 * Arreglos:
  Los arreglos serán de tamaño constante y serán 
  declarados con la sintaxis: 
- `Former <Lord|Lady|Knight> now Lord Commander with [1-9][0-9]+ <tipo> bannermen.`
+ `Former <Lord|Lady|Knight> now Lord Commander <id> of [1-9][0-9]+ <tipo> bannermen.`
  Por ejemplo:
  ```
- Former Lord now lord commander Jon Arrayn with 42 Starkhar bannermen.
+ Former Knight now Lord Commander Jon with 42 Starkhar bannermen.
  ```
 
  Para declararlos se hace: *Por definir*
  
 * Strings: 
 Serian arreglos de caracteres con sintaxis glorificada:
-`Former <Lord|Lady|Knight> now Hand of the King with [1-9][0-9]+ servants.`
+`Former <Lord|Lady|Knight> <id> now Hand of the King with [1-9][0-9]+ servants.`
 
 Para tener strings literales se debe usar la siguiente sintaxis:
 `scroll "<string>"`
 
  Para declararlos se hace: 
-`Hand of the King with [1-9][0-9]+ servants takes scroll "<string>"`
+`Former Lord Eddard now Hand of the King with [1-9][0-9]+ servants takes scroll "<string>"`
  
  
 * Apuntadores (solamente al heap): 
@@ -208,8 +233,26 @@ Para tener strings literales se debe usar la siguiente sintaxis:
  declararlos es `Former <Lady> now Spearwife of <tipo al que apunta>`
 
 * Tuplas:
-  Corresponden a Registros sin nombre
+  Corresponden a Registros sin nombre. Se declaran con la siguiente sintaxis
+  `Former <Lord|Lady|Knight> <id> now White Walker with deads from Houses <lista de tipos>` 
 
+Por ejemplo: 
+`Former Lord Tywin now White Walker with wights from Houses Lanninteger, Starkhar, Spearwife of Lanninteger`.
+
+### Aliases Fuertes
+
+Para declarar un alias fuerte (equivalente al `newtype` en Haskell) se debe usar la siguiente
+sintaxis:
+```
+House <id de tipo nuevo> comes from the old lineage of <tipo>.
+```
+
+### Aliases Débiles
+
+Para declarar un alias débil (equivalente al `type` en Haskell) se debe usar la siguiente sintaxis:
+```
+House <id de tipo nuevo> are the dogs of <tipo>
+```
 
 ### Operadores
 
@@ -274,16 +317,23 @@ Para acceder a un campo de una union se utiliza la siguiente sintaxis:
 
 #### Sobre arreglos 
 
-Para indexar un arreglo se utiliza alguna de las siguiente sintaxis:
+Para indexar un arreglo se utiliza la siguiente sintaxis:
 ```
 Soldier receiving <expresion numerica> under command of <id del arreglo>
 ```
 
 #### Sobre strings 
 
-Para indexar un string se utiliza alguna de las siguiente sintaxis:
+Para indexar un string se utiliza la siguiente sintaxis:
 ```
-Servant receiving <expresion numerica> under command of <id del arreglo>
+Servant receiving <expresion numerica> under command of <id del string>
+```
+
+#### Sobre tuplas 
+
+Para indexar una tupla se utiliza la siguiente sintaxis:
+```
+Wight receiving <expresion numerica> under command of <id de la tupla>
 ```
 
 #### Sobre apuntadores
@@ -390,7 +440,7 @@ La declaración de las subrutinas se dará de la siguiente manera:
     <Identificador> of House <Tipo>,
       ... ,
     <Identificador> of House <Tipo>
-  I must warn you, <Tipo de retorno> is coming
+  I must warn you, <Lista de tipos de retorno> is coming
   Valar Morghulis
     ..
     Code
@@ -416,18 +466,11 @@ Para procedimientos
 
 Para ejecutar las subrutinas se sigue la siguiente sintaxis
 ```
-<lista de identificadores> fight against <nombre subrutina> [alongside arg1, arg2, ...]
+<nombre subrutina> traveling [alongside arg1, arg2, ...] with caution
 ```
 
-Las variables a la izquierda del `fight against` reciben los 
-valores retornados por la subrutina.
-
-En caso de que la subrutina no tenga ningun valor de retorno
-se debe usar `Nobody` en lugar de la lista de
-identificadores. Si se retorna 0 ó 1 valor, se debe usar la
-palabra `fights` en lugar de `fight`.
-
-Dado que se manejan tuplas, se cuenta con retorno multivalor.
+Todas las funciones retornan una tupla con los valores especificados en el 
+retorno. 
 
 
 ### Flujo no estructurado
@@ -441,7 +484,7 @@ Dado que se manejan tuplas, se cuenta con retorno multivalor.
     <Identificador> of House <Tipo>,
       ... ,
     <Identificador> of House <Tipo>
-  I must warn you, <Tipo de retorno> is coming
+  I must warn you, <Lista de tipos de retorno> is coming
   Valar Morghulis
     ..
     Code
@@ -482,7 +525,9 @@ while <expresion de tipo Boolton> flowed down the river
 
 --- 
 
+
 Ejemplo de programa:
+*los siguientes programas estan desactualizados*
 
 
 ### Programa para determinar un numero de la suerte
