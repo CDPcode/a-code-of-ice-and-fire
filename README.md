@@ -37,8 +37,8 @@ A Song of Ice and Fire: <nombre del programa>
 ```
 
 Dicho nombre de programa debe cumplir con que es palabras que cumplan con la siguiente
-regex `[A-Z][a-z]*` separadas por espacios. Dicho nombre no tiene ningún efecto en el 
-programa y será ignorado durante la ejecución. 
+regex `[A-Z][a-z]*` separadas por espacios. Dicho nombre del programa podrá ser referenciado
+luego para abortar la ejecución del mismo.  
 
 ## Identificadores
 
@@ -96,6 +96,33 @@ Por ejemplo:
 ```
 Cersei Lanninteger takes 7 golden dragons. 
 Tyrion Lanninteger, Jamie Lanninteger take 5 golden dragons, Cersei Lanninteger respectively.
+``` 
+
+### Abortar programa
+
+En cualquier punto del programa se puede abortar con la siguiente instrucción. 
+```
+The book <nombre del programa> has reaced an unexpected end.
+```
+
+### IO 
+
+Para leer valores del standard input se usa la siguiente sintaxis. 
+```
+A raven has come for <r-value>.
+```
+
+Para imprimir valores al standard output se usa la siguiente sintaxis.
+```
+We must send a raven with everything we know of <r-value>. 
+```
+
+### Instrucción vacía
+
+Podemos escribir una instrucción vacía que no hace nada (similar a un `pass` en Python).
+Para esto podemos usar la siguiente sintaxis: 
+```
+The three-eyed raven watches from afar. 
 ```
 
 *Sintaxis por definir*
@@ -116,18 +143,20 @@ Maneja 5 tipos basicos a saber:
 referenciando la moneda de mayor valor en Westeros. Por ejemplo `10 golden dragons`.
 
 * Numeros de coma flotante (IEEE 754 - 2019):
-    *por definir*
+ El nombre de este tipo `Freyt`. Para usar flotantes literales
+ se debe escribir el número seguido de `drops of poison`. Por
+ ejemplo `3.1416 drops of poison`.
 
 * Trilleanos: El nombre de este tipo es `Boolton`
-y puede tomar únicamente 3 valores, `love`, `gold`,
-`blood`, que representan valores de verdad, 
+y puede tomar únicamente 3 valores, `blood`, `gold`,
+`love`, que representan valores de verdad, 
 neutralidad y falsedad respectivamente (*propenso a cambio*).
 
 * Caracteres (UTF - 8):
 El nombre de este tipo es `Starkhar` y para escribir
 un caracter literal se debe escribir la palabra
 `rune` seguida del caracter deseado. Por ejemplo:
-`rune λ`.
+`rune 'λ'`.
 
 *Sintaxis e implementación por definir*
 
@@ -138,7 +167,7 @@ Maneja 6 tipos compuestos a saber
 * Registros:
   Estos representan un tipo que contiene a varios tipos a la vez, como
   un rey gobierna sobre distintas personas:
- `former <Lady|Lord|Knight> now <id> King of <lista de declaraciones>`
+ `Former <Lady|Lord|Knight> now <id> King of <lista de declaraciones>`
  
   Para declararlos se hace *Por definir*
  
@@ -146,34 +175,37 @@ Maneja 6 tipos compuestos a saber
  Las uniones representan un tipo que puede tomar
  distintos tipos, pero uno a la vez. La sintaxis 
  para declararlos es: 
- `former <Lady|Lord|Knight> now Faceless Man with faces of: <lista de declaraciones serparadas por comas>.` 
+ `Former <Lady|Lord|Knight> now Faceless Man with faces of: <lista de declaraciones serparadas por comas>.` 
  
  Para declararlos se hace *Por definir*
 
 * Arreglos:
  Los arreglos serán de tamaño constante y serán 
  declarados con la sintaxis: 
- `former <Lord|Lady|Knight> now lord commander with [1-9][0-9]+ <tipo> bannermen.`
+ `Former <Lord|Lady|Knight> now Lord Commander with [1-9][0-9]+ <tipo> bannermen.`
  Por ejemplo:
  ```
- former Lord now lord commander Jon Arrayn with 42 Starkhar bannermen.
+ Former Lord now lord commander Jon Arrayn with 42 Starkhar bannermen.
  ```
 
  Para declararlos se hace: *Por definir*
  
 * Strings: 
 Serian arreglos de caracteres con sintaxis glorificada:
-`former <Lord|Lady|Knight> now hand of the king with [1-9][0-9]+ <tipo> servants.`
+`Former <Lord|Lady|Knight> now Hand of the King with [1-9][0-9]+ servants.`
+
+Para tener strings literales se debe usar la siguiente sintaxis:
+`scroll "<string>"`
 
  Para declararlos se hace: 
-`hand of the king with [1-9][0-9]+ <tipo> servants checks scroll <string>`
+`Hand of the King with [1-9][0-9]+ servants takes scroll "<string>"`
  
  
 * Apuntadores (solamente al heap): 
  Los apuntadores solamente pueden apuntar a espacios
  de memoria en el heap y deben ser reservados y
  liberados explícitamente. La sintaxis para 
- declararlos es `former <Lady> now Spearwife of <tipo al que apunta>`
+ declararlos es `Former <Lady> now Spearwife of <tipo al que apunta>`
 
 * Tuplas:
   Corresponden a Registros sin nombre
@@ -185,21 +217,91 @@ Los operadores que se manejaran sobre los tipos de datos existentes seran
 
 #### Sobre enteros
 
-La mayoria de los operadores cuentan con la siguiente firma `Lanninteger -> Lanninteger -> Lanninteger`
-
 + with :(+)
 + without: (-)
 + times the power of: (*)
 + divided by: (/)
 + picking what remains of: (%)
 + negated : (-)
-+ is as powerfull as : (==)
-+ not merely powerfull as : (/=)
++ is as powerful as : (==)
++ not merely powerful as : (/=)
 + is weaker than : (<)
 + is stronger than : (>) 
-+ is almost as weaker than : (<=)
-+ is almost as stronger than : (>=) 
++ is almost as weak as : (<=)
++ is almost as strong as : (>=) 
 
+#### Sobre flotantes
+
++ with :(+)
++ without: (-)
++ times the power of: (*)
++ divided by: (/)
++ negated : (-)
++ is as powerful as : (==)
++ not merely powerful as : (/=)
++ is weaker than : (<)
++ is stronger than : (>) 
++ is almost as weak as : (<=)
++ is almost as strong as : (>=) 
+
+#### Sobre trileanos
+
+*trabajo en progreso*
+
+#### Sobre registros
+
+Para acceder a un campo de un registro se utiliza la siguiente 
+sintaxis: 
+```
+<id del campo> subject of <id del registro>
+```
+
+#### Sobre uniones
+
+Para verificar cual campo de la union está activo en este momento
+se usa la siguiente sintaxis: 
+```
+Is <id de la union> using the face of <id del campo>?
+```
+
+Esto retorna un valor de tipo `Boolton` que sería `blood` en caso de ser
+verdad, `love` en caso de ser falso y `gold` si no ha sido inicializado.
+
+Para acceder a un campo de una union se utiliza la siguiente sintaxis:
+```
+<id de la unión> acting as <id del campo>
+```
+
+#### Sobre arreglos 
+
+Para indexar un arreglo se utiliza alguna de las siguiente sintaxis:
+```
+Soldier receiving <expresion numerica> under command of <id del arreglo>
+```
+
+#### Sobre strings 
+
+Para indexar un string se utiliza alguna de las siguiente sintaxis:
+```
+Servant receiving <expresion numerica> under command of <id del arreglo>
+```
+
+#### Sobre apuntadores
+
+Para crear un apuntador a algun tipo se debe usar la siguiente sintaxis:
+```
+<id de apuntador> marries a <tipo al que apunta>
+```
+
+Para dereferenciar un apuntador se utiliza la siguiente sintaxis:
+```
+Spouse of <id del apuntador>
+```
+
+Para liberar un espacio de memoria apuntado se utiliza la siguiente sintaxis:
+```
+<id del apuntador> forsakes marriage
+```
 
 ## Selección
 
@@ -208,11 +310,11 @@ La selección se realiza con los valores de tipo
 
 ```
 You will be betrayed by <Boolton expression> three times.
- Once for love:
+ Once for blood:
    <bloque de código>
  Once for gold:
    <bloque de código>
- Once for blood:
+ Once for love:
    <bloque de código>
  So the prophecy says
 ```
@@ -236,7 +338,7 @@ the things I do for <declaracion de tipo Lanninteger> from <expresion de tipo La
 ## Repetición indeterminada
 
 ```
-while <expresion de tipo Boolton> flowed down the river
+While <expresion de tipo Boolton> flows down the river
   Valar Morghules
     ..
     Code
@@ -302,7 +404,7 @@ Para funciones, y
     <Identificador> of House <Tipo> ,
       ... ,
     <Identificador> of House <Tipo>
-  What do we say to the lord of death? not today
+  I must warn you, Nobody is coming
   Valar Morghulis
     ..
     Code
@@ -344,7 +446,7 @@ Dado que se manejan tuplas, se cuenta con retorno multivalor.
     ..
     Code
     ..
-    Dracarys <valor de retorno>
+    Dracarys <lista de valores de retorno>
   Valar Dohaeris
 ```
 
@@ -400,12 +502,12 @@ Arya III
   Valar Morghulis
   
     You will be betrayed by Ramsey three times.
-      Once for love:
-        Dracarys Jamie!.
-      Once for gold:
-        Dracarys 42!.
       Once for blood:
         Dracarys 69!.
+      Once for gold:
+        Dracarys 42!.
+      Once for love:
+        Dracarys Jamie!.
       So the prophecy Says
         
   Valar Dohaeris
@@ -432,17 +534,19 @@ Table of contents:
   
 Fibonaci I
   Hereby I introduce the honorable
-    Jamie of house Lanninteger
+    Jamie of House Lanninteger
   I must warn you, Lanninteger is coming
   Valar Morghules
     
     You will be betrayed by Jamie is as powerfull as 1 three times.
-      Once for love:
+      Once for blood:
         Dracarys 1!.
       Once for gold:
-        Dracarys Jamie with fights against Fibonaci alongside (Jamie without 1) !.
-      Once for blood:
-        <undefined>
+        The Three-Eyed raven watches from afar.
+      Once for love:
+        Lord Tyrion of House Lanninteger fights against Fibonaci alongside Jamie without 1 golden dragon.
+        Lady Cersei of House Lanninteger fights against Fibonaci alongside Jamie without 2 golden dragon.
+        Dracarys Tyrion with Cersei.
       So the prophecy Says
         
   Valar Dohaeris
