@@ -1,9 +1,9 @@
 {
-module Firelink.FrontEnd.Lexer (
+module Westeros.SouthOfTheWall.Lexer (
     scanTokens,
     ) where
 
-import Firelink.FrontEnd.Tokens
+import Westeros.SouthOfTheWall.Tokens
 }
 
 %wrapper "monadUserState"
@@ -24,6 +24,14 @@ data AlexUserState = LexerState {
         lexerTokens :: [Token],
         lexerErrors :: [Error]
     }
+
+alexInitUserState :: AlexUserState
+alexInitUserState = LexerState {
+        lexerString = "",
+        lexerTokens = [],
+        lexerErrors = []
+    }
+
 
 makeToken :: AbstractToken -> AlexAction AlexUserState
 makeToken tk (AlexPn _ r c, _, _, str) len = do
