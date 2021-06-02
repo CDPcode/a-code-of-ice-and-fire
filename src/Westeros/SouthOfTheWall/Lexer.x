@@ -37,8 +37,8 @@ tokens :-
 <string>    .                                       { invalidCharacter }
 
 -- Literals
-<0>     [-]$digits+$white+golden$white+coins                           ;  
-<0>     [-]$digits+\.$digits$white+drops$white+of$white+poison          ; 
+<0>     [-]{0,1}$digits+$white+golden$white+coins                           ;  
+<0>     [-]{0,1}$digits+\.$digits$white+drops$white+of$white+poison          ; 
 <0>     blood                                                       ;  
 <0>     gold                                                        ;  
 <0>     love                                                        ;  
