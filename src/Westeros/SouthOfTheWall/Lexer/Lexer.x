@@ -1,5 +1,5 @@
 {
-module Lexer.Lexer where
+module Westeros.SouthOfTheWall.Lexer.Lexer where
 }
 %wrapper "basic"
 $digit = 0-9 -- digits
