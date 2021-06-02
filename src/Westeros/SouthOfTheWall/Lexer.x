@@ -2,7 +2,6 @@
 module Westeros.SouthOfTheWall.Lexer (
     scanTokens,
     ) where
-
 import Westeros.SouthOfTheWall.Tokens
 }
 
@@ -13,25 +12,71 @@ import Westeros.SouthOfTheWall.Tokens
 $digits = [0-9]
 @scapedchars = \\[nt\\\"\\\'] --"
 @linebreaks = \n+\r?\r+\n?
+@ws = $white+
 
 -- regex go here
 tokens :-
-<0>         $white+                                 ;
+<0>         @ws                                                 ;
 
 --          Comments
-<0>         Suddenly\,                              { pushToString `andBegin` comment }
-<0>         In$white+the$white+midst$white+of       { pushToString `andBegin` comment }
-<0>         Therefore                               { pushToString `andBegin` comment }
-<comment>   \.                                      { makeCommentToken `andBegin` 0 }
-<comment>   .                                       { pushToString }
+<0>         Suddenly\,                                          { pushToString `andBegin` comment }
+<0>         In$white+the$white+midst$white+of                   { pushToString `andBegin` comment }
+<0>         Therefore                                           { pushToString `andBegin` comment }
+<comment>   \.                                                  { makeCommentToken `andBegin` 0 }
+<comment>   .                                                   { pushToString }
 
 --          String Literals
-<0>         scroll$white+\"                         { pushToString `andBegin` string }  --"
-<string>    \"                                      { makeStringToken `andBegin` 0 }    --"
-<string>    @scapedchars                            { pushToString }
-<string>    @linebreaks                             { invalidBreak }
-<string>    $printable                              { pushToString }
-<string>    .                                       { invalidCharacter }
+<0>         scroll@ws\"                                         { pushToString `andBegin` string }  --"
+<string>    \"                                                  { makeStringToken `andBegin` 0 }    --"
+<string>    @scapedchars                                        { pushToString }
+<string>    @linebreaks                                         { invalidBreak }
+<string>    $printable                                          { pushToString }
+<string>    .                                                   { invalidCharacter }
+
+--          Program Name
+-- <0>         A@wsSong@wsof@wsIce@wsand@wsFire:@ws -- TODO: definir la sintaxis correcta de esta instrucción
+
+
+<0>         Lord                                                              { makeToken TknVar }
+<0>         Lady                                                              { makeToken TknVar }
+<0>         Knight                                                            { makeToken TknConst }
+<0>         of@wsHouse                                                        { makeToken TknType }
+<0>         takes                                                             { makeToken TknAssign }
+<0>         take                                                              { makeToken TknBeginMultAssign }
+<0>         respectively                                                      { makeToken TknEndMultAssign }
+<0>         fight@wsagainst                                                   { makeToken TknTupleAsign }
+<0>         The@wsbook                                                        { makeToken TknBeginExit }
+<0>         has@wsreached@wsan@wsunexpected@wsend                             { makeToken TknEndExit }
+<0>         A@wsraven@has@wscome@wsfor                                        { makeToken TknRead }
+<0>         We@wsmust@wssend@wsa@wsraven@wswith@wseverything@wswe@wsknow@wsof { makeToken TknPrint }
+<0>         The@wsthree-eyed@wsraven@wswatches@wsfrom@wsafar                  { makeToken TknPass }
+<0>         Lanninteger                                                       { makeToken TknInt }
+<0>         $digits+@wsgolden@wsdragons                                       { makeToken TknIntLit }
+<0>         Freyt                                                             { makeToken TknFloat }
+<0>         $digits+\.$digits@wsdrops@wsof@wspoison                           { makeToken TknFloatLit }
+<0>         Boolton                                                           { makeToken TknTrilean }
+<0>         blood                                                             { makeToken TknTrue }
+<0>         gold                                                              { makeToken TknNeutral }
+<0>         love                                                              { makeToken TknFalse }
+<0>         Starkhar                                                          { makeToken TknChar }
+<0>         rune@ws\'.\'                                                      { makeToken TknCharLit }
+
+--TODO: definir apropiadamente los tipos compuestos
+-- <0>         Former                                                            { makeToken TknBeginCompType }
+-- <0>         of                                                                { makeToken TknEndCompType }
+-- <0>         now@wsKing                                                        { makeToken TknStruct }
+-- <0>         ,                                                                 { makeToken TknComma }
+-- <0>         now@wsFaceless@wsMan@wsholding@wsfaces@wsof:                      { makeToken TknUnion }
+-- <0>         now@wsLord@wsCommander                                            { makeToken TknArray }
+
+<0>         House                                                             { makeToken TknBeginAlias }
+<0>         comes@wsfrom@wsthe@wsold@wslineage@wsof                           { makeToken TknStrongAlias }
+<0>         are@wsthe@wsdogs@wsof                                             { makeToken TknWeekAlias }
+
+-- TODO: Id
+
+-- TODO: Dot
+
 
 {
 
