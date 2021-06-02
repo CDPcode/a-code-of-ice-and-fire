@@ -1,10 +1,11 @@
 {
 module Westeros.SouthOfTheWall.Lexer (
-    scanTokens,
+    --scanTokens,
     ) where
 
 import Westeros.SouthOfTheWall.Tokens
 }
+
 
 %wrapper "monadUserState"
 
@@ -14,7 +15,9 @@ $digits = [0-9]
 @scapedchars = \\[nt\\\"\\\'] --"
 @linebreaks = \n+\r?\r+\n?
 
+
 -- regex go here
+
 tokens :-
 <0>         $white+                                 ;
 
@@ -33,10 +36,20 @@ tokens :-
 <string>    $printable                              { pushToString }
 <string>    .                                       { invalidCharacter }
 
+-- Literals
+<0>     [-]{0,1}$digits+$white+golden$white+coins                           ;  
+<0>     [-]{0,1}$digits+\.$digits$white+drops$white+of$white+poison          ; 
+<0>     blood                                                       ;  
+<0>     gold                                                        ;  
+<0>     love                                                        ;  
+
+-- procedures
+
+
 {
 
 alexEOF :: Alex AlexUserState
-alexEOF = getUserState
+alexEOF = undefined -- getUserState
 
 data AlexUserState = LexerState {
         lexerString :: String,
@@ -50,7 +63,6 @@ alexInitUserState = LexerState {
         lexerTokens = [],
         lexerErrors = []
     }
-
 
 makeToken :: AbstractToken -> AlexAction AlexUserState
 makeToken tk (AlexPn _ r c, _, _, str) len = do
@@ -117,7 +129,8 @@ addTokenToState tk = Alex $ \s@AlexState{alex_ust=ust}
     }, ())
 
 addErrorToState :: Error -> Alex ()
-addErrorToState err = Alex $ \s@AlexState{alex_ust=ust}
+addErrorToState err = undefined 
+Alex $ \s@AlexState{alex_ust=ust}
     -> Right (s{
         alex_ust = ust{
             lexerErrors = err : lexerErrors ust 
@@ -134,11 +147,8 @@ cleanLexerString = Alex $ \s@AlexState{alex_ust=ust}
 
 addStringToState :: String -> Alex ()
 addStringToState str = Alex $ \s@AlexState{alex_ust=ust}
-    -> Right (s{
-        alex_ust = ust{
-            lexerString = str ++ lexerString ust
-        }
-    }, ())
+    -> Right (s{ alex_ust = ust{ lexerString = str ++ lexerString ust } }, ())
     
+
 
 }

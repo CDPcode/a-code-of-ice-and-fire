@@ -1,5 +1,11 @@
 module Westeros.SouthOfTheWall.Tokens (
-    Token(..), AbstractToken(..), Position(..)) where
+    Token(..),
+    AbstractToken(..),
+    Position(..),
+    Error(..)
+) where
+
+{- Relevant tokens datatypes -}
 
 data Position = Position {
         row :: Int,
@@ -9,8 +15,10 @@ data Position = Position {
 data AbstractToken = TkString | TkComment
 
 data Token = Token 
-    { aToken :: AbstractToken,
-    , capturedString :: String,
-    , cleanedString :: String,
+    { aToken :: AbstractToken
+    , capturedString :: String
+    , cleanedString :: String
     , position :: Position
     }
+
+newtype Error = Error { lexerError :: String } 
