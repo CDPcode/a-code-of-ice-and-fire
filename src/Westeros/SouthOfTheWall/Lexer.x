@@ -37,8 +37,8 @@ tokens :-
 <string>    .                                       { invalidCharacter }
 
 -- Literals
-<0>     $digits+$white+golden$white+coins                           ;  
-<0>     $digits+.$digits$white+drops$white+of$white+poison          ; 
+<0>     [-]$digits+$white+golden$white+coins                           ;  
+<0>     [-]$digits+\.$digits$white+drops$white+of$white+poison          ; 
 <0>     blood                                                       ;  
 <0>     gold                                                        ;  
 <0>     love                                                        ;  
@@ -64,7 +64,6 @@ alexInitUserState = LexerState {
         lexerErrors = []
     }
 
-{-
 makeToken :: AbstractToken -> AlexAction AlexUserState
 makeToken tk (AlexPn _ r c, _, _, str) len = do
     let str' = take len str
@@ -148,13 +147,8 @@ cleanLexerString = Alex $ \s@AlexState{alex_ust=ust}
 
 addStringToState :: String -> Alex ()
 addStringToState str = Alex $ \s@AlexState{alex_ust=ust}
-    -> Right (s{
-        alex_ust = ust{
-            lexerString = str ++ lexerString ust
-        }
-    }, ())
+    -> Right (s{ alex_ust = ust{ lexerString = str ++ lexerString ust } }, ())
     
 
--}
 
 }
