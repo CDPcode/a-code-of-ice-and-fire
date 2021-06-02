@@ -11,7 +11,7 @@ import Westeros.SouthOfTheWall.Tokens
 -- macros go here
 
 $digits = [0-9]
-@scapedchars = \\[nt\\\"] --"
+@scapedchars = \\[nt\\\"\\\'] --"
 @linebreaks = \n+\r?\r+\n?
 
 -- regex go here
