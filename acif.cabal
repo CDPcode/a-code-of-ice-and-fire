@@ -4,16 +4,16 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ae2c7be9aa4d99af6480d6202b1fde7889ac617885bb8dae25968e57a7a73e00
+-- hash: 69e1e801496218dbe9646a8c936194d52ee495b9fe767533890f105df8168149
 
 name:           acif
 version:        0.1.0.0
 description:    Please see the README on GitHub at <https://github.com/githubuser/acif#readme>
-homepage:       https://github.com/githubuser/acif#readme
-bug-reports:    https://github.com/githubuser/acif/issues
-author:         Author name here
+homepage:       https://github.com/CDPcode/a-code-of-ice-and-fire#readme
+bug-reports:    https://github.com/CDPcode/a-code-of-ice-and-fire/issues
+author:         César Rosario, Jesús de Aguiar, Marcos Lerones
 maintainer:     example@example.com
-copyright:      2021 Author name here
+copyright:      2021 César Rosario, Jesús de Aguiar, Marcos Lerones
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
@@ -23,17 +23,21 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/githubuser/acif
+  location: https://github.com/CDPcode/a-code-of-ice-and-fire
 
 library
   exposed-modules:
+      Lexer.Lexer
       Lib
   other-modules:
       Paths_acif
   hs-source-dirs:
       src
+  build-tools:
+      alex
   build-depends:
-      base >=4.7 && <5
+      array
+    , base >=4.7 && <5
   default-language: Haskell2010
 
 executable acif-exe
@@ -45,6 +49,7 @@ executable acif-exe
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       acif
+    , array
     , base >=4.7 && <5
   default-language: Haskell2010
 
@@ -58,5 +63,6 @@ test-suite acif-test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       acif
+    , array
     , base >=4.7 && <5
   default-language: Haskell2010

@@ -1,10 +1,10 @@
 name:                acif
 version:             0.1.0.0
-github:              "githubuser/acif"
+github:              "CDPcode/a-code-of-ice-and-fire"
 license:             BSD3
-author:              "Author name here"
+author:              "César Rosario, Jesús de Aguiar, Marcos Lerones"
 maintainer:          "example@example.com"
-copyright:           "2021 Author name here"
+copyright:           "2021 César Rosario, Jesús de Aguiar, Marcos Lerones"
 
 extra-source-files:
 - README.md
@@ -21,9 +21,12 @@ description:         Please see the README on GitHub at <https://github.com/gith
 
 dependencies:
 - base >= 4.7 && < 5
+- array # cccsar
 
 library:
   source-dirs: src
+  build-tools:
+  - alex
 
 executables:
   acif-exe:
