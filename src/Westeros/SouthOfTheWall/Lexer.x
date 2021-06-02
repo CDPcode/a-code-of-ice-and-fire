@@ -1,6 +1,6 @@
 {
 module Westeros.SouthOfTheWall.Lexer (
-    scanTokens,
+    --scanTokens,
     ) where
 
 import Westeros.SouthOfTheWall.Tokens
@@ -10,14 +10,29 @@ import Westeros.SouthOfTheWall.Tokens
 
 -- macros go here
 
+$digits = [0-9]
+
 -- regex go here
 tokens :-
+
 <0>     $white+                     ;
+
+
+-- Literals
+
+<0>     $digits+$white+golden$white+coins                           ;  
+<0>     $digits+.$digits$white+drops$white+of$white+poison          ; 
+<0>     blood                                                       ;  
+<0>     gold                                                        ;  
+<0>     love                                                        ;  
+
+-- procedures
+
 
 {
 
 alexEOF :: Alex AlexUserState
-alexEOF = getUserState
+alexEOF = undefined -- getUserState
 
 data AlexUserState = LexerState {
         lexerString :: String,
@@ -32,7 +47,7 @@ alexInitUserState = LexerState {
         lexerErrors = []
     }
 
-
+{-
 makeToken :: AbstractToken -> AlexAction AlexUserState
 makeToken tk (AlexPn _ r c, _, _, str) len = do
     let str' = take len str
@@ -69,7 +84,8 @@ addTokenToState tk = Alex $ \s@AlexState{alex_ust=ust}
     }, ())
 
 addErrorToState :: Error -> Alex ()
-addErrorToState err = Alex $ \s@AlexState{alex_ust=ust}
+addErrorToState err = undefined 
+Alex $ \s@AlexState{alex_ust=ust}
     -> Right (s{
         alex_ust = ust{
             = err : lexerErrors ust 
@@ -83,6 +99,6 @@ cleanLexerString = Alex $ \s@AlexState{alex_ust=ust}
             lexerString = ""
         }
     }, ())
-
+-}
 
 }
