@@ -157,10 +157,10 @@ getUserState :: Alex AlexUserState
 getUserState = Alex $ \s@AlexState{alex_ust=ust} -> Right (s, ust)
 
 makeToken :: AbstractToken -> AlexAction AlexUserState
-makeToken Tkn (AlexPn _ r c, _, _, str) len = do
+makeToken tk (AlexPn _ r c, _, _, str) len = do
     let str' = take len str
     addTokenToState Token {
-        token = Tkn,
+        token = tk,
         cleanedString = str',
         capturedString = str',
         position = Position {row=r, col=c}
@@ -210,10 +210,10 @@ pushToString (AlexPn _ r c, _, _, str) len = do
     alexMonadScan
     
 addTokenToState :: Token -> Alex ()
-addTokenToState Tkn = Alex $ \s@AlexState{alex_ust=ust}
+addTokenToState tk = Alex $ \s@AlexState{alex_ust=ust}
     -> Right (s{
         alex_ust = ust{
-            lexerTokens = Tkn : lexerTokens ust 
+            lexerTokens = tk : lexerTokens ust 
         }
     }, ())
 
