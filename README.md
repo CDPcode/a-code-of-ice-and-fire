@@ -33,7 +33,7 @@ Todo programa escrito en **A Code of Ice and Fire** debe comenzar con una línea
 siguiente forma: 
 
 ```
-A Song of Ice and Fire: <nombre del programa>
+A Song of Ice and Fire: "<nombre del programa>"
 ```
 
 Dicho nombre de programa debe cumplir con que es palabras que cumplan con la siguiente
@@ -108,8 +108,8 @@ Y de forma análoga, la sintaxis se extiende para asignación multiple
 
 Por ejemplo: 
 ```
-Cersei Lanninteger takes 7 golden dragons. 
-Tyrion Lanninteger, Jamie Lanninteger take 5 golden dragons, Cersei Lanninteger respectively.
+Cersei Lanninteger takes 7 soldiers. 
+Tyrion Lanninteger, Jamie Lanninteger take 5 soldiers, Cersei Lanninteger respectively.
 ``` 
 
 ### Asignacion desenvolviendo tuplas
@@ -164,24 +164,24 @@ Maneja 5 tipos basicos a saber:
 
 * Enteros (tamaño de la palabra del sistema): Se usan enteros complemento a 2.
  La palabra clave para declarar un entero es `Lanninteger`.
- Para usar enteros literales se debe escribir el número seguido de `golden dragons`
-referenciando la moneda de mayor valor en Westeros. Por ejemplo `10 golden dragons`.
+ Para usar enteros literales se debe escribir el número seguido de `soldiers`
+referenciando la moneda de mayor valor en Westeros. Por ejemplo `10 soldiers`.
 
 * Numeros de coma flotante (IEEE 754 - 2019):
  El nombre de este tipo `Freyt`. Para usar flotantes literales
- se debe escribir el número seguido de `drops of poison`. Por
- ejemplo `3.1416 drops of poison`.
+ se debe escribir el número seguido de `descendants`. Por
+ ejemplo `3.1416 descendants`.
 
 * Trilleanos: El nombre de este tipo es `Boolton`
 y puede tomar únicamente 3 valores, `blood`, `gold`,
 `love`, que representan valores de verdad, 
-neutralidad y falsedad respectivamente (*propenso a cambio*).
+neutralidad y falsedad respectivamente.
 
 * Caracteres (UTF - 8):
 El nombre de este tipo es `Starkhar` y para escribir
 un caracter literal se debe escribir la palabra
-`rune` seguida del caracter deseado. Por ejemplo:
-`rune 'λ'`.
+`Hodor` seguida del caracter deseado encerrado entre comillas simples `'`. Por ejemplo:
+`Hodor 'λ'`.
 
 *Sintaxis e implementación por definir*
 
@@ -192,52 +192,87 @@ Maneja 6 tipos compuestos a saber
 * Registros:
   Estos representan un tipo que contiene a varios tipos a la vez, como
   un rey gobierna sobre distintas personas:
- `Former <Lady|Lord|Knight> now King <id> of <lista de declaraciones>`
+ ```
+ Former <Lady|Lord|Knight> now King <id> of <lista de declaraciones>
+ ```
  
-  Para declararlos se hace *Por definir*
  
 * Uniones: 
  Las uniones representan un tipo que puede tomar
  distintos tipos, pero uno a la vez. La sintaxis 
  para declararlos es: 
- `Former <Lady|Lord|Knight> <id> now Faceless Man holding faces of: <lista de declaraciones serparadas por comas>.` 
+ ```
+ Former <Lady|Lord|Knight> <id> now Faceless Man holding faces of: <lista de declaraciones serparadas por comas>.
+ ```
  
- Para declararlos se hace *Por definir*
 
 * Arreglos:
  Los arreglos serán de tamaño constante y serán 
  declarados con la sintaxis: 
- `Former <Lord|Lady|Knight> now Lord Commander <id> of [1-9][0-9]+ <tipo> bannermen.`
+ ```
+ Former <Lord|Lady|Knight> <id> now Lord Commander of <tipo> bannermen holding <expresion entera>.
+ ```
  Por ejemplo:
  ```
- Former Knight now Lord Commander Jon with 42 Starkhar bannermen.
+ Former Knight Jon now Lord Commander of Starkhar bannermen holding 42 soliders.
  ```
 
- Para declararlos se hace: *Por definir*
+ Tambien se puede usar la siguiente sintaxis si no se desea especificar el tamaño del arreglo y
+ se le asigna un valor al ser declarado
+```
+Former <Lord|Lady|Knight> <id> now Lord Commander of <tipo> bannermen holding: <lista de valores>
+```
+
+Por ejemplo:
+```
+Former Knight Barristan now Lord Commander of Lanninteger bannermen holding: Tyrion, 3 soldiers, Jamie with Cersei.
+```
  
 * Strings: 
 Serian arreglos de caracteres con sintaxis glorificada:
-`Former <Lord|Lady|Knight> <id> now Hand of the King with [1-9][0-9]+ servants.`
+```
+Former <Lord|Lady|Knight> <id> now Hand of the King ruling over <expresion entera>.
+```
 
-Para tener strings literales se debe usar la siguiente sintaxis:
-`scroll "<string>"`
+Por ejemplo:
+```
+Former Lord Eddard now Hand of the King ruling over 7 soldiers.
+```
 
- Para declararlos se hace: 
-`Former Lord Eddard now Hand of the King with [1-9][0-9]+ servants takes scroll "<string>"`
- 
+ Tambien se puede usar la siguiente sintaxis si no se desea especificar el tamaño del string y
+ se le asigna un valor al ser declarado
+
+```
+Former <Lord|Lady|Knight> <id> now Hand of the King ruling with Grand Maester reading "<string>"
+```
+
+Por ejemplo:
+```
+Former Lord Jon now Hand of the King ruling with Grand Maester reading "The Book of Ancient Kings and Queens of Westeros". 
+```
+
+Para declarar strings literales debemos usar la siguiente 
+sintaxis `Maester reading "<string>"`. 
  
 * Apuntadores (solamente al heap): 
  Los apuntadores solamente pueden apuntar a espacios
  de memoria en el heap y deben ser reservados y
  liberados explícitamente. La sintaxis para 
- declararlos es `Former <Lady> now Spearwife of <tipo al que apunta>`
+ declararlos es 
+ ```
+ Former <Lady> <id> now Spearwife of <tipo al que apunta>
+ ```
 
 * Tuplas:
   Corresponden a Registros sin nombre. Se declaran con la siguiente sintaxis
-  `Former <Lord|Lady|Knight> <id> now White Walker with deads from Houses <lista de tipos>` 
+  ```
+  Former <Lord|Lady|Knight> <id> now White Walker with deads from Houses <lista de tipos>
+  ``` 
 
 Por ejemplo: 
-`Former Lord Tywin now White Walker with wights from Houses Lanninteger, Starkhar, Spearwife of Lanninteger`.
+```
+Former Lord Tywin now White Walker with wights from Houses Lanninteger, Starkhar, Spearwife of Lanninteger.
+```
 
 ### Aliases Fuertes
 
@@ -289,7 +324,47 @@ Los operadores que se manejaran sobre los tipos de datos existentes seran
 
 #### Sobre trileanos
 
-*trabajo en progreso*
+Se manejan los operadores `flayed`, `and`, `or`, `equals`, `differentiates`.
+
+##### Tabla de Valores para el Operador *flayed*
+
+| `flayed` |         |
+|---------|---------|
+| **blood**     | love   |
+| **gold** | gold |
+| **love**   | blood     |
+
+##### Tabla de Valores para el Operador *and*
+
+| `and` | blood     | gold | love   |
+|---------|---------|---------|---------|
+| **blood**     | blood     | gold   | love   |
+| **gold** | gold   | gold     | gold   |
+| **love**  | love   | gold   | love     |
+
+##### Tabla de Valores para el Operador *or*
+
+| `or`  | blood     | gold | love   |
+|---------|---------|---------|---------|
+| **blood**   | blood     | blood   | blood   |
+| **gold** | blood   | gold     | gold   |
+| **love**   | blood   | gold   | love     |
+
+##### Tabla de Valores para el Operador *equals*
+
+| `eq`  | blood     | gold | love   |
+|---------|---------|---------|---------|
+| **blood**   | blood | gold  | love  |
+| **gold**    | gold  | blood | gold  |
+| **love**    | love  | gold  | blood |
+
+##### Tabla de Valores para el Operador *differentiates*
+
+| `differentiates` | blood     | gold | love   |
+|---------|---------|---------|---------|
+| **blood**     | love   | gold  | blood |
+| **gold**      | gold   | love  | gold  |
+| **love**      | blood  | gold  | love  |
 
 #### Sobre registros
 
@@ -319,21 +394,21 @@ Para acceder a un campo de una union se utiliza la siguiente sintaxis:
 
 Para indexar un arreglo se utiliza la siguiente sintaxis:
 ```
-Soldier receiving <expresion numerica> under command of <id del arreglo>
+Soldier acquainted with <expresion numerica> under command of <id del arreglo>
 ```
 
 #### Sobre strings 
 
 Para indexar un string se utiliza la siguiente sintaxis:
 ```
-Servant receiving <expresion numerica> under command of <id del string>
+Soldier acquainted with <expresion numerica> under command of <id del string>
 ```
 
 #### Sobre tuplas 
 
 Para indexar una tupla se utiliza la siguiente sintaxis:
 ```
-Wight receiving <expresion numerica> under command of <id de la tupla>
+Wight following <literal entero> under command of <id de la tupla>
 ```
 
 #### Sobre apuntadores
@@ -361,16 +436,16 @@ La selección se realiza con los valores de tipo
 ```
 You will be betrayed by <Boolton expression> three times.
  Once for blood:
-   <bloque de código>
+   [bloque de código]
  Once for gold:
-   <bloque de código>
+   [bloque de código]
  Once for love:
-   <bloque de código>
+   [bloque de código]
  So the prophecy says
 ```
 
 Se ejecutará el bloque de código correspondiente al valor de
-la expresión `Boolton`
+la expresión `Boolton`. El bloque de codigo es opcional. 
 
 ## Repeticion determinada
 
@@ -598,7 +673,7 @@ Fibonaci I
   
   Prologue
     Valar Morghules
-      Lord Tyrion of house Lanninteger takes 3 golden dragons.
+      Lord Tyrion of house Lanninteger takes 3 soldiers.
       Lord Tywin of house Lanninteger fights against Fibonnaci alongside Tyrion.
     Valar Dohaeris
   
