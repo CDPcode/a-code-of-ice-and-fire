@@ -72,11 +72,17 @@ tokens :-
 <0>         House                                                             { makeToken TknBeginAlias }
 <0>         comes@wsfrom@wsthe@wsold@wslineage@wsof                           { makeToken TknStrongAlias }
 <0>         are@wsthe@wsdogs@wsof                                             { makeToken TknWeekAlias }
-
--- TODO: Id
-
--- TODO: Dot
-
+<0>         with                                                              { makeToken TknPlus }
+<0>         without                                                           { makeToken TknMinus }
+<0>         times@wsthe@wspower@wsof                                          { makeToken TknMult }
+<0>         picking@wswhat@wsremains@wsof                                     { makeToken TknMod }
+<0>         negated                                                           { makeToken TknNegate }
+<0>         is@wsas@wspowerful@wsas                                           { makeToken TknEqual }
+<0>         not@wsmerely@wspowerful@wsas                                      { makeToken TknNotEqual }
+<0>         is@wsweaker@wsthan                                                { makeToken TknLessThan }
+<0>         is@wsstronger@wsthan                                              { makeToken TknGreaterThan }
+<0>         is@wsalmost@wsas@wsweak@wsas                                      { makeToken TknLessEqThan }
+<0>         is@wsalmost@wsas@wsstrong@wsas                                    { makeToken TknGreaterEqThan }
 
 {
 
