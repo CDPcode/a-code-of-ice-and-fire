@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 0dc30a084cd7953b48cd6a8d7224b71d5a1b6ca318bddf3d3e3633ceb61565a9
+-- hash: a8d74ad31f5469f7904b46c15f17512207bb4ad96fe9fadba1f67ca5a73f18a4
 
 name:           acif
 version:        0.1.0.0
@@ -28,7 +28,8 @@ source-repository head
 library
   exposed-modules:
       Lib
-      Westeros.SouthOfTheWall.Lexer.Lexer
+      Westeros.SouthOfTheWall.Lexer
+      Westeros.SouthOfTheWall.Tokens
   other-modules:
       Paths_acif
   hs-source-dirs:
