@@ -22,13 +22,13 @@ tokens :-
 
 --          Comments
 <0>         Suddenly\,                                          { pushToString `andBegin` comment }
-<0>         In@wsthe@wsmidst@wsof                               { pushToString `andBegin` comment }
+<0>         In(@ws)the(@ws)midst(@ws)of                               { pushToString `andBegin` comment }
 <0>         Therefore                                           { pushToString `andBegin` comment }
 <comment>   \.                                                  { makeCommentToken `andBegin` 0 }
 <comment>   .                                                   { pushToString }
 
 --          String Literals
-<0>         scroll@ws\"                                         { pushToString `andBegin` string }  --"
+<0>         scroll(@ws)\"                                         { pushToString `andBegin` string }  --"
 <string>    \"                                                  { makeStringToken `andBegin` 0 }    --"
 <string>    @scapedchars                                        { pushToString }
 <string>    @linebreaks                                         { invalidBreak }
@@ -39,98 +39,98 @@ tokens :-
 <0>         Lord                                                              { makeToken TknVar }
 <0>         Lady                                                              { makeToken TknVar }
 <0>         Knight                                                            { makeToken TknConst }
-<0>         of@wsHouse                                                        { makeToken TknType }
+<0>         of(@ws)House                                                        { makeToken TknType }
 <0>         House                                                             { makeToken TknBeginAlias }
-<0>         comes@wsfrom@wsthe@wsold@wslineage@wsof                           { makeToken TknStrongAlias }
-<0>         are@wsthe@wsdogs@wsof                                             { makeToken TknWeekAlias }
+<0>         comes(@ws)from(@ws)the(@ws)old(@ws)lineage(@ws)of                           { makeToken TknStrongAlias }
+<0>         are(@ws)the(@ws)dogs(@ws)of                                             { makeToken TknWeekAlias }
 
 --          Data Types
 <0>         Lanninteger                                                       { makeToken TknInt }
-<0>         $digits+@wsgolden@wsdragons                                       { makeToken TknIntLit }
+<0>         $digits+(@ws)golden(@ws)dragons                                       { makeToken TknIntLit }
 <0>         Freyt                                                             { makeToken TknFloat }
-<0>         $digits+\.$digits@wsdrops@wsof@wspoison                           { makeToken TknFloatLit }
+<0>         $digits+\.$digits(@ws)drops(@ws)of(@ws)poison                           { makeToken TknFloatLit }
 <0>         Boolton                                                           { makeToken TknTrilean }
 <0>         blood                                                             { makeToken TknTrue }
 <0>         gold                                                              { makeToken TknNeutral }
 <0>         love                                                              { makeToken TknFalse }
 <0>         Starkhar                                                          { makeToken TknChar }
-<0>         rune@ws\'.\'                                                      { makeToken TknCharLit }
+<0>         rune(@ws)\'.\'                                                      { makeToken TknCharLit }
 
 --          Literals 
-<0>         [\-]{0,1}$digits+@ws+golden$white+coins                             ;  
+<0>         [\-]{0,1}$digits+(@ws)+golden$white+coins                             ;  
 <0>         [\-]{0,1}$digits+\.$digits$white+drops$white+of$white+poison        ; 
 
 --TODO: definir apropiadamente los tipos compuestos
 -- <0>         Former                                                         { makeToken TknBeginCompType }
 -- <0>         of                                                             { makeToken TknEndCompType }
--- <0>         now@wsKing                                                     { makeToken TknStruct }
+-- <0>         now(@ws)King                                                     { makeToken TknStruct }
 -- <0>         ,                                                              { makeToken TknComma }
--- <0>         now@wsFaceless@wsMan@wsholding@wsfaces@wsof:                   { makeToken TknUnion }
--- <0>         now@wsLord@wsCommander                                         { makeToken TknArray }
+-- <0>         now(@ws)Faceless(@ws)Man(@ws)holding(@ws)faces(@ws)of:                   { makeToken TknUnion }
+-- <0>         now(@ws)Lord(@ws)Commander                                         { makeToken TknArray }
 
 --          Operators
 <0>         takes                                                             { makeToken TknAssign }
 <0>         take                                                              { makeToken TknBeginMultAssign }
 <0>         respectively                                                      { makeToken TknEndMultAssign }
-<0>         fight@wsagainst                                                   { makeToken TknTupleAsign }
+<0>         fight(@ws)against                                                   { makeToken TknTupleAsign }
 <0>         without                                                           { makeToken TknMinus }
 <0>         with                                                              { makeToken TknPlus }
-<0>         times@wsthe@wspower@wsof                                          { makeToken TknMult }
-<0>         picking@wswhat@wsremains@wsof                                     { makeToken TknMod }
+<0>         times(@ws)the(@ws)power(@ws)of                                          { makeToken TknMult }
+<0>         picking(@ws)what(@ws)remains(@ws)of                                     { makeToken TknMod }
 <0>         negated                                                           { makeToken TknNegate }
-<0>         is@wsas@wspowerful@wsas                                           { makeToken TknEqual }
-<0>         not@wsmerely@wspowerful@wsas                                      { makeToken TknNotEqual }
-<0>         is@wsweaker@wsthan                                                { makeToken TknLessThan }
-<0>         is@wsstronger@wsthan                                              { makeToken TknGreaterThan }
-<0>         is@wsalmost@wsas@wsweak@wsas                                      { makeToken TknLessEqThan }
-<0>         is@wsalmost@wsas@wsstrong@wsas                                    { makeToken TknGreaterEqThan }
+<0>         is(@ws)as(@ws)powerful(@ws)as                                           { makeToken TknEqual }
+<0>         not(@ws)merely(@ws)powerful(@ws)as                                      { makeToken TknNotEqual }
+<0>         is(@ws)weaker(@ws)than                                                { makeToken TknLessThan }
+<0>         is(@ws)stronger(@ws)than                                              { makeToken TknGreaterThan }
+<0>         is(@ws)almost(@ws)as(@ws)weak(@ws)as                                      { makeToken TknLessEqThan }
+<0>         is(@ws)almost(@ws)as(@ws)strong(@ws)as                                    { makeToken TknGreaterEqThan }
 
 --          Exit Statement
-<0>         The@wsbook                                                        { makeToken TknBeginExit }
-<0>         has@wsreached@wsan@wsunexpected@wsend                             { makeToken TknEndExit }
+<0>         The(@ws)book                                                        { makeToken TknBeginExit }
+<0>         has(@ws)reached(@ws)an(@ws)unexpected(@ws)end                             { makeToken TknEndExit }
 
 --          IO
-<0>         A@wsraven@has@wscome@wsfor                                        { makeToken TknRead }
-<0>         We@wsmust@wssend@wsa@wsraven@wswith@wseverything@wswe@wsknow@wsof { makeToken TknPrint }
+<0>         A(@ws)raven@has(@ws)come(@ws)for                                        { makeToken TknRead }
+<0>         We(@ws)must(@ws)send(@ws)a(@ws)raven(@ws)with(@ws)everything(@ws)we(@ws)know(@ws)of { makeToken TknPrint }
 
 --          Empty Statement
-<0>         The@wsthree-eyed@wsraven@wswatches@wsfrom@wsafar                  { makeToken TknPass }
+<0>         The(@ws)three-eyed(@ws)raven(@ws)watches(@ws)from(@ws)afar                  { makeToken TknPass }
 
 --          Procedures definition
-<0>         Hereby@wsI@wsintroduce@wsthe@wshonorable                          { makeToken TknFunctionArgs }
-<0>         I@wsmust@wswarn@wsyou                                             { makeToken TknBeginReturnVals }
-<0>         is@wscoming                                                       { makeToken TknEndReturnVals }
+<0>         Hereby(@ws)I(@ws)introduce(@ws)the(@ws)honorable                          { makeToken TknFunctionArgs }
+<0>         I(@ws)must(@ws)warn(@ws)you                                             { makeToken TknBeginReturnVals }
+<0>         is(@ws)coming                                                       { makeToken TknEndReturnVals }
 <0>         Dracarys                                                          { makeToken TknReturnOpen }
 <0>         !                                                                 { makeToken TknReturnClose }
 
 --          Procedures call
 <0>         traveling                                                         { makeToken TknProcCallOpen }
 <0>         alongside                                                         { makeToken TknProcCallArgs }
-<0>         with@wscaution                                                    { makeToken TknProcCallClose }
+<0>         with(@ws)caution                                                    { makeToken TknProcCallClose }
 
 --          Unclassified
 <0>         Nobody                                                            { makeToken TknVoid }
 
 --          Determinate repetition
-<0>         The@wsthings@wsI@wsdo@wsfor                                       { makeToken TknFor }
+<0>         The(@ws)things(@ws)I(@ws)do(@ws)for                                       { makeToken TknFor }
 <0>         from                                                              { makeToken TknForLB }
 <0>         until                                                             { makeToken TknForUB }
 
 --          Undeterminate repetition
 <0>         While                                                             { makeToken TknWhile }
-<0>         flows@wsdown@wsthen@wsriver                                       { makeToken TknWhileDecoration }
+<0>         flows(@ws)down(@ws)then(@ws)river                                       { makeToken TknWhileDecoration }
 
 --          Non-structured flow
-<0>         What@wsis@wsdead@wsmay@wsnever@wsdie                              { makeToken TknContinue }
-<0>         This@wsis@wsthe@wsdoom@wsof@wsValyria                             { makeToken TknBreak } 
+<0>         What(@ws)is(@ws)dead(@ws)may(@ws)never(@ws)die                              { makeToken TknContinue }
+<0>         This(@ws)is(@ws)the(@ws)doom(@ws)of(@ws)Valyria                             { makeToken TknBreak } 
 
 --          Selection
-<0>         You@wswill@wsbe@wsbetrayed@wsby                                   { makeToken TknBeginSelection }
-<0>         three@wstimes                                                     { makeToken TknSelectionDecorator }
-<0>         Once@wsfor@wsblood                                                { makeToken TknTrueBranch }
-<0>         Once@wsfor@wslove                                                 { makeToken TknUnknownBranch }
-<0>         Once@wsfor@wsgold                                                 { makeToken TknFalseBranch } 
-<0>         So@wsthe@wsprophecy@wssays                                        { makeToken TknEndSelection }
+<0>         You(@ws)will(@ws)be(@ws)betrayed(@ws)by                                   { makeToken TknBeginSelection }
+<0>         three(@ws)times                                                     { makeToken TknSelectionDecorator }
+<0>         Once(@ws)for(@ws)blood                                                { makeToken TknTrueBranch }
+<0>         Once(@ws)for(@ws)love                                                 { makeToken TknUnknownBranch }
+<0>         Once(@ws)for(@ws)gold                                                 { makeToken TknFalseBranch } 
+<0>         So(@ws)the(@ws)prophecy(@ws)says                                        { makeToken TknEndSelection }
 
 --          Dot, Comma missing
 
