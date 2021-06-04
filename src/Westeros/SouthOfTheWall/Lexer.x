@@ -28,12 +28,16 @@ tokens :-
 <comment>   .                                                                                       { pushToString }
 
 --          String Literals
-<0>         scroll(@ws)\"                                                                           { pushToString `andBegin` string }  --"
+<0>         Maester(@ws)reading(@ws)\"                                                              { pushToString `andBegin` string }  --"
 <string>    \"                                                                                      { makeStringToken `andBegin` 0 }    --"
 <string>    @scapedchars                                                                            { pushToString }
 <string>    @linebreaks                                                                             { invalidBreak }
 <string>    $printable                                                                              { pushToString }
 <string>    .                                                                                       { invalidCharacter }
+
+--          Program Start
+<0>         A\ Song\ of\ Ice\ and\ Fire\:                                                           { makeToken TknProgramStart }
+<0>         \-\-\ ([A-Z][a-z]*\ )+\-\-                                                              { makeToken TknProgramName } 
 
 --          Type Declaration
 <0>         Lord                                                                                    { makeToken TknVar }
@@ -46,19 +50,21 @@ tokens :-
 
 --          Data Types
 <0>         Lanninteger                                                                             { makeToken TknInt }
-<0>         $digits+(@ws)golden(@ws)dragons                                                         { makeToken TknIntLit }
 <0>         Freyt                                                                                   { makeToken TknFloat }
-<0>         $digits+\.$digits(@ws)drops(@ws)of(@ws)poison                                           { makeToken TknFloatLit }
 <0>         Boolton                                                                                 { makeToken TknTrilean }
+<0>         Starkhar                                                                                { makeToken TknChar }
+
+--          Literals 
 <0>         blood                                                                                   { makeToken TknTrue }
 <0>         gold                                                                                    { makeToken TknNeutral }
 <0>         love                                                                                    { makeToken TknFalse }
-<0>         Starkhar                                                                                { makeToken TknChar }
-<0>         rune(@ws)\'.\'                                                                          { makeToken TknCharLit }
+<0>         $digits+(@ws)soldiers                                                                   { makeToken TknIntLit }
+<0>         $digits+\.$digits+(@ws)sons                                                             { makeToken TknFloatLit }
+<0>         Hodor(@ws)\'(@scapedchars)\'                                                            { makeToken TknCharLit }
+<0>         Hodor(@ws)\'$printable\'                                                                { makeToken TknCharLit }
+<0>         Hodor(@ws)\'(@linebreaks)\'                                                             { invalidBreak }
+<0>         Hodor(@ws)\'.\'                                                                         { invalidCharacter }
 
---          Literals 
-<0>         [\-]{0,1}$digits+(@ws)golden(@ws)coins                                               ;  
-<0>         [\-]{0,1}$digits+\.$digits(@ws)drops(@ws)of(@ws)poison                            ; 
 
 --TODO: definir apropiadamente los tipos compuestos
 -- <0>         Former                                                                               { makeToken TknBeginCompType }
@@ -77,7 +83,7 @@ tokens :-
 <0>         with                                                                                    { makeToken TknPlus }
 <0>         times(@ws)the(@ws)power(@ws)of                                                          { makeToken TknMult }
 <0>         picking(@ws)what(@ws)remains(@ws)of                                                     { makeToken TknMod }
-<0>         negated                                                                                 { makeToken TknNegate }
+<0>         bastard                                                                                 { makeToken TknNegate }
 <0>         is(@ws)as(@ws)powerful(@ws)as                                                           { makeToken TknEqual }
 <0>         not(@ws)merely(@ws)powerful(@ws)as                                                      { makeToken TknNotEqual }
 <0>         is(@ws)weaker(@ws)than                                                                  { makeToken TknLessThan }
