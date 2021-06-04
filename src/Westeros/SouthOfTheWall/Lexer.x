@@ -1,90 +1,142 @@
 {
-module Westeros.SouthOfTheWall.Lexer where
-
+module Westeros.SouthOfTheWall.Lexer (
+    scanTokens,
+    ) where
 import Westeros.SouthOfTheWall.Tokens
 }
 
-
 %wrapper "monadUserState"
 
-
--- macros go here
+-- Macros
 
 $digits = [0-9]
 @scapedchars = \\[nt\\\"\\\'] --"
 @linebreaks = \n+\r?\r+\n?
 @ws = $white+
 
-
 -- regex go here
 
 tokens :-
+--          Whites
+<0>         @ws                                                 ;
 
-<0>         $white+                                 ;
-          Comments
-<0>         Suddenly\,                              { pushToString `andBegin` comment }
-<0>         In$white+the$white+midst$white+of       { pushToString `andBegin` comment }
-<0>         Therefore                               { pushToString `andBegin` comment }
-<comment>   \.                                      { makeCommentToken `andBegin` 0 }
-<comment>   .                                       { pushToString }
+--          Comments
+<0>         Suddenly\,                                          { pushToString `andBegin` comment }
+<0>         In@wsthe@wsmidst@wsof                               { pushToString `andBegin` comment }
+<0>         Therefore                                           { pushToString `andBegin` comment }
+<comment>   \.                                                  { makeCommentToken `andBegin` 0 }
+<comment>   .                                                   { pushToString }
 
 --          String Literals
-<0>         scroll$white+\"                         { pushToString `andBegin` string }  --"
-<string>    \"                                      { makeStringToken `andBegin` 0 }    --"
-<string>    @scapedchars                            { pushToString }
-<string>    @linebreaks                             { invalidBreak }
-<string>    $printable                              { pushToString }
-<string>    .                                       { invalidCharacter }
+<0>         scroll@ws\"                                         { pushToString `andBegin` string }  --"
+<string>    \"                                                  { makeStringToken `andBegin` 0 }    --"
+<string>    @scapedchars                                        { pushToString }
+<string>    @linebreaks                                         { invalidBreak }
+<string>    $printable                                          { pushToString }
+<string>    .                                                   { invalidCharacter }
 
+--          Type Declaration
+<0>         Lord                                                              { makeToken TknVar }
+<0>         Lady                                                              { makeToken TknVar }
+<0>         Knight                                                            { makeToken TknConst }
+<0>         of@wsHouse                                                        { makeToken TknType }
+<0>         House                                                             { makeToken TknBeginAlias }
+<0>         comes@wsfrom@wsthe@wsold@wslineage@wsof                           { makeToken TknStrongAlias }
+<0>         are@wsthe@wsdogs@wsof                                             { makeToken TknWeekAlias }
 
--- Literals # Redefiniendo
---<0>     [\-]{0,1}$digits+@ws+golden$white+coins                      ;  
---<0>     [\-]{0,1}$digits+\.$digits$white+drops$white+of$white+poison ; 
+--          Data Types
+<0>         Lanninteger                                                       { makeToken TknInt }
+<0>         $digits+@wsgolden@wsdragons                                       { makeToken TknIntLit }
+<0>         Freyt                                                             { makeToken TknFloat }
+<0>         $digits+\.$digits@wsdrops@wsof@wspoison                           { makeToken TknFloatLit }
+<0>         Boolton                                                           { makeToken TknTrilean }
+<0>         blood                                                             { makeToken TknTrue }
+<0>         gold                                                              { makeToken TknNeutral }
+<0>         love                                                              { makeToken TknFalse }
+<0>         Starkhar                                                          { makeToken TknChar }
+<0>         rune@ws\'.\'                                                      { makeToken TknCharLit }
 
+--          Literals 
+<0>         [\-]{0,1}$digits+@ws+golden$white+coins                             ;  
+<0>         [\-]{0,1}$digits+\.$digits$white+drops$white+of$white+poison        ; 
 
--- Procedures
+--TODO: definir apropiadamente los tipos compuestos
+-- <0>         Former                                                            { makeToken TknBeginCompType }
+-- <0>         of                                                                { makeToken TknEndCompType }
+-- <0>         now@wsKing                                                        { makeToken TknStruct }
+-- <0>         ,                                                                 { makeToken TknComma }
+-- <0>         now@wsFaceless@wsMan@wsholding@wsfaces@wsof:                      { makeToken TknUnion }
+-- <0>         now@wsLord@wsCommander                                            { makeToken TknArray }
 
---  concerning definition
-<0>     Hereby@ws I@ws introduce@ws the@ws honorable    ; -- {makeToken TKFunctionArgs }
-<0>     of@ws House                                     ; -- {makeToken TKTypeDeclaration }
-<0>     I@ws must@ws warn@ws you                        ; -- {makeToken TKPreReturn } -- Is the comma necessary?
-<0>     is@ws coming                                    ; -- {makeToken TKPostReturn }
-<0>     Dracarys                                        ; -- {makeToken TKReturnOpen }
-<0>     !                                               ; -- {makeToken TKReturnClose } -- Is this necessary?
+--          Operators
+<0>         takes                                                             { makeToken TknAssign }
+<0>         take                                                              { makeToken TknBeginMultAssign }
+<0>         respectively                                                      { makeToken TknEndMultAssign }
+<0>         fight@wsagainst                                                   { makeToken TknTupleAsign }
+<0>         without                                                           { makeToken TknMinus }
+<0>         with                                                              { makeToken TknPlus }
+<0>         times@wsthe@wspower@wsof                                          { makeToken TknMult }
+<0>         picking@wswhat@wsremains@wsof                                     { makeToken TknMod }
+<0>         negated                                                           { makeToken TknNegate }
+<0>         is@wsas@wspowerful@wsas                                           { makeToken TknEqual }
+<0>         not@wsmerely@wspowerful@wsas                                      { makeToken TknNotEqual }
+<0>         is@wsweaker@wsthan                                                { makeToken TknLessThan }
+<0>         is@wsstronger@wsthan                                              { makeToken TknGreaterThan }
+<0>         is@wsalmost@wsas@wsweak@wsas                                      { makeToken TknLessEqThan }
+<0>         is@wsalmost@wsas@wsstrong@wsas                                    { makeToken TknGreaterEqThan }
 
---  concerning call
-<0>     traveling                                       ; -- {makeToken TKProcCallOpen }
-<0>     alongside                                       ; -- {makeToken TKProcArgs }
-<0>     with@ws caution                                 ; -- {makeToken TKProcCallClose }
+--          Exit Statement
+<0>         The@wsbook                                                        { makeToken TknBeginExit }
+<0>         has@wsreached@wsan@wsunexpected@wsend                             { makeToken TknEndExit }
 
--- Unclassified
-<0>     Nobody                                          ; -- {makeToken TKVoid }
+--          IO
+<0>         A@wsraven@has@wscome@wsfor                                        { makeToken TknRead }
+<0>         We@wsmust@wssend@wsa@wsraven@wswith@wseverything@wswe@wsknow@wsof { makeToken TknPrint }
 
--- Determinate repetition
+--          Empty Statement
+<0>         The@wsthree-eyed@wsraven@wswatches@wsfrom@wsafar                  { makeToken TknPass }
 
-<0>     The@ws things@ws I@ws do@ws for                 ; -- {makeToken TKForLoop }
-<0>     from                                            ; -- {makeToken TKForLB }
-<0>     until                                           ; -- {makeToken TKForUB }
+--          Procedures definition
+<0>         Hereby@wsI@wsintroduce@wsthe@wshonorable                          { makeToken TknFunctionArgs }
+<0>         I@wsmust@wswarn@wsyou                                             { makeToken TknBeginReturnVals }
+<0>         is@wscoming                                                       { makeToken TknEndReturnVals }
+<0>         Dracarys                                                          { makeToken TknReturnOpen }
+<0>         !                                                                 { makeToken TknReturnClose }
 
--- Undeterminate repetition
+--          Procedures call
+<0>         traveling                                                         { makeToken TknProcCallOpen }
+<0>         alongside                                                         { makeToken TknProcCallArgs }
+<0>         with@wscaution                                                    { makeToken TknProcCallClose }
 
-<0>     While                                           ; -- {makeToken TKWhileLoop }
-<0>     flows@ws down@ws then@ws river                  ; -- {makeToken TKWhileDecoration }
+--          Unclassified
+<0>         Nobody                                                            { makeToken TknVoid }
 
--- Non-structured flow
+--          Determinate repetition
+<0>         The@wsthings@wsI@wsdo@wsfor                                       { makeToken TknFor }
+<0>         from                                                              { makeToken TknForLB }
+<0>         until                                                             { makeToken TknForUB }
 
-<0>     What@ws is@ws dead@ws may@ws never@ws die       ; -- {makeToken TKContinue }
-<0>     This@ws is@ws the@ws doom@ws of@ws Valyria      ; -- {makeToken TKBreak } 
+--          Undeterminate repetition
+<0>         While                                                            { makeToken TknWhile }
+<0>         flows@wsdown@wsthen@wsriver                                      { makeToken TknWhileDecoration }
 
--- Selection
+--          Non-structured flow
+<0>         What@wsis@wsdead@wsmay@wsnever@wsdie                             { makeToken TknContinue }
+<0>         This@wsis@wsthe@wsdoom@wsof@wsValyria                            { makeToken TknBreak } 
 
-<0>     Once@ws for@ws blood                            ; -- {makeToken TKTrueBranch }
-<0>     Once@ws for@ws love                             ; -- {makeToken TKUnknownBranch }
-<0>     Once@ws for@ws gold                             ; -- {makeToken TKFalseBranch } 
-<0>     So@ws the@ws prophecy@ws says                   ; -- {makeToken TKSelectionTail }
+--          Selection
+<0>         You@wswill@wsbe@wsbetrayed@wsby                                 { makeToken TknBeginSelction }
+<0>         three@wstimes                                                   { makeToken TknSelectionDecorator }
+<0>         Once@wsfor@wsblood                                              { makeToken TknTrueBranch }
+<0>         Once@wsfor@wslove                                               { makeToken TknUnknownBranch }
+<0>         Once@wsfor@wsgold                                               { makeToken TknFalseBranch } 
+<0>         So@wsthe@wsprophecy@wssays                                      { makeToken TknEndSelection }
 
+--          Dot, Comma missing
 
+-- Lexer and wrapper function definitions
 {
+
 data AlexUserState = LexerState {
         lexerString :: String,
         lexerTokens :: [Token],
@@ -100,7 +152,6 @@ alexInitUserState = LexerState {
 
 alexEOF :: Alex AlexUserState
 alexEOF = getUserState
-
 
 getUserState :: Alex AlexUserState
 getUserState = Alex $ \s@AlexState{alex_ust=ust} -> Right (s, ust)
@@ -121,7 +172,7 @@ makeStringToken (AlexPn _ r c, _, _, _) _ = do
     ust <- getUserState
     let str' = reverse $ '\"' : lexerString ust
     addTokenToState Token {
-        token = TkString,
+        token = TknString,
         cleanedString = str',
         capturedString = str',
         position = Position {row=r, col=c - (len str')}
@@ -134,7 +185,7 @@ makeCommentToken (AlexPn _ r c, _, _, _) _ = do
     ust <- getUserState
     let str' = reverse $ '.' : lexerString ust
     addTokenToState Token {
-        token = TkComment,
+        token = TknComment,
         cleanedString = str',
         capturedString = str',
         position = Position {row=r, col=c - (len str')}
