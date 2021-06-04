@@ -24,6 +24,7 @@ data Token = Token
 data AbstractToken = 
     TknComment
     | TknString 
+
     -- Type tokens
     | TknProgramStart
     | TknProgramName
@@ -32,7 +33,7 @@ data AbstractToken =
     | TknType
     | TknBeginAlias
     | TknStrongAlias
-    | TknWeekAlias
+    | TknWeakAlias
     | TknInt
     | TknIntLit
     | TknFloat
@@ -44,16 +45,23 @@ data AbstractToken =
     | TknChar
     | TknCharLit
     | TknBeginCompType
-    | TknEndCompType
+    | TknEndIDCompType
     | TknStruct
-    | TknComma
     | TknUnion
     | TknArray
+    | TknString
+    | TknPointer
+    | TknArraySize
+    | TnkStringSize
+    | TknArrayDecl
+    | TnkStringDecl
+
     -- Assignment tokens
     | TknAssign
     | TknBeginMultAssign
     | TknEndMultAssign
     | TknTupleAsign
+
     -- Operators tokens
     | TknMinus
     | TknPlus
@@ -68,9 +76,26 @@ data AbstractToken =
     | TknGreaterEqThan
     | TknBeginExit
     | TknEndExit
+    | TknNot
+    | TknAnd
+    | TknOr
+    | TknBoolEqual
+    | TknBoolNotEqual
+
+    -- Composite Types Operators
+    | TknStructField
+    | TknBeginUnionQuestion
+    | TknUnionQuestion
+    | TknEndUnionQuestion
+    | TknUnionField
+    | TknBeginIndex
+    | TknBeginTupleIndex
+    | TknEndIndex
+
     -- IO tokens
     | TknRead
     | TknPrint
+
     -- Procedure Tokens
     | TknPass -- OJO
     | TknFunctionArgs
@@ -83,6 +108,7 @@ data AbstractToken =
     | TknProcCallClose
 
     | TknVoid
+
     -- Repetition Tokens
     | TknFor
     | TknForLB
@@ -91,6 +117,7 @@ data AbstractToken =
     | TknWhileDecoration
     | TknContinue
     | TknBreak 
+
     -- Selection Tokens
     | TknBeginSelection
     | TknSelectionDecorator
@@ -98,3 +125,11 @@ data AbstractToken =
     | TknUnknownBranch
     | TknFalseBranch 
     | TknEndSelection
+
+    -- Identifiers
+    | TknID
+    | TknArgNumber
+
+    -- Punctuation
+    | TknComma
+    | TknDot

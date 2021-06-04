@@ -46,7 +46,7 @@ tokens :-
 <0>         of(@ws)House                                                                            { makeToken TknType }
 <0>         House                                                                                   { makeToken TknBeginAlias }
 <0>         comes(@ws)from(@ws)the(@ws)old(@ws)lineage(@ws)of                                       { makeToken TknStrongAlias }
-<0>         are(@ws)the(@ws)dogs(@ws)of                                                             { makeToken TknWeekAlias }
+<0>         are(@ws)the(@ws)dogs(@ws)of                                                             { makeToken TknWeakAlias }
 
 --          Data Types
 <0>         Lanninteger                                                                             { makeToken TknInt }
@@ -65,14 +65,18 @@ tokens :-
 <0>         Hodor(@ws)\'(@linebreaks)\'                                                             { invalidBreak }
 <0>         Hodor(@ws)\'.\'                                                                         { invalidCharacter }
 
-
---TODO: definir apropiadamente los tipos compuestos
--- <0>         Former                                                                               { makeToken TknBeginCompType }
--- <0>         of                                                                                   { makeToken TknEndCompType }
--- <0>         now(@ws)King                                                                         { makeToken TknStruct }
--- <0>         ,                                                                                    { makeToken TknComma }
--- <0>         now(@ws)Faceless(@ws)Man(@ws)holding(@ws)faces(@ws)of:                               { makeToken TknUnion }
--- <0>         now(@ws)Lord(@ws)Commander                                                           { makeToken TknArray }
+--          Composite Types
+<0>         Former                                                                                  { makeToken TknBeginCompType }
+<0>         now                                                                                     { makeToken TknEndIDCompType }
+<0>         King(@ws)of                                                                             { makeToken TknStruct }
+<0>         Faceless(@ws)Man(@ws)holding(@ws)faces(@ws)of                                           { makeToken TknUnion }
+<0>         Lord(@ws)Commander(@ws)of                                                               { makeToken TknArray }
+<0>         Hand(@ws)of(@ws)the(@ws)King                                                            { makeToken TknString }
+<0>         Spearwife(@ws)of                                                                        { makeToken TknPointer }
+<0>         bannermen(@ws)holding                                                                   { makeToken TknArraySize }
+<0>         ruling(@ws)over                                                                         { makeToken TnkStringSize }
+<0>         bannermen(@ws)holding:                                                                  { makeToken TknArrayDecl }
+<0>         ruling(@ws)with(@ws)Grand                                                               { makeToken TnkStringDecl }
 
 --          Operators
 <0>         takes                                                                                   { makeToken TknAssign }
@@ -90,6 +94,21 @@ tokens :-
 <0>         is(@ws)stronger(@ws)than                                                                { makeToken TknGreaterThan }
 <0>         is(@ws)almost(@ws)as(@ws)weak(@ws)as                                                    { makeToken TknLessEqThan }
 <0>         is(@ws)almost(@ws)as(@ws)strong(@ws)as                                                  { makeToken TknGreaterEqThan }
+<0>         flayed                                                                                  { makeToken TknNot }
+<0>         and                                                                                     { makeToken TknAnd }
+<0>         or                                                                                      { makeToken TknOr }
+<0>         equals                                                                                  { makeToken TknBoolEqual }
+<0>         differentiates                                                                          { makeToken TknBoolNotEqual }
+
+--          Composite Types Operators
+<0>         subject(@ws)of                                                                          { makeToken TknStructField }
+<0>         Is                                                                                      { makeToken TknBeginUnionQuestion }
+<0>         using(@ws)the(@ws)face(@ws)of                                                           { makeToken TknUnionQuestion }
+<0>         \?                                                                                      { makeToken TknEndUnionQuestion }
+<0>         acting(@ws)as                                                                           { makeToken TknUnionField }
+<0>         Soldier(@ws)acquainted(@ws)with                                                         { makeToken TknBeginIndex }
+<0>         Wight(@ws)following                                                                     { makeToken TknBeginTupleIndex }
+<0>         under(@ws)command(@ws)of                                                                { makeToken TknEndIndex }
 
 --          Exit Statement
 <0>         The(@ws)book                                                                            { makeToken TknBeginExit }
@@ -138,7 +157,13 @@ tokens :-
 <0>         Once(@ws)for(@ws)gold                                                                   { makeToken TknFalseBranch } 
 <0>         So(@ws)the(@ws)prophecy(@ws)says                                                        { makeToken TknEndSelection }
 
---          Dot, Comma missing
+--          Identifiers
+<0>         [A-Z]([\']?[a-z]+)+                                                                     { makeToken TknID }
+<0>         M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})                                  { makeToken TknArgNumber }
+
+--          Dot, Comma 
+<0>         \,                                                                                      { makeToken TknComma }
+<0>         \.                                                                                      { makeToken TknDot }
 
 -- Lexer and wrapper function definitions
 {
@@ -178,7 +203,7 @@ makeStringToken (AlexPn _ r c, _, _, _) _ = do
     ust <- getUserState
     let str' = reverse $ '\"' : lexerString ust
     addTokenToState Token {
-        token = TknString,
+        token = TknStringLit,
         cleanedString = str',
         capturedString = str',
         position = Position {row=r, col=c - (len str')}

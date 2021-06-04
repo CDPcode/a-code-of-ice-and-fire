@@ -193,7 +193,7 @@ Maneja 6 tipos compuestos a saber
   Estos representan un tipo que contiene a varios tipos a la vez, como
   un rey gobierna sobre distintas personas:
  ```
- Former <Lady|Lord|Knight> now King <id> of <lista de declaraciones>
+ Former <Lady|Lord|Knight> <id> now King of <lista de declaraciones>
  ```
  
  
@@ -202,7 +202,7 @@ Maneja 6 tipos compuestos a saber
  distintos tipos, pero uno a la vez. La sintaxis 
  para declararlos es: 
  ```
- Former <Lady|Lord|Knight> <id> now Faceless Man holding faces of: <lista de declaraciones serparadas por comas>.
+ Former <Lady|Lord|Knight> <id> now Faceless Man holding faces of <lista de declaraciones serparadas por comas>.
  ```
  
 
@@ -452,7 +452,7 @@ la expresión `Boolton`. El bloque de codigo es opcional.
 La repetición imita un *loop* `for` tradicional, con ciertas sutilezas:
 
 ```
-the things I do for <declaracion de tipo Lanninteger> from <expresion de tipo Lanninteger> until <expresion de tipo Lanninteger>
+The things I do for <declaracion de tipo Lanninteger> from <expresion de tipo Lanninteger> until <expresion de tipo Lanninteger>
   Valar Morghules
     ..
     Code
