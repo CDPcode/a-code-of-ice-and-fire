@@ -22,9 +22,11 @@ data Token = Token
     }
 
 data AbstractToken = 
-    TkString 
-    | TkComment
+    TknComment
+    | TknString 
     -- Type tokens
+    | TknProgramStart
+    | TknProgramName
     | TknVar
     | TknConst
     | TknType
