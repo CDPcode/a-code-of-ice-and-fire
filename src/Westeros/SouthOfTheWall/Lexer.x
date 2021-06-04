@@ -61,12 +61,12 @@ tokens :-
 <0>         [\-]{0,1}$digits+\.$digits$white+drops$white+of$white+poison        ; 
 
 --TODO: definir apropiadamente los tipos compuestos
--- <0>         Former                                                            { makeToken TknBeginCompType }
--- <0>         of                                                                { makeToken TknEndCompType }
--- <0>         now@wsKing                                                        { makeToken TknStruct }
--- <0>         ,                                                                 { makeToken TknComma }
--- <0>         now@wsFaceless@wsMan@wsholding@wsfaces@wsof:                      { makeToken TknUnion }
--- <0>         now@wsLord@wsCommander                                            { makeToken TknArray }
+-- <0>         Former                                                         { makeToken TknBeginCompType }
+-- <0>         of                                                             { makeToken TknEndCompType }
+-- <0>         now@wsKing                                                     { makeToken TknStruct }
+-- <0>         ,                                                              { makeToken TknComma }
+-- <0>         now@wsFaceless@wsMan@wsholding@wsfaces@wsof:                   { makeToken TknUnion }
+-- <0>         now@wsLord@wsCommander                                         { makeToken TknArray }
 
 --          Operators
 <0>         takes                                                             { makeToken TknAssign }
@@ -117,20 +117,20 @@ tokens :-
 <0>         until                                                             { makeToken TknForUB }
 
 --          Undeterminate repetition
-<0>         While                                                            { makeToken TknWhile }
-<0>         flows@wsdown@wsthen@wsriver                                      { makeToken TknWhileDecoration }
+<0>         While                                                             { makeToken TknWhile }
+<0>         flows@wsdown@wsthen@wsriver                                       { makeToken TknWhileDecoration }
 
 --          Non-structured flow
-<0>         What@wsis@wsdead@wsmay@wsnever@wsdie                             { makeToken TknContinue }
-<0>         This@wsis@wsthe@wsdoom@wsof@wsValyria                            { makeToken TknBreak } 
+<0>         What@wsis@wsdead@wsmay@wsnever@wsdie                              { makeToken TknContinue }
+<0>         This@wsis@wsthe@wsdoom@wsof@wsValyria                             { makeToken TknBreak } 
 
 --          Selection
-<0>         You@wswill@wsbe@wsbetrayed@wsby                                 { makeToken TknBeginSelction }
-<0>         three@wstimes                                                   { makeToken TknSelectionDecorator }
-<0>         Once@wsfor@wsblood                                              { makeToken TknTrueBranch }
-<0>         Once@wsfor@wslove                                               { makeToken TknUnknownBranch }
-<0>         Once@wsfor@wsgold                                               { makeToken TknFalseBranch } 
-<0>         So@wsthe@wsprophecy@wssays                                      { makeToken TknEndSelection }
+<0>         You@wswill@wsbe@wsbetrayed@wsby                                   { makeToken TknBeginSelection }
+<0>         three@wstimes                                                     { makeToken TknSelectionDecorator }
+<0>         Once@wsfor@wsblood                                                { makeToken TknTrueBranch }
+<0>         Once@wsfor@wslove                                                 { makeToken TknUnknownBranch }
+<0>         Once@wsfor@wsgold                                                 { makeToken TknFalseBranch } 
+<0>         So@wsthe@wsprophecy@wssays                                        { makeToken TknEndSelection }
 
 --          Dot, Comma missing
 
