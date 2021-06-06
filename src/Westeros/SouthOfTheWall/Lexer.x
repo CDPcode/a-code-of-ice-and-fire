@@ -10,7 +10,7 @@ import Westeros.SouthOfTheWall.Tokens
 -- Macros
 
 $digits = [0-9]
-@scapedchars = \\[nt\\\"\\\'] --"
+@scapedchars = \\[nt\\\"\'] --"
 @linebreaks = \n+\r?\r+\n?
 @ws = $white+
 
@@ -30,7 +30,7 @@ tokens :-
 --          String Literals
 <0>         Maester(@ws)reading(@ws)\"                                                              { pushToString `andBegin` string }  --"
 <string>    \"                                                                                      { makeStringToken `andBegin` 0 }    --"
-<string>    @scapedchars                                                                            { pushToString }
+<string>    @scapedchars                                                                            { pushScapedToString }
 <string>    @linebreaks                                                                             { invalidBreak }
 <string>    $printable                                                                              { pushToString }
 <string>    .                                                                                       { invalidCharacter }
@@ -251,9 +251,22 @@ invalidBreak (AlexPn _ r c, _, _, _) _ = do
     alexMonadScan
 
 pushToString :: Alex AlexUserState
-pushToString (AlexPn _ r c, _, _, str) len = do 
+pushToString (_, _, _, str) len = do 
     let str' = reverse $ take len str
     addStringToState str'
+    alexMonadScan
+
+mapScaped :: Char -> String 
+mapScaped 'n' = "\n"
+mapScaped 't' = "\t"
+mapScaped '\'' = "\'"
+mapScaped '\"' = "\""
+mapScaped '\\' = "\\"
+
+pushScapedToString :: Alex AlexUserState
+pushScapedToString (_, _, _, str) len = do
+    let str' = take len str
+    addStringToState $ mapScaped $ last str'
     alexMonadScan
     
 addTokenToState :: Token -> Alex ()
@@ -290,7 +303,28 @@ scanTokens str =
         Left err -> Left [Error $ "Alex error: " ++ show err]
         Right ust -> 
             case lexerErrors of 
-                [] -> Right $ reverse $ lexerTokens ust
+                [] -> Right $ reverse $ map postProcess:$ lexerTokens ust
                 _ -> Left $ reverse $ lexerErrors ust
 
+postProcess :: Token -> Token 
+postProcess (Token TknCharLit s _ p) = Token TknCharLit s (processCharLit s) p
+postProcess (Token TknStringLit s _ p) = Token TknCharLit s (processStringLit s) p
+postProcess (Token TknIntLit s _ p) = Token TknCharLit s (processIntLit s) p
+postProcess tkn = tkn
+
+processCharLit :: String -> String 
+processCharLit str = 
+    let str' = init $ tail $ dropWhile (/= '\'') str in
+        if head str' == '\\' 
+            then mapScaped $ last str'
+            else str'
+
+processStringLit :: String -> String 
+processStringLit str = init $ tail $ dropWhile (/= '\"') str
+
+processIntLit :: String -> String 
+processIntLit = filter isDigit 
+
+processFloatLit :: String -> String 
+processFloatLit = filter (\x -> isDigit x || x == '.')
 }
