@@ -97,6 +97,8 @@ data AbstractToken =
     | TknPrint
 
     -- Procedure Tokens
+    | TknBeginFuncDecl
+    | TknListFunction
     | TknFirstMain
     | TknLastMain
     | TknPass -- OJO
@@ -110,6 +112,10 @@ data AbstractToken =
     | TknProcCallClose
     | TknValueArg
     | TknReferenceArg
+
+    -- Blocks
+    | TknOpenBlock
+    | TknCloseBlock
 
     | TknVoid
 

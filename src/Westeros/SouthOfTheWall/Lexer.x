@@ -124,6 +124,8 @@ tokens :-
 <0>         The(@ws)three-eyed(@ws)raven(@ws)watches(@ws)from(@ws)afar                              { makeToken TknPass }
 
 --          Procedures definition
+<0>         Table\ of\ Contents\:                                                                   { makeToken TknBeginFuncDecl }
+<0>         \-                                                                                      { makeToken TknListFunction }
 <0>         Prologue                                                                                { makeToken TknFirstMain }
 <0>         Epilogue                                                                                { makeToken TknLastMain }
 <0>         Hereby(@ws)I(@ws)introduce(@ws)the                                                      { makeToken TknFunctionArgs }
@@ -133,6 +135,10 @@ tokens :-
 <0>         !                                                                                       { makeToken TknReturnClose }
 <0>         Valued                                                                                  { makeToken TknValueArg }
 <0>         Honorable                                                                               { makeToken TknReferenceArg }
+
+--          Blocks
+<0>         Valar(@ws)Morghules                                                                     { makeToken TknOpenBlock }
+<0>         Valar(@ws)Dohaeres                                                                      { makeToken TknCloseBlock }
 
 --          Procedures call
 <0>         traveling                                                                               { makeToken TknProcCallOpen }
