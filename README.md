@@ -511,10 +511,10 @@ La declaración de las subrutinas se dará de la siguiente manera:
 
 ```
 <Nombre de la subrutina> 
-  Hereby I introduce the honorable
-    <Identificador> of House <Tipo>,
+  Hereby I introduce the
+    <Valued|Honorable> <Identificador> of House <Tipo>,
       ... ,
-    <Identificador> of House <Tipo>
+    <Valued|Honorable> <Identificador> of House <Tipo>
   I must warn you, <Lista de tipos de retorno> is coming
   Valar Morghulis
     ..
@@ -526,9 +526,9 @@ Para funciones, y
 ```
 <Nombre de la subrutina> 
   Hereby I introduce the honorable
-    <Identificador> of House <Tipo> ,
+    <Valued|Honorable> <Identificador> of House <Tipo> ,
       ... ,
-    <Identificador> of House <Tipo>
+    <Valued|Honorable> <Identificador> of House <Tipo>
   I must warn you, Nobody is coming
   Valar Morghulis
     ..
@@ -538,6 +538,7 @@ Para funciones, y
 ```
 Para procedimientos
 
+La palabra clave `Valued` se utliza para pasar un parametro por valor, mientras que la palabra clave `Honorable` se utiliza para pasar un parametro por referencia.
 
 Para ejecutar las subrutinas se sigue la siguiente sintaxis
 ```
