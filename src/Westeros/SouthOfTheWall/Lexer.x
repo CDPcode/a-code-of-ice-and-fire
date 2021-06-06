@@ -2,6 +2,8 @@
 module Westeros.SouthOfTheWall.Lexer (
     scanTokens,
     ) where
+
+import Data.Char
 import Westeros.SouthOfTheWall.Tokens
 }
 
@@ -115,7 +117,7 @@ tokens :-
 <0>         has(@ws)reached(@ws)an(@ws)unexpected(@ws)end                                           { makeToken TknEndExit }
 
 --          IO
-<0>         A(@ws)raven@has(@ws)come(@ws)for                                                        { makeToken TknRead }
+<0>         A(@ws)raven(@ws)has(@ws)come(@ws)for                                                        { makeToken TknRead }
 <0>         We(@ws)must(@ws)send(@ws)a(@ws)raven(@ws)with(@ws)everything(@ws)we(@ws)know(@ws)of     { makeToken TknPrint }
 
 --          Empty Statement
@@ -207,50 +209,50 @@ makeToken :: AbstractToken -> AlexAction AlexUserState
 makeToken tk (AlexPn _ r c, _, _, str) len = do
     let str' = take len str
     addTokenToState Token {
-        token = tk,
+        aToken = tk,
         cleanedString = str',
         capturedString = str',
         position = Position {row=r, col=c}
     }
     alexMonadScan
 
-makeStringToken :: Alex AlexUserState
+makeStringToken :: AlexAction AlexUserState
 makeStringToken (AlexPn _ r c, _, _, _) _ = do
     ust <- getUserState
     let str' = reverse $ '\"' : lexerString ust
     addTokenToState Token {
-        token = TknStringLit,
+        aToken = TknStringLit,
         cleanedString = str',
         capturedString = str',
-        position = Position {row=r, col=c - (len str')}
+        position = Position {row=r, col=c - (length str')}
     }
     cleanLexerString
     alexMonadScan
 
-makeCommentToken :: Alex AlexUserState
+makeCommentToken :: AlexAction AlexUserState
 makeCommentToken (AlexPn _ r c, _, _, _) _ = do
     ust <- getUserState
     let str' = reverse $ '.' : lexerString ust
     addTokenToState Token {
-        token = TknComment,
+        aToken = TknComment,
         cleanedString = str',
         capturedString = str',
-        position = Position {row=r, col=c - (len str')}
+        position = Position {row=r, col=c - (length str')}
     }
     cleanLexerString
     alexMonadScan
 
-invalidBreak :: Alex AlexUserState
+invalidBreak :: AlexAction AlexUserState
 invalidBreak (AlexPn _ r c, _, _, _) _ = do 
-    addErrorToState $ Error "Invalid break at line " ++ show r ++ " column " ++ show c
+    addErrorToState $ Error $ "Invalid break at line " ++ show r ++ " column " ++ show c
     alexMonadScan
 
-invalidCharacter :: Alex AlexUserState
-invalidBreak (AlexPn _ r c, _, _, _) _ = do 
-    addErrorToState $ Error "Unexpected character at line " ++ show r ++ " column " ++ show c
+invalidCharacter :: AlexAction AlexUserState
+invalidCharacter (AlexPn _ r c, _, _, _) _ = do 
+    addErrorToState $ Error $ "Unexpected character at line " ++ show r ++ " column " ++ show c
     alexMonadScan
 
-pushToString :: Alex AlexUserState
+pushToString :: AlexAction AlexUserState
 pushToString (_, _, _, str) len = do 
     let str' = reverse $ take len str
     addStringToState str'
@@ -263,7 +265,7 @@ mapScaped '\'' = "\'"
 mapScaped '\"' = "\""
 mapScaped '\\' = "\\"
 
-pushScapedToString :: Alex AlexUserState
+pushScapedToString :: AlexAction AlexUserState
 pushScapedToString (_, _, _, str) len = do
     let str' = take len str
     addStringToState $ mapScaped $ last str'
@@ -302,8 +304,8 @@ scanTokens str =
     case runAlex str alexMonadScan of
         Left err -> Left [Error $ "Alex error: " ++ show err]
         Right ust -> 
-            case lexerErrors of 
-                [] -> Right $ reverse $ map postProcess:$ lexerTokens ust
+            case lexerErrors ust of 
+                [] -> Right $ reverse $ map postProcess $ lexerTokens ust
                 _ -> Left $ reverse $ lexerErrors ust
 
 postProcess :: Token -> Token 

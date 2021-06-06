@@ -49,7 +49,7 @@ data AbstractToken =
     | TknStruct
     | TknUnion
     | TknArray
-    | TknString
+    | TknStringLit
     | TknPointer
     | TknArraySize
     | TnkStringSize
