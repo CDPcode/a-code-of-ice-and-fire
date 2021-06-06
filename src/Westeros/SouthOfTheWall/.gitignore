@@ -1,0 +1,4 @@
+# Ignore generated files for version control
+
+Lexer.hs
+Parser.hs
