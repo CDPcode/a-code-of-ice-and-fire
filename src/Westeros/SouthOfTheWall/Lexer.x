@@ -122,11 +122,15 @@ tokens :-
 <0>         The(@ws)three-eyed(@ws)raven(@ws)watches(@ws)from(@ws)afar                              { makeToken TknPass }
 
 --          Procedures definition
-<0>         Hereby(@ws)I(@ws)introduce(@ws)the(@ws)honorable                                        { makeToken TknFunctionArgs }
+<0>         Prologue                                                                                { makeToken TknFirstMain }
+<0>         Epilogue                                                                                { makeToken TknLastMain }
+<0>         Hereby(@ws)I(@ws)introduce(@ws)the                                                      { makeToken TknFunctionArgs }
 <0>         I(@ws)must(@ws)warn(@ws)you                                                             { makeToken TknBeginReturnVals }
 <0>         is(@ws)coming                                                                           { makeToken TknEndReturnVals }
 <0>         Dracarys                                                                                { makeToken TknReturnOpen }
 <0>         !                                                                                       { makeToken TknReturnClose }
+<0>         Valued                                                                                  { makeToken TknValueArg }
+<0>         Honorable                                                                               { makeToken TknReferenceArg }
 
 --          Procedures call
 <0>         traveling                                                                               { makeToken TknProcCallOpen }
