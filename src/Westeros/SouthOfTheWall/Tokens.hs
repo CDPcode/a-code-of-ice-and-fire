@@ -137,3 +137,7 @@ data AbstractToken =
     -- Punctuation
     | TknComma
     | TknDot
+    
+    -- Expressions
+    | TknOpenParenthesis
+    | TknCloseParenthesis

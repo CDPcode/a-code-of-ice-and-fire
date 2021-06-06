@@ -169,6 +169,12 @@ tokens :-
 <0>         \,                                                                                      { makeToken TknComma }
 <0>         \.                                                                                      { makeToken TknDot }
 
+--          Expressions
+<0>         \<\<                                                                                    { makeToken TknOpenParenthesis }
+<0>         \>\>                                                                                    { makeToken TknCloseParenthesis }
+<0>         «                                                                                       { makeToken TknOpenParenthesis }
+<0>         »                                                                                       { makeToken TknCloseParenthesis }
+
 -- Lexer and wrapper function definitions
 {
 
@@ -186,7 +192,13 @@ alexInitUserState = LexerState {
     }
 
 alexEOF :: Alex AlexUserState
-alexEOF = getUserState
+alexEOF = do
+    ust <- getUserState
+    case lexerString ust of 
+        [] -> return ust
+        _ -> do 
+            addErrorToState $ Error "Unclosed string at EOF."
+            getUserState
 
 getUserState :: Alex AlexUserState
 getUserState = Alex $ \s@AlexState{alex_ust=ust} -> Right (s, ust)
@@ -230,12 +242,12 @@ makeCommentToken (AlexPn _ r c, _, _, _) _ = do
 
 invalidBreak :: Alex AlexUserState
 invalidBreak (AlexPn _ r c, _, _, _) _ = do 
-    addErrorToState $ Error "Invalid break..." -- needs definition of Error type
+    addErrorToState $ Error "Invalid break at line " ++ show r ++ " column " ++ show c
     alexMonadScan
 
 invalidCharacter :: Alex AlexUserState
 invalidBreak (AlexPn _ r c, _, _, _) _ = do 
-    addErrorToState $ Error "Unexpected character..." -- needs definition of Error type
+    addErrorToState $ Error "Unexpected character at line " ++ show r ++ " column " ++ show c
     alexMonadScan
 
 pushToString :: Alex AlexUserState
@@ -253,8 +265,7 @@ addTokenToState tk = Alex $ \s@AlexState{alex_ust=ust}
     }, ())
 
 addErrorToState :: Error -> Alex ()
-addErrorToState err = undefined 
-Alex $ \s@AlexState{alex_ust=ust}
+addErrorToState err = Alex $ \s@AlexState{alex_ust=ust}
     -> Right (s{
         alex_ust = ust{
             lexerErrors = err : lexerErrors ust 
@@ -272,5 +283,14 @@ cleanLexerString = Alex $ \s@AlexState{alex_ust=ust}
 addStringToState :: String -> Alex ()
 addStringToState str = Alex $ \s@AlexState{alex_ust=ust}
     -> Right (s{ alex_ust = ust{ lexerString = str ++ lexerString ust } }, ())
+
+scanTokens :: String -> Either [Error] [Token]
+scanTokens str = 
+    case runAlex str alexMonadScan of
+        Left err -> Left [Error $ "Alex error: " ++ show err]
+        Right ust -> 
+            case lexerErrors of 
+                [] -> Right $ reverse $ lexerTokens ust
+                _ -> Left $ reverse $ lexerErrors ust
 
 }
