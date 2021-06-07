@@ -7,19 +7,19 @@ module Westeros.SouthOfTheWall.Tokens (
 
 {- Relevant tokens datatypes -}
 
-newtype Error = Error { lexerError :: String } 
+newtype Error = Error { lexerError :: String } deriving Show
 
 data Position = Position {
         row :: Int,
         col :: Int
-    }
+    } deriving Show
 
 data Token = Token 
     { aToken :: AbstractToken
     , capturedString :: String
     , cleanedString :: String
     , position :: Position
-    }
+    } deriving Show
 
 data AbstractToken = 
     TknComment
@@ -147,3 +147,4 @@ data AbstractToken =
     -- Expressions
     | TknOpenParenthesis
     | TknCloseParenthesis
+   deriving Show

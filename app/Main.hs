@@ -1,6 +1,7 @@
 module Main where
 
 import Lib
+import Westeros.SouthOfTheWall.Lexer (scanTokens)
 
 main :: IO ()
-main = someFunc
+main = getLine >>= print . scanTokens -- readFile >>= print . scanTokens
