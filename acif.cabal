@@ -29,6 +29,7 @@ library
   exposed-modules:
       Lib
       Westeros.SouthOfTheWall.Lexer
+      Westeros.SouthOfTheWall.Lexer
       Westeros.SouthOfTheWall.Test
       Westeros.SouthOfTheWall.Tokens
   other-modules:
