@@ -117,7 +117,7 @@ tokens :-
 <0>         has(@ws)reached(@ws)an(@ws)unexpected(@ws)end                                           { makeToken TknEndExit }
 
 --          IO
-<0>         A(@ws)raven(@ws)has(@ws)come(@ws)for                                                        { makeToken TknRead }
+<0>         A(@ws)raven(@ws)has(@ws)come(@ws)for                                                    { makeToken TknRead }
 <0>         We(@ws)must(@ws)send(@ws)a(@ws)raven(@ws)with(@ws)everything(@ws)we(@ws)know(@ws)of     { makeToken TknPrint }
 
 --          Empty Statement
@@ -171,7 +171,10 @@ tokens :-
 
 --          Identifiers
 <0>         [A-Z]([\']?[a-z]+)+                                                                     { makeToken TknID }
-<0>         M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})                                  { makeToken TknArgNumber }
+<0>         M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{1,3})                                  { makeToken TknArgNumber }
+<0>         M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{1,3})(IX|IV|V?I{0,3})                                  { makeToken TknArgNumber }
+<0>         M{0,4}(CM|CD|D?C{1,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})                                  { makeToken TknArgNumber }
+<0>         M{1,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})                                  { makeToken TknArgNumber }
 
 --          Dot, Comma 
 <0>         \,                                                                                      { makeToken TknComma }
@@ -182,6 +185,8 @@ tokens :-
 <0>         \>\>                                                                                    { makeToken TknCloseParenthesis }
 <0>         «                                                                                       { makeToken TknOpenParenthesis }
 <0>         »                                                                                       { makeToken TknCloseParenthesis }
+
+<0>         .                                                                                       { invalidCharacter }
 
 -- Lexer and wrapper function definitions
 {
