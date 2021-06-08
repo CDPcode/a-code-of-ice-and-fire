@@ -3,7 +3,7 @@ module Westeros.SouthOfTheWall.Parser (parse) where
     import qualified Westeros.SouthOfTheWall.Tokens as Tk
 }
 
-%name                 parse 
+%name                parse 
 %tokentype            { Tk.Token }
 %error                { parseError }
 -- TODO: %monad expr to properly handle errors
@@ -15,35 +15,35 @@ token %
     str               { Tk.Token  { Tk.aToken=TknString } } 
 
     -- Type tokens
-    beginProgram      { Tk.Token     { Tk.aToken=TknProgramStart } }
+    beginProgram      { Tk.Token  { Tk.aToken=TknProgramStart } }
     programName       { Tk.Token  { Tk.aToken=TknProgramName } }
     var               { Tk.Token  { Tk.aToken=TknVar } }
-    const             { Tk.Token    { Tk.aToken=TknConst } }
-    type              { Tk.Token     { Tk.aToken=TknType } }
-    beginAlias        { Tk.Token   { Tk.aToken=TknBeginAlias } }
+    const             { Tk.Token  { Tk.aToken=TknConst } }
+    type              { Tk.Token  { Tk.aToken=TknType } }
+    beginAlias        { Tk.Token  { Tk.aToken=TknBeginAlias } }
     strongAlias       { Tk.Token  { Tk.aToken=TknStrongAlias } }
-    weakAlias         { Tk.Token    { Tk.aToken=TknWeakAlias } }
+    weakAlias         { Tk.Token  { Tk.aToken=TknWeakAlias } }
     int               { Tk.Token  { Tk.aToken=TknInt } }
-    intLit            { Tk.Token   { Tk.aToken=TknIntLit } }
-    float             { Tk.Token    { Tk.aToken=TknFloat } }
-    floatLit          { Tk.Token     { Tk.aToken=TknFloatLit } }
+    intLit            { Tk.Token  { Tk.aToken=TknIntLit } }
+    float             { Tk.Token  { Tk.aToken=TknFloat } }
+    floatLit          { Tk.Token  { Tk.aToken=TknFloatLit } }
     trilean           { Tk.Token  { Tk.aToken=TknTrilean } }
-    true              { Tk.Token     { Tk.aToken=TknTrue } }
+    true              { Tk.Token  { Tk.aToken=TknTrue } }
     neutral           { Tk.Token  { Tk.aToken=TknNeutral } }
-    false             { Tk.Token    { Tk.aToken=TknFalse } }
-    char              { Tk.Token     { Tk.aToken=TknChar } }
+    false             { Tk.Token  { Tk.aToken=TknFalse } }
+    char              { Tk.Token  { Tk.aToken=TknChar } }
     charLit           { Tk.Token  { Tk.aToken=TknCharLit } }
-    beginCompType     { Tk.Token     { Tk.aToken=TknBeginCompType } }
+    beginCompType     { Tk.Token  { Tk.aToken=TknBeginCompType } }
     endCompType       { Tk.Token  { Tk.aToken=TknEndIDCompType } }
-    struct            { Tk.Token   { Tk.aToken=TknStruct } }
-    union             { Tk.Token    { Tk.aToken=TknUnion } }
-    array             { Tk.Token    { Tk.aToken=TknArray } }
-    stringLit         { Tk.Token    { Tk.aToken=TknStringLit } }
+    struct            { Tk.Token  { Tk.aToken=TknStruct } }
+    union             { Tk.Token  { Tk.aToken=TknUnion } }
+    array             { Tk.Token  { Tk.aToken=TknArray } }
+    stringLit         { Tk.Token  { Tk.aToken=TknStringLit } }
     pointer           { Tk.Token  { Tk.aToken=TknPointer } }
     arraySz           { Tk.Token  { Tk.aToken=TknArraySize } }
-    stringSz          { Tk.Token     { Tk.aToken=TknStringSize } }
-    arrayDecl         { Tk.Token    { Tk.aToken=TknArrayDecl } }
-    stringDecl        { Tk.Token   { Tk.aToken=TknStringDecl } }
+    stringSz          { Tk.Token  { Tk.aToken=TknStringSize } }
+    arrayDecl         { Tk.Token  { Tk.aToken=TknArrayDecl } }
+    stringDecl        { Tk.Token  { Tk.aToken=TknStringDecl } }
 
     -- Assignment tokens
     ':='              { Tk.Token  { Tk.aToken=TknAssign } }
