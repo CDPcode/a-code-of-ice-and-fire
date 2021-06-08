@@ -76,9 +76,9 @@ tokens :-
 <0>         Hand(@ws)of(@ws)the(@ws)King                                                            { makeToken TknString }
 <0>         Spearwife(@ws)of                                                                        { makeToken TknPointer }
 <0>         bannermen(@ws)holding                                                                   { makeToken TknArraySize }
-<0>         ruling(@ws)over                                                                         { makeToken TnkStringSize }
+<0>         ruling(@ws)over                                                                         { makeToken TknStringSize }
 <0>         bannermen(@ws)holding:                                                                  { makeToken TknArrayDecl }
-<0>         ruling(@ws)with(@ws)Grand                                                               { makeToken TnkStringDecl }
+<0>         ruling(@ws)with(@ws)Grand                                                               { makeToken TknStringDecl }
 
 --          Operators
 <0>         takes                                                                                   { makeToken TknAssign }

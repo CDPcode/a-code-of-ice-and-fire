@@ -55,9 +55,9 @@ data AbstractToken =
     | TknStringLit
     | TknPointer
     | TknArraySize
-    | TnkStringSize
+    | TknStringSize
     | TknArrayDecl
-    | TnkStringDecl
+    | TknStringDecl
 
     -- Assignment tokens
     | TknAssign
