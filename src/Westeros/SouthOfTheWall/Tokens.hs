@@ -69,6 +69,7 @@ data AbstractToken =
     | TknMinus
     | TknPlus
     | TknMult
+    | TknDivide
     | TknMod
     | TknNegate
     | TknEqual

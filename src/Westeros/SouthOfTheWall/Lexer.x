@@ -88,6 +88,7 @@ tokens :-
 <0>         without                                                                                 { makeToken TknMinus }
 <0>         with                                                                                    { makeToken TknPlus }
 <0>         times(@ws)the(@ws)power(@ws)of                                                          { makeToken TknMult }
+<0>         divided(@ws)by(@ws)the(@ws)power(@ws)of                                                 { makeToken TknDivide }
 <0>         picking(@ws)what(@ws)remains(@ws)of                                                     { makeToken TknMod }
 <0>         bastard                                                                                 { makeToken TknNegate }
 <0>         is(@ws)as(@ws)powerful(@ws)as                                                           { makeToken TknEqual }
