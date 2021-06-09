@@ -186,6 +186,7 @@ tokens :-
 <0>         «                                                                                       { makeToken TknOpenParenthesis }
 <0>         »                                                                                       { makeToken TknCloseParenthesis }
 
+<0>         [^\ \t\n\f\v\r]+                                                                        { invalidWord }
 <0>         .                                                                                       { invalidCharacter }
 
 -- Lexer and wrapper function definitions
@@ -258,9 +259,13 @@ invalidBreak (AlexPn _ r c, _, _, _) _ = do
     addErrorToState $ Error $ "Invalid break at line " ++ show r ++ " column " ++ show c
     alexMonadScan
 
-invalidCharacter :: AlexAction AlexUserState
+invalidCharacter, invalidWord :: AlexAction AlexUserState
 invalidCharacter (AlexPn _ r c, _, _, _) _ = do 
     addErrorToState $ Error $ "Unexpected character at line " ++ show r ++ " column " ++ show c
+    alexMonadScan
+
+invalidWord (AlexPn _ r c, _, _, _) _ = do 
+    addErrorToState $ Error $ "Unexpected word at line " ++ show r ++ " column " ++ show c
     alexMonadScan
 
 pushToString :: AlexAction AlexUserState
