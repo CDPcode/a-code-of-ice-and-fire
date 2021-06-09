@@ -69,6 +69,7 @@ data AbstractToken =
     | TknMinus
     | TknPlus
     | TknMult
+    | TknDivide
     | TknMod
     | TknNegate
     | TknEqual
@@ -105,7 +106,7 @@ data AbstractToken =
     | TknFirstMain
     | TknLastMain
     | TknPass -- OJO
-    | TknFunctionArgs
+    | TknFunctionParams
     | TknBeginReturnVals
     | TknEndReturnVals
     | TknReturnOpen

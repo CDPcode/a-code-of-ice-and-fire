@@ -1,8 +1,7 @@
 {
 module Westeros.SouthOfTheWall.Parser (parse) where
-
-import qualified Westeros.SouthOfTheWall.Tokens as Tk
-import qualified Westeros.SouthOfTheWall.Grammar as G
+    import qualified Westeros.SouthOfTheWall.Tokens as Tk
+    import qualified Westeros.SouthOfTheWall.AST as Ast
 }
 
 %name                parse 
@@ -61,6 +60,7 @@ import qualified Westeros.SouthOfTheWall.Grammar as G
     '+'               { Tk.Token  { Tk.aToken=Tk.TknPlus } }
     '-'               { Tk.Token  { Tk.aToken=Tk.TknMinus } }
     '*'               { Tk.Token  { Tk.aToken=Tk.TknMult } }
+    '\'               { Tk.Token  { Tk.aToken=Tk.TknDivide } }
     '%'               { Tk.Token  { Tk.aToken=Tk.TknMod } }
     '~'               { Tk.Token  { Tk.aToken=Tk.TknNegate } }
     '='               { Tk.Token  { Tk.aToken=Tk.TknEqual } }
@@ -94,19 +94,19 @@ import qualified Westeros.SouthOfTheWall.Grammar as G
     print             { Tk.Token  { Tk.aToken=Tk.TknPrint } }
                                                
     -- Procedure Tokens                        
-    beginF            { Tk.Token  { Tk.aToken=Tk.TknBeginFuncDecl } }
-    listF             { Tk.Token  { Tk.aToken=Tk.TknListFunction } }
-    fMain             { Tk.Token  { Tk.aToken=Tk.TknFirstMain } }
-    sMain             { Tk.Token  { Tk.aToken=Tk.TknLastMain } }
+    beginFunctionDec  { Tk.Token  { Tk.aToken=Tk.TknBeginFuncDecl } }
+    item              { Tk.Token  { Tk.aToken=Tk.TknListFunction } }
+    firstMain         { Tk.Token  { Tk.aToken=Tk.TknFirstMain } }
+    secondMain        { Tk.Token  { Tk.aToken=Tk.TknLastMain } }
     pass              { Tk.Token  { Tk.aToken=Tk.TknPass } } -- OJO
-    fArgs             { Tk.Token  { Tk.aToken=Tk.TknFunctionArgs } }
+    functionParams    { Tk.Token  { Tk.aToken=Tk.TknFunctionParams } }
     beginReturn       { Tk.Token  { Tk.aToken=Tk.TknBeginReturnVals } }
     endReturn         { Tk.Token  { Tk.aToken=Tk.TknEndReturnVals } }
     returnOpen        { Tk.Token  { Tk.aToken=Tk.TknReturnOpen } }
     returnClose       { Tk.Token  { Tk.aToken=Tk.TknReturnClose } }
-    fCallOpen         { Tk.Token  { Tk.aToken=Tk.TknProcCallOpen } }
-    fCallArgs         { Tk.Token  { Tk.aToken=Tk.TknProcCallArgs } }
-    fCallClose        { Tk.Token  { Tk.aToken=Tk.TknProcCallClose } }
+    functionCallOpen  { Tk.Token  { Tk.aToken=Tk.TknProcCallOpen } }
+    functionCallArgs  { Tk.Token  { Tk.aToken=Tk.TknProcCallArgs } }
+    functionCallClose { Tk.Token  { Tk.aToken=Tk.TknProcCallClose } }
     val               { Tk.Token  { Tk.aToken=Tk.TknValueArg } }
     ref               { Tk.Token  { Tk.aToken=Tk.TknReferenceArg } }
                                                
@@ -121,17 +121,17 @@ import qualified Westeros.SouthOfTheWall.Grammar as G
     forLb             { Tk.Token  { Tk.aToken=Tk.TknForLB } }
     forUb             { Tk.Token  { Tk.aToken=Tk.TknForUB } }
     while             { Tk.Token  { Tk.aToken=Tk.TknWhile } }
-    whileDec          { Tk.Token  { Tk.aToken=Tk.TknWhileDecoration } }
+    whileDecorator    { Tk.Token  { Tk.aToken=Tk.TknWhileDecoration } }
     continue          { Tk.Token  { Tk.aToken=Tk.TknContinue } }
     break             { Tk.Token  { Tk.aToken=Tk.TknBreak } } 
                                                
     -- Selection Tokens                        
-    beginSel          { Tk.Token  { Tk.aToken=Tk.TknBeginSelection } }
-    decSel            { Tk.Token  { Tk.aToken=Tk.TknSelectionDecorator } }
+    beginSelect       { Tk.Token  { Tk.aToken=Tk.TknBeginSelection } }
+    decoratorSelct    { Tk.Token  { Tk.aToken=Tk.TknSelectionDecorator } }
     trueBranch        { Tk.Token  { Tk.aToken=Tk.TknTrueBranch } }
     neutralBranch     { Tk.Token  { Tk.aToken=Tk.TknUnknownBranch } }
     falseBranch       { Tk.Token  { Tk.aToken=Tk.TknFalseBranch } } 
-    endSel            { Tk.Token  { Tk.aToken=Tk.TknEndSelection } }
+    endSelect         { Tk.Token  { Tk.aToken=Tk.TknEndSelection } }
                                                
     -- Identifiers                             
     id                { Tk.Token  { Tk.aToken=Tk.TknID } }
@@ -161,112 +161,90 @@ import qualified Westeros.SouthOfTheWall.Grammar as G
 -- Program
 
 -- A program is :
---a header
---a prologue
---a (possibly empty) list of function definitions
+-- a header
+-- a table of contents
+-- a prologue, which is a function definition
+-- a (possibly empty) list of function definitions
 --      Each function definition holds:
 --          a (possibly empty) list of instructions along with selection and repetition
---   an epilogue which is again, a function definition.
---  comments at any point
+-- an epilogue which is again, a function definition.
+-- comments at any point as long as they do not interfere with an expression
 
-PROGRAM : HEADER PL F_DEF_LIST EL
+PROGRAM : HEADER CONTENTS PROLOGUE FUNCTIONS EPILOGUE                                             { AST.Program $1 $2 $3 $4 $5 }
     
-HEADER : beginProgram programName beginF fMain F_DEC_LIST sMain {}
+HEADER : beginProgram programName  '.'                                                            { AST.Header (Tk.capturedString $2) }
 
-F_DEC_LIST : {- empty -}  { [] }
-           | F_DEC_LIST  F_DEC { }
+CONTENTS : beginFunctionDec FUNCTION_DECLARATIONS                                                 { AST.Contents $2 }
 
--- Function declaration
-F_DEC : listF tknId argCnt { } 
+FUNCTION_DECLARATIONS : item firstMain FUNCTION_NAMES item secondMain                             { AST.FunctionDeclarations $1 : $2 :}
 
--- Prologue
-PL : {- empty -} {}
+FUNCTION_NAMES : {- empty -} 
+               | FUNCTION_NAMES item id argCnt                                                    
+ 
+PROLOGUE : firstMain FUNCTION_DEFINITION
 
-F_DEF_LIST : {- empty -} { [] } 
-           | F_DEF_LIST F_DEF
+EPILOGUE : secondMain FUNCTION_DEFINITION
 
--- Function definition: hereby I .. the honorable
-F_DEF : fargs ref PARAMS beginReturn RETURN_T endReturn '{' INSTRUCTION_LIST '}' {}
+FUNCTIONS : {- empty -}
+          | FUNCTIONS FUNCTION
 
--- Epilogue
-EL :  {- empty -} {}
-    
--- Parameters: either Nobody or a propper parameter list
-PARAMS : void {}
-       | PARAM_LIST {}
+FUNCTION : id FUNCTION_DEFINITION
 
-PARAM_LIST : PARAM {} -- ## no estoy seguro
-           | PARAM_LIST ',' PARAM {}
+FUNCTION_DEFINITION : FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY
 
-PARAM : val NAMING {} 
-      | ref NAMING {}  
+FUNCTION_PARAMETERS : functionParams PARAMETER
+                    | FUNCTION_PARAMETERS ',' PARAMETER  
 
--- <id> of House <declarador de tipo> 
-NAMING :  id type TYPE {}
+PARAMETER :  -- We need to properly define Struct/Union/Array/Strings usage before doing this
 
-DECLARATION_LIST : DECLARATION { [] } 
-                 | DECLARATION_LIST ',' DECLARATION {}
+FUNCTION_RETURN : beginReturn RETURN_TYPES endReturn
 
--- <lord|lady|knight> of House .. 
-DECLARATION : var NAMING {} -- '.' 
-            | const NAMING {}  -- '.' 
+RETURN_TYPES : void
+             | TYPES 
 
-RETURN_T : void {}
-         | TYPE_LIST {} 
-         
-TYPE_LIST : TYPE {}
-          | TYPE_LIST ',' TYPE {}
+TYPES : TYPE
+      | TYPES ',' TYPE
 
-TYPE : int {} 
-     | float {}
-     | char {}
-     | trilean {}
+TYPE : -- Same as above with PARAMETER 
 
+FUNCTION_BODY : '{' INSTRUCTIONS '}' 
+
+INSTRUCTIONS : INSTRUCTION
+             | INSTRUCTIONS INSTRUCTION
 
 -- Instructions --
 
-INST_LIST : {- empty -} { [] } 
-          | INST_LIST INST
-
-INST : {-empty -} {} 
-
+    -- A lot to do here
 
 -- Expressions --
 
-EXPR : intLit {G.IntLit (read (Tk.cleanedString $1)::Int) }  
-     | floatLit {G.FloatLit (read (Tk.cleanedString $1)::Float) }
-     | char { G.CharLit (head (Tk.cleanedString $1))}
-     | true {} 
-     | neutral {}
-     | false {} 
-
-     | EXPR '+' EXPR {}
-     | EXPR '-' EXPR {}
-     | EXPR '*' EXPR {}
-     | EXPR '%' EXPR {}
-     -- | EXPR '/' EXPR {} -- generate token
-     | EXPR '=' EXPR {}
-     | EXPR '!=' EXPR {}
-     | EXPR '<' EXPR {}
-     | EXPR '>' EXPR {}
-     | EXPR '<=' EXPR {}
-     | EXPR '>=' EXPR {}
-
-     | not EXPR {}
-     | EXPR and EXPR {}
-     | EXPR or EXPR {}
---     beginExit -- es operadores ?
---     endExit   -- es operador ?
-
-
-
+EXPR : intLit                                                   { AST.IntLit (read (Tk.cleanedString $1)::Int) }  
+     | floatLit                                                 { AST.FloatLit (read (Tk.cleanedString $1)::Float) }
+     | char                                                     { AST.CharLit (head (Tk.cleanedString $1)) }
+     | true  
+     | neutral 
+     | false  
+     | EXPR '+' EXPR 
+     | EXPR '-' EXPR 
+     | EXPR '*' EXPR 
+     | EXPR '%' EXPR 
+     | EXPR '/' EXPR
+     | EXPR '=' EXPR 
+     | EXPR '!=' EXPR 
+     | EXPR '<' EXPR 
+     | EXPR '>' EXPR 
+     | EXPR '<=' EXPR 
+     | EXPR '>=' EXPR 
+     | not EXPR 
+     | EXPR and EXPR 
+     | EXPR or EXPR 
 
 {
-    -- Helper functions
-    -- TODO:
-    -- Error Function
-
+-- Helper functions
+-- TODO:
+-- Error Function
 
 parseError :: [Tk.Token] -> a
 parseError _ = undefined
+
 }

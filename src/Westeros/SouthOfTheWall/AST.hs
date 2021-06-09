@@ -1,6 +1,9 @@
-module Westeros.SouthOfTheWall.Grammar where
-
+module Westeros.SouthOfTheWall.AST where
 import Westeros.SouthOfTheWall.Tokens as Tk
+
+data Program = Program Header Contents Prologue Functions Epilogue   
+
+data Header = Header String 
 
 data ExprWrapper = ExprWrapper
        { getExpression :: Expr
