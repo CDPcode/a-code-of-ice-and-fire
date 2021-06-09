@@ -106,7 +106,7 @@ data AbstractToken =
     | TknFirstMain
     | TknLastMain
     | TknPass -- OJO
-    | TknFunctionArgs
+    | TknFunctionParams
     | TknBeginReturnVals
     | TknEndReturnVals
     | TknReturnOpen
