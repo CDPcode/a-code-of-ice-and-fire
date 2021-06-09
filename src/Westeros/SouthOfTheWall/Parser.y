@@ -10,7 +10,7 @@ import qualified Westeros.SouthOfTheWall.Grammar as G
 %error                { parseError }
 -- TODO: %monad expr to properly handle errors
 
--- Token aliases definitions
+-- Token aliases definitions 
 %token
 
     comment           { Tk.Token  { Tk.aToken=Tk.TknComment } }
@@ -25,6 +25,7 @@ import qualified Westeros.SouthOfTheWall.Grammar as G
     beginAlias        { Tk.Token  { Tk.aToken=Tk.TknBeginAlias } }
     strongAlias       { Tk.Token  { Tk.aToken=Tk.TknStrongAlias } }
     weakAlias         { Tk.Token  { Tk.aToken=Tk.TknWeakAlias } }
+
     -- Simple                                  
     int               { Tk.Token  { Tk.aToken=Tk.TknInt } }
     intLit            { Tk.Token  { Tk.aToken=Tk.TknIntLit } }
@@ -36,6 +37,7 @@ import qualified Westeros.SouthOfTheWall.Grammar as G
     false             { Tk.Token  { Tk.aToken=Tk.TknFalse } }
     char              { Tk.Token  { Tk.aToken=Tk.TknChar } }
     charLit           { Tk.Token  { Tk.aToken=Tk.TknCharLit } }
+
     -- Compound                                
     beginCompType     { Tk.Token  { Tk.aToken=Tk.TknBeginCompType } }
     endCompType       { Tk.Token  { Tk.aToken=Tk.TknEndIDCompType } }
@@ -72,6 +74,7 @@ import qualified Westeros.SouthOfTheWall.Grammar as G
     not               { Tk.Token  { Tk.aToken=Tk.TknNot } }
     and               { Tk.Token  { Tk.aToken=Tk.TknAnd } }
     or                { Tk.Token  { Tk.aToken=Tk.TknOr } }
+
     -- Do we need these?                       
     '<=>'             { Tk.Token  { Tk.aToken=Tk.TknBoolEqual } }
     '<!=>'            { Tk.Token  { Tk.aToken=Tk.TknBoolNotEqual } }
@@ -143,16 +146,127 @@ import qualified Westeros.SouthOfTheWall.Grammar as G
     ')'               { Tk.Token  { Tk.aToken=Tk.TknCloseParenthesis } }
 
 
--- Precedences
+-- Precedences and Associativities 
+
+%left '+' '-'
+%left '*' '%' -- '/'
+
+%nonassoc '=' '!=' '<' '>' '<=' '>='
+%left and or
+%right not
+
 
 %% -- Grammar
 
-TEST    : comment           { }
+-- Program
+
+-- A program is :
+--a header
+--a prologue
+--a (possibly empty) list of function definitions
+--      Each function definition holds:
+--          a (possibly empty) list of instructions along with selection and repetition
+--   an epilogue which is again, a function definition.
+--  comments at any point
+
+PROGRAM : HEADER PL F_DEF_LIST EL
+    
+HEADER : beginProgram programName beginF fMain F_DEC_LIST sMain {}
+
+F_DEC_LIST : {- empty -}  { [] }
+           | F_DEC_LIST  F_DEC { }
+
+-- Function declaration
+F_DEC : listF tknId argCnt { } 
+
+-- Prologue
+PL : {- empty -} {}
+
+F_DEF_LIST : {- empty -} { [] } 
+           | F_DEF_LIST F_DEF
+
+-- Function definition: hereby I .. the honorable
+F_DEF : fargs ref PARAMS beginReturn RETURN_T endReturn '{' INSTRUCTION_LIST '}' {}
+
+-- Epilogue
+EL :  {- empty -} {}
+    
+-- Parameters: either Nobody or a propper parameter list
+PARAMS : void {}
+       | PARAM_LIST {}
+
+PARAM_LIST : PARAM {} -- ## no estoy seguro
+           | PARAM_LIST ',' PARAM {}
+
+PARAM : val NAMING {} 
+      | ref NAMING {}  
+
+-- <id> of House <declarador de tipo> 
+NAMING :  id type TYPE {}
+
+DECLARATION_LIST : DECLARATION { [] } 
+                 | DECLARATION_LIST ',' DECLARATION {}
+
+-- <lord|lady|knight> of House .. 
+DECLARATION : var NAMING {} -- '.' 
+            | const NAMING {}  -- '.' 
+
+RETURN_T : void {}
+         | TYPE_LIST {} 
+         
+TYPE_LIST : TYPE {}
+          | TYPE_LIST ',' TYPE {}
+
+TYPE : int {} 
+     | float {}
+     | char {}
+     | trilean {}
+
+
+-- Instructions --
+
+INST_LIST : {- empty -} { [] } 
+          | INST_LIST INST
+
+INST : {-empty -} {} 
+
+
+-- Expressions --
+
+EXPR : intLit {G.IntLit (read (Tk.cleanedString $1)::Int) }  
+     | floatLit {G.FloatLit (read (Tk.cleanedString $1)::Float) }
+     | char { G.CharLit (head (Tk.cleanedString $1))}
+     | true {} 
+     | neutral {}
+     | false {} 
+
+     | EXPR '+' EXPR {}
+     | EXPR '-' EXPR {}
+     | EXPR '*' EXPR {}
+     | EXPR '%' EXPR {}
+     -- | EXPR '/' EXPR {} -- generate token
+     | EXPR '=' EXPR {}
+     | EXPR '!=' EXPR {}
+     | EXPR '<' EXPR {}
+     | EXPR '>' EXPR {}
+     | EXPR '<=' EXPR {}
+     | EXPR '>=' EXPR {}
+
+     | not EXPR {}
+     | EXPR and EXPR {}
+     | EXPR or EXPR {}
+--     beginExit -- es operadores ?
+--     endExit   -- es operador ?
+
+
+
 
 {
     -- Helper functions
     -- TODO:
     -- Error Function
+
+
 parseError :: [Tk.Token] -> a
 parseError _ = undefined
 }
