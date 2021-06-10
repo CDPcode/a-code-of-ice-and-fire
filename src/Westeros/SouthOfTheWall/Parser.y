@@ -43,6 +43,7 @@ module Westeros.SouthOfTheWall.Parser (parse) where
     struct            { Tk.Token  { Tk.aToken=Tk.TknStruct } }
     union             { Tk.Token  { Tk.aToken=Tk.TknUnion } }
     array             { Tk.Token  { Tk.aToken=Tk.TknArray } }
+    tuple             { Tk.Token  { Tk.aToken=Tk.TknTuple } }
     stringLit         { Tk.Token  { Tk.aToken=Tk.TknStringLit } }
     pointer           { Tk.Token  { Tk.aToken=Tk.TknPointer } }
     arraySz           { Tk.Token  { Tk.aToken=Tk.TknArraySize } }
@@ -88,6 +89,11 @@ module Westeros.SouthOfTheWall.Parser (parse) where
     beginIdx          { Tk.Token  { Tk.aToken=Tk.TknBeginIndex } }
     tupleIdx          { Tk.Token  { Tk.aToken=Tk.TknBeginTupleIndex } }
     endIdx            { Tk.Token  { Tk.aToken=Tk.TknEndIndex } }
+    points            { Tk.Token  { Tk.aToken=Tk.TknPtr } }
+    '*'               { Tk.Token  { Tk.aToken=Tk.TknDereference } }
+    free              { Tk.Token  { Tk.aToken=Tk.TknFree } }
+    
+    
                                                
     -- IO tokens                               
     read              { Tk.Token  { Tk.aToken=Tk.TknRead } }
@@ -185,6 +191,9 @@ PROLOGUE : firstMain FUNCTION_DEFINITION
 
 EPILOGUE : secondMain FUNCTION_DEFINITION
 
+
+-- Subrutines --
+
 FUNCTIONS : {- empty -}
           | FUNCTIONS FUNCTION
 
@@ -204,6 +213,10 @@ FUNCTION_RETURN : beginReturn RETURN_TYPES endReturn
 RETURN_TYPES : void
              | TYPES 
 
+FUNCTION_BODY : '{' INSTRUCTIONS '}' 
+
+-- Types --
+
 TYPES : TYPE
       | TYPES ',' TYPE
 
@@ -217,45 +230,88 @@ SIMPLE_TYPE : int
             | char 
             | trilean
 
-COMPOUND_TYPE : array TYPE arraySz EXPR -- OJO : solo expresiones enteras 
+COMPOUND_TYPE : array TYPE arraySz EXPR 
+              | string stringSz
               | struct DECLARATIONS
               | union DECLARATIONS
-              | string stringSz
-              -- | TUPLAS -- por definir
+              | tuple TYPES 
 
 POINTER : pointer TYPE -- OJO : es un tipo en si para poder declararlo solo constante
 
 DECLARATIONS : DECLARATION -- OJO : podra ser vacia ?
              | DECLARATIONS ',' DECLARATION
 
-DECLARATION : var id type SIMPLE_TYPE
-            | const id type SIMPLE_TYPE
-            -- Compound
-            | beginCompType var id endCompType COMPOUND_TYPE 
-            | beginCompType const id endCompType COMPOUND_TYPE 
-            | beginCompType const id endCompType POINTER 
-            -- Aliases
-            | beginAlias id weakAlias TYPE
-            | beginAlias id strongAlias TYPE
+DECLARATION : SIMPLE_DECLARATION
+            | COMPOSITE_DECLARATION
+            | ALIAS_DECLARATION
+            
+SIMPLE_DECLARATION : var id type SIMPLE_TYPE
+                   | const id type SIMPLE_TYPE
+
+COMPOSITE_DECLARATION : beginCompType var id endCompType COMPOUND_TYPE 
+                      | beginCompType const id endCompType COMPOUND_TYPE 
+                      | beginCompType const id endCompType POINTER 
+
+ALIAS_DECLARATION : beginAlias id weakAlias TYPE
+                  | beginAlias id strongAlias TYPE
+
+COMPOSITE_DECLARATION_PREFFIX : beginCompType var id endCompType
+                              | beginCompType const id endCompType
 
 
-
-FUNCTION_BODY : '{' INSTRUCTIONS '}' 
+-- Instructions --
 
 INSTRUCTIONS : INSTRUCTION '.'
              | INSTRUCTIONS INSTRUCTION '.'
 
--- Instructions --
+INSTRUCTION : DECLARATION 
+            | INICIALIZATION
+            | ASSIGNMENT
 
-INSTRUCTION : 
-    -- define RVAL and LVAL
-    -- A lot to do here
+INICIALIZATION : COMPOSITE_DECLARATION_PREFFIX arrayDecl EXPRESSIONS
+               | COMPOSITE_DECLARATION_PREFFIX stringDecl EXPRESSIONS 
+               | SIMPLE_DECLARATION ':=' EXPR
+               | DECLARATIONS beginMultAssign EXPRESSIONS endMultAssign
+               -- faltan apuntadores, structs y uniones
+
+ASSIGNMENT : SIMPLE_ASSIGNMENT
+           | MULTIPLE_ASSIGNMENT
+
+SIMPLE_ASSIGNMENT : LVALUE ':=' RVALUE
+                  | LVALUE ':=' RVALUES -- OJO : for arrays, structs ,strings and tuples (??)
+                  -- definir LVALUES
+
+MULTIPLE_ASSIGNMENT : LVALUES beginMultAssign EXPRESSIONS endMultAssign 
+                    -- definir LVALUES
+                    
+LVALUES : LVALUE
+        | LVALUES ',' LVALUE
+ 
+LVALUE : COMMON_VALUE
+       -- falta la dereferenciacion
+
+RVALUES : RVALUE
+        | RVALUES ',' RVALUE
+
+RVALUE : COMMON_VALUE
+       | EXPR
+
+COMMON_VALUE : id
+             | id structField id
+             | id unionField id -- beginUnionQ id unionQ id endUnionQ 
+             | beginIdx EXPR endIdx id -- OJO 
+             | tupleIdx int endIdx id
+
 
 -- Expressions --
 
+EXPRESSIONS : EXPR
+           | EXPRESSIONS ',' EXPR
+
 EXPR : intLit                                                   { AST.IntLit (read (Tk.cleanedString $1)::Int) }  
      | floatLit                                                 { AST.FloatLit (read (Tk.cleanedString $1)::Float) }
-     | char                                                     { AST.CharLit (head (Tk.cleanedString $1)) }
+     | charLit                                                  { AST.CharLit (head (Tk.cleanedString $1)) }
+     | stringLit
      | true  
      | neutral 
      | false  
