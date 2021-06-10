@@ -60,7 +60,7 @@ module Westeros.SouthOfTheWall.Parser (parse) where
     '+'               { Tk.Token  { Tk.aToken=Tk.TknPlus } }
     '-'               { Tk.Token  { Tk.aToken=Tk.TknMinus } }
     '*'               { Tk.Token  { Tk.aToken=Tk.TknMult } }
-    '\'               { Tk.Token  { Tk.aToken=Tk.TknDivide } }
+    '\\'               { Tk.Token  { Tk.aToken=Tk.TknDivide } } -- OJO
     '%'               { Tk.Token  { Tk.aToken=Tk.TknMod } }
     '~'               { Tk.Token  { Tk.aToken=Tk.TknNegate } }
     '='               { Tk.Token  { Tk.aToken=Tk.TknEqual } }
@@ -214,6 +214,7 @@ INSTRUCTIONS : INSTRUCTION
 
 -- Instructions --
 
+-- define RVAL and LVAL
     -- A lot to do here
 
 -- Expressions --
