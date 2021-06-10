@@ -60,7 +60,7 @@ module Westeros.SouthOfTheWall.Parser (parse) where
     '+'               { Tk.Token  { Tk.aToken=Tk.TknPlus } }
     '-'               { Tk.Token  { Tk.aToken=Tk.TknMinus } }
     '*'               { Tk.Token  { Tk.aToken=Tk.TknMult } }
-    '\'               { Tk.Token  { Tk.aToken=Tk.TknDivide } }
+    '\\'               { Tk.Token  { Tk.aToken=Tk.TknDivide } } -- OJO
     '%'               { Tk.Token  { Tk.aToken=Tk.TknMod } }
     '~'               { Tk.Token  { Tk.aToken=Tk.TknNegate } }
     '='               { Tk.Token  { Tk.aToken=Tk.TknEqual } }
@@ -195,7 +195,9 @@ FUNCTION_DEFINITION : FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY
 FUNCTION_PARAMETERS : functionParams PARAMETER
                     | FUNCTION_PARAMETERS ',' PARAMETER  
 
-PARAMETER :  -- We need to properly define Struct/Union/Array/Strings usage before doing this
+PARAMETER : val id type TYPE
+          | ref id type TYPE  
+          | void
 
 FUNCTION_RETURN : beginReturn RETURN_TYPES endReturn
 
@@ -205,15 +207,48 @@ RETURN_TYPES : void
 TYPES : TYPE
       | TYPES ',' TYPE
 
-TYPE : -- Same as above with PARAMETER 
+TYPE : SIMPLE_TYPE
+     | COMPOUND_TYPE
+     | POINTER
+     | id -- ALIASES
+
+SIMPLE_TYPE : int
+            | float 
+            | char 
+            | trilean
+
+COMPOUND_TYPE : array TYPE arraySz EXPR -- OJO : solo expresiones enteras 
+              | struct DECLARATIONS
+              | union DECLARATIONS
+              | string stringSz
+              -- | TUPLAS -- por definir
+
+POINTER : pointer TYPE -- OJO : es un tipo en si para poder declararlo solo constante
+
+DECLARATIONS : DECLARATION -- OJO : podra ser vacia ?
+             | DECLARATIONS ',' DECLARATION
+
+DECLARATION : var id type SIMPLE_TYPE
+            | const id type SIMPLE_TYPE
+            -- Compound
+            | beginCompType var id endCompType COMPOUND_TYPE 
+            | beginCompType const id endCompType COMPOUND_TYPE 
+            | beginCompType const id endCompType POINTER 
+            -- Aliases
+            | beginAlias id weakAlias TYPE
+            | beginAlias id strongAlias TYPE
+
+
 
 FUNCTION_BODY : '{' INSTRUCTIONS '}' 
 
-INSTRUCTIONS : INSTRUCTION
-             | INSTRUCTIONS INSTRUCTION
+INSTRUCTIONS : INSTRUCTION '.'
+             | INSTRUCTIONS INSTRUCTION '.'
 
 -- Instructions --
 
+INSTRUCTION : 
+    -- define RVAL and LVAL
     -- A lot to do here
 
 -- Expressions --
