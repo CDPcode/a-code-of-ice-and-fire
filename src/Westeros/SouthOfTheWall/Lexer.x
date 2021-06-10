@@ -75,6 +75,7 @@ tokens :-
 <0>         Lord(@ws)Commander(@ws)of                                                               { makeToken TknArray }
 <0>         Hand(@ws)of(@ws)the(@ws)King                                                            { makeToken TknString }
 <0>         Spearwife(@ws)of                                                                        { makeToken TknPointer }
+<0>         White(@ws)Walker(@ws)with(@ws)deads(@ws)from(@ws)Houses                                 { makeToken TknTuple }
 <0>         bannermen(@ws)holding                                                                   { makeToken TknArraySize }
 <0>         ruling(@ws)over                                                                         { makeToken TknStringSize }
 <0>         bannermen(@ws)holding:                                                                  { makeToken TknArrayDecl }
@@ -112,6 +113,9 @@ tokens :-
 <0>         Soldier(@ws)acquainted(@ws)with                                                         { makeToken TknBeginIndex }
 <0>         Wight(@ws)following                                                                     { makeToken TknBeginTupleIndex }
 <0>         under(@ws)command(@ws)of                                                                { makeToken TknEndIndex }
+<0>         marries(@ws)a                                                                           { makeToken TknPtr }
+<0>         Spouse(@ws)of                                                                           { makeToken TknDereference } 
+<0>         forsakes(@ws)marriage                                                                   { makeToken TknFree }
 
 --          Exit Statement
 <0>         The(@ws)book                                                                            { makeToken TknBeginExit }

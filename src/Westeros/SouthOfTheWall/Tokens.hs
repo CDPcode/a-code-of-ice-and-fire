@@ -58,6 +58,7 @@ data AbstractToken =
     | TknStringSize
     | TknArrayDecl
     | TknStringDecl
+    | TknTuple
 
     -- Assignment tokens
     | TknAssign
@@ -95,6 +96,9 @@ data AbstractToken =
     | TknBeginIndex
     | TknBeginTupleIndex
     | TknEndIndex
+    | TknPtr 
+    | TknDereference
+    | TknFree 
 
     -- IO tokens
     | TknRead
