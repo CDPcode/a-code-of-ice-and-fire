@@ -9,12 +9,12 @@ main = do
     args <- getArgs
 
     case head args of 
-        "--lex"   -> lex
-        "--parse" -> undefined
-        _         -> putStrLn "Invalid option"
+        "lex"   -> llex
+        "parse" -> undefined
+        _       -> putStrLn "Invalid option"
 
-lex :: IO ()
-lex = do
+llex :: IO ()
+llex = do
     str <- getContents  
     case scanTokens str of 
         Left errs -> mapM_ print errs
