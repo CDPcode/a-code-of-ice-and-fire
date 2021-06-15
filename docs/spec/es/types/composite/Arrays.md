@@ -20,6 +20,8 @@ la siguiente sintaxis
 donde *tam_i* son expresiones enteras especificando el
 tamaño de cada una de las dimensiones.
 
+Los arreglos son almacenados con el formato row-major.
+
 ## Literales
 
 Los arreglos literales comienzan con la palabra clave

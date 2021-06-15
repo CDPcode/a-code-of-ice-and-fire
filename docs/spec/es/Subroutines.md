@@ -46,7 +46,9 @@ subrutina, *tipo_i* son los tipos de los argumentos
 que recibe la función, *tipo_ret_i* son los tipos
 que retorna la función y *code* representa una serie
 de instrucciones que se ejecuntan al invocar a la
-subrutina.
+subrutina. Las palabras clave `Honorable` y `Valued`
+representan si el argumento es pasado por referencia
+o por valor respectivamente.
 
 En caso de no recibir ningún argumento se coloca `No One`
 en lugar de la lista de argumentos y en caso de no retornar
