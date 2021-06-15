@@ -140,3 +140,10 @@ realizar en dos casos:
 
 Ver sección de subrutinas para ver la sintaxis de invocación
 de funciones.
+
+## Parentización
+
+Se puede parentizar una expresión encerrandola entre
+`<<` y `>>` o entre `«` y `»` si se quieren usar caracteres
+unicode. Si una expresión esta parentizada, se evaluara
+su contenido antes de operarla con otras cosas.
