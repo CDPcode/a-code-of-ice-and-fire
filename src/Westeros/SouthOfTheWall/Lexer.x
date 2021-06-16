@@ -104,6 +104,20 @@ tokens :-
 <0>         equals                                                                                  { makeToken TknBoolEqual }
 <0>         differentiates                                                                          { makeToken TknBoolNotEqual }
 
+<0>         joined(@ws)by                                                                           { makeToken TknPlus' }
+<0>         left(@ws)by                                                                             { makeToken TknMinus' }
+<0>         combined(@ws)forces(@ws)with                                                            { makeToken TknMult' }
+<0>         cut(@ws)into(@ws)pieces(@ws)by                                                          { makeToken TknDivide' }
+<0>         turncloak                                                                               { makeToken TknNegate' }
+<0>         stripped(@ws)of(@ws)his(@ws)dignity(@ws)by                                              { makeToken TknMod' }
+<0>         similar(@ws)to(@ws)                                                                     { makeToken TknEqual' }
+<0>         different(@ws)from(@ws)                                                                 { makeToken TknNotEqual' }
+<0>         bested(@ws)by(@ws)                                                                      { makeToken TknLessThan' }
+<0>         defeating(@ws)                                                                          { makeToken TknGreaterThan' }
+<0>         almost(@ws)bested(@ws)by(@ws)                                                           { makeToken TknLessEqThan' }
+<0>         almost(@ws)defeating(@ws)                                                               { makeToken TknGreaterEqThan' }
+-- ##
+
 --          Composite Types Operators
 <0>         subject(@ws)of                                                                          { makeToken TknStructField }
 <0>         Is                                                                                      { makeToken TknBeginUnionQuestion }
@@ -116,6 +130,12 @@ tokens :-
 <0>         marries(@ws)a                                                                           { makeToken TknPtr }
 <0>         Spouse(@ws)of                                                                           { makeToken TknDereference } 
 <0>         forsakes(@ws)marriage                                                                   { makeToken TknFree }
+
+<0>         looking(@ws)in(@ws)the(@ws)mirror(@ws)at                                                { makeToken TknUnionQuery }
+<0>         Wight                                                                                   { makeToken TknBeginTupleIndex' }
+
+-- Type conversion
+<0>         adopted(@ws)by(@ws)House                                                                { makeToken TknCoerce }
 
 --          Exit Statement
 <0>         The(@ws)book                                                                            { makeToken TknBeginExit }
