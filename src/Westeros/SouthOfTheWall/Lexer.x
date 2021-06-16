@@ -39,13 +39,15 @@ tokens :-
 
 --          Program Start
 <0>         A\ Song\ of\ Ice\ and\ Fire\:                                                           { makeToken TknProgramStart }
-<0>         \-\-\ ([A-Z][a-z]*\ )+\-\-                                                              { makeToken TknProgramName } 
+<0>         \-\-\ [A-Z][a-z]*([ ][A-Z][a-z]*)* \-\-                                                 { makeToken TknProgramName } 
 
 --          Type Declaration
-<0>         Lord                                                                                    { makeToken TknVar }
-<0>         Lady                                                                                    { makeToken TknVar }
-<0>         Knight                                                                                  { makeToken TknConst }
+<0>         Lord                                                                                    { makeToken TknConst }
+<0>         Lady                                                                                    { makeToken TknConst }
+<0>         Knight                                                                                  { makeToken TknVar }
+<0>         Wildling                                                                                { makeToken TknVarPointer }
 <0>         of(@ws)House                                                                            { makeToken TknType }
+<0>         hosts(@ws)a(@ws)feast(@ws)for                                                           { makeToken TknConstValue }
 <0>         House                                                                                   { makeToken TknBeginAlias }
 <0>         comes(@ws)from(@ws)the(@ws)old(@ws)lineage(@ws)of                                       { makeToken TknStrongAlias }
 <0>         are(@ws)the(@ws)dogs(@ws)of                                                             { makeToken TknWeakAlias }
@@ -55,31 +57,37 @@ tokens :-
 <0>         Freyt                                                                                   { makeToken TknFloat }
 <0>         Boolton                                                                                 { makeToken TknTrilean }
 <0>         Starkhar                                                                                { makeToken TknChar }
+<0>         Barathom                                                                                { makeToken TknAtom }
+<0>         No(@ws)one                                                                              { makeToken TknVoid }
 
 --          Literals 
-<0>         blood                                                                                   { makeToken TknTrue }
-<0>         gold                                                                                    { makeToken TknNeutral }
-<0>         love                                                                                    { makeToken TknFalse }
+<0>         True(@ws)Heir                                                                           { makeToken TknTrue }
+<0>         Usurper                                                                                 { makeToken TknFalse }
 <0>         $digits+(@ws)soldiers                                                                   { makeToken TknIntLit }
-<0>         $digits+\.$digits+(@ws)sons                                                             { makeToken TknFloatLit }
+<0>         $digits+\.$digits+(@ws)descendants                                                      { makeToken TknFloatLit }
 <0>         Hodor(@ws)\'(@scapedchars)\'                                                            { makeToken TknCharLit }
 <0>         Hodor(@ws)\'$printable\'                                                                { makeToken TknCharLit }
 <0>         Hodor(@ws)\'(@linebreaks)\'                                                             { invalidBreak }
 <0>         Hodor(@ws)\'.\'                                                                         { invalidCharacter }
+<0>         army(@ws)formation(@ws)of                                                               { makeToken TknBeginArrayLit }
+<0>         aligned(@ws)together                                                                    { makeToken TknEndArrayLit }
+<0>         Rickon                                                                                  { makeToken TknNull }
 
 --          Composite Types
-<0>         Former                                                                                  { makeToken TknBeginCompType }
-<0>         now                                                                                     { makeToken TknEndIDCompType }
-<0>         King(@ws)of                                                                             { makeToken TknStruct }
-<0>         Faceless(@ws)Man(@ws)holding(@ws)faces(@ws)of                                           { makeToken TknUnion }
-<0>         Lord(@ws)Commander(@ws)of                                                               { makeToken TknArray }
+<0>         Former                                                                                  { makeToken TknBeginCompTypeId }
+<0>         now                                                                                     { makeToken TknEndCompTypeId }
+<0>         Lord(@ws)Commander(@ws)of                                                               { makeToken TknBeginArray }
+<0>         bannermen                                                                               { makeToken TknEndArray }
 <0>         Hand(@ws)of(@ws)the(@ws)King                                                            { makeToken TknString }
-<0>         Spearwife(@ws)of                                                                        { makeToken TknPointer }
-<0>         White(@ws)Walker(@ws)with(@ws)deads(@ws)from(@ws)Houses                                 { makeToken TknTuple }
-<0>         bannermen(@ws)holding                                                                   { makeToken TknArraySize }
-<0>         ruling(@ws)over                                                                         { makeToken TknStringSize }
-<0>         bannermen(@ws)holding:                                                                  { makeToken TknArrayDecl }
-<0>         ruling(@ws)with(@ws)Grand                                                               { makeToken TknStringDecl }
+<0>         leading                                                                                 { makeToken TknBeginSizes }
+<0>         to(@ws)their(@ws)deaths                                                                 { makeToken TknEndSizes }
+<0>         King(@ws)of(@ws)whom                                                                    { makeToken TknBeginStruct }
+<0>         have(@ws)bent(@ws)their(@ws)knees                                                       { makeToken TknEndStruct }
+<0>         Faceless(@ws)Man(@ws)who(@ws)stole                                                      { makeToken TknBeginUnion }
+<0>         their(@ws)faces                                                                         { makeToken TknEndUnion }
+<0>         Spearwife(@ws)of                                                                        { makeToken TknPointerType }
+<0>         White(@ws)Walker(@ws)possesing                                                          { makeToken TknBeginTuple }
+<0>         wights                                                                                  { makeToken TknEndTuple }
 
 --          Operators
 <0>         takes                                                                                   { makeToken TknAssign }
@@ -130,28 +138,26 @@ tokens :-
 
 --          Procedures definition
 <0>         Table\ of\ Contents\:                                                                   { makeToken TknBeginFuncDecl }
-<0>         \-                                                                                      { makeToken TknListFunction }
-<0>         Prologue                                                                                { makeToken TknFirstMain }
-<0>         Epilogue                                                                                { makeToken TknLastMain }
-<0>         Hereby(@ws)I(@ws)introduce(@ws)the                                                      { makeToken TknFunctionParams }
-<0>         I(@ws)must(@ws)warn(@ws)you                                                             { makeToken TknBeginReturnVals }
-<0>         is(@ws)coming                                                                           { makeToken TknEndReturnVals }
+<0>         \-                                                                                      { makeToken TknFunctionItem }
+<0>         Prologue                                                                                { makeToken TknGlobalDec }
+<0>         Epilogue                                                                                { makeToken TknMain }
+<0>         watches                                                                                 { makeToken TknBeginFunctionParams }
+<0>         approach(@ws)from(@ws)a(@ws)distance(@ws);                                              { makeToken TknEndFunctionParams }
+<0>         I(@ws)must(@ws)warn(@ws)you(@ws),                                                       { makeToken TknBeginReturnVals }
+<0>         is(@ws)coming(@ws)\.                                                                    { makeToken TknEndReturnVals }
 <0>         Dracarys                                                                                { makeToken TknReturnOpen }
 <0>         !                                                                                       { makeToken TknReturnClose }
 <0>         Valued                                                                                  { makeToken TknValueArg }
 <0>         Honorable                                                                               { makeToken TknReferenceArg }
 
 --          Blocks
-<0>         Valar(@ws)Morghules                                                                     { makeToken TknOpenBlock }
-<0>         Valar(@ws)Dohaeres                                                                      { makeToken TknCloseBlock }
+<0>         Valar(@ws)Morghules(@ws)\.                                                              { makeToken TknOpenBlock }
+<0>         Valar(@ws)Dohaeres(ws)\.                                                                { makeToken TknCloseBlock }
 
 --          Procedures call
 <0>         traveling                                                                               { makeToken TknProcCallOpen }
 <0>         alongside                                                                               { makeToken TknProcCallArgs }
 <0>         with(@ws)caution                                                                        { makeToken TknProcCallClose }
-
---          Unclassified
-<0>         Nobody                                                                                  { makeToken TknVoid }
 
 --          Determinate repetition
 <0>         The(@ws)things(@ws)I(@ws)do(@ws)for                                                     { makeToken TknFor }
@@ -180,6 +186,9 @@ tokens :-
 <0>         M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{1,3})(IX|IV|V?I{0,3})                                  { makeToken TknArgNumber }
 <0>         M{0,4}(CM|CD|D?C{1,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})                                  { makeToken TknArgNumber }
 <0>         M{1,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})                                  { makeToken TknArgNumber }
+
+--          Appendix
+<0>         Appendix:                                                                               { makeToken TknAliasDec }
 
 --          Dot, Comma 
 <0>         \,                                                                                      { makeToken TknComma }
@@ -331,8 +340,8 @@ scanTokens str =
 
 postProcess :: Token -> Token 
 postProcess (Token TknCharLit s _ p) = Token TknCharLit s (processCharLit s) p
-postProcess (Token TknStringLit s _ p) = Token TknCharLit s (processStringLit s) p
-postProcess (Token TknIntLit s _ p) = Token TknCharLit s (processIntLit s) p
+postProcess (Token TknStringLit s _ p) = Token TknStringLit s (processStringLit s) p
+postProcess (Token TknIntLit s _ p) = Token TknIntLit s (processIntLit s) p
 postProcess tkn = tkn
 
 processCharLit :: String -> String 
@@ -346,8 +355,9 @@ processStringLit :: String -> String
 processStringLit str = init $ tail $ dropWhile (/= '\"') str
 
 processIntLit :: String -> String 
-processIntLit = filter isDigit 
+processIntLit = filter (\x -> isDigit x || x == '-')
 
 processFloatLit :: String -> String 
-processFloatLit = filter (\x -> isDigit x || x == '.')
+processFloatLit = filter (\x -> isDigit x || x == '.' || x == '-')
+
 }
