@@ -55,7 +55,7 @@ en lugar de la lista de argumentos y en caso de no retornar
 ningun valor se coloca `No One` en lugar de la lista
 de tipos de retorno.
 
-# Invocación
+## Invocación
 
 Para invocar subrutinas se utiliza la siguiente sintáxis:
 ```
@@ -76,3 +76,27 @@ sintáxis
 No One fights against <invocación>
 ```
 donde *invocación* es una invocacón a la subrutina.
+
+## Subrutinas especiales
+
+El lenguaje posee dos subrutinas especiales, `Prologue` y `Epilogue`.
+
+### Prologue 
+
+Esta es un espacio reservado para realizar únicamente declaraciones de 
+alcance global en el programa. Cualquiera de las constantes o variables 
+declaradas en este scope podrán ser utilizadas en cualquier otro lugar del 
+código. 
+
+No debe recibir ningún parámetro ni retornar ningún valor. De la misma
+manera, la subrutina no pude ser llamada en ningún espacio del programa. Las
+declaraciones se ejecutarán antes del epilogo y justo después de las
+declaraciones de aliaces de tipos realizadas en el apéndice. Puede consistir
+en un bloque vacío.
+
+### Epilogue
+
+Esta es la función principal de cada programa. Consite en el punto donde se inicia
+la ejecución del programa al terminar las declaraciones del prólogo y la declaración 
+de aliases de tipo en el apéndice (en caso de existir alguna). No debe recibir
+argumentos y tampoco debe retornar valores.
