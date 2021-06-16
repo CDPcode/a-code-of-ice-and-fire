@@ -133,7 +133,7 @@ tokens :-
 <0>         We(@ws)must(@ws)send(@ws)a(@ws)raven(@ws)with(@ws)everything(@ws)we(@ws)know(@ws)of(@ws)    { makeToken TknPrint }
 
 --          Empty Statement
-<0>         The(@ws)Three\-Eyed(@ws)Raven(@ws)watches(@ws)from(@ws)afar                                  { makeToken TknPass }
+<0>         The(@ws)Three\-Eyed(@ws)Raven(@ws)watches(@ws)from(@ws)afar                                 { makeToken TknPass }
 
 --          Procedures definition
 <0>         Table\ of\ Contents\:                                                                       { makeToken TknBeginFuncDecl }
@@ -141,8 +141,8 @@ tokens :-
 <0>         Prologue                                                                                    { makeToken TknGlobalDec }
 <0>         Epilogue                                                                                    { makeToken TknMain }
 <0>         watches                                                                                     { makeToken TknBeginFunctionParams }
-<0>         approach(@ws)from(@ws)a(@ws)distance(@ws);(@ws)                                             { makeToken TknEndFunctionParams }
-<0>         I(@ws)must(@ws)warn(@ws)you(@ws)\,(@ws)                                                     { makeToken TknBeginReturnVals }
+<0>         approach(@ws)from(@ws)a(@ws)distance($white*)\;(@ws)                                        { makeToken TknEndFunctionParams }
+<0>         I(@ws)must(@ws)warn(@ws)you($white*)\,(@ws)                                                 { makeToken TknBeginReturnVals }
 <0>         is(@ws)coming(@ws)\.                                                                        { makeToken TknEndReturnVals }
 <0>         Dracarys                                                                                    { makeToken TknReturnOpen }
 <0>         !                                                                                           { makeToken TknReturnClose }
@@ -150,8 +150,8 @@ tokens :-
 <0>         Honorable                                                                                   { makeToken TknReferenceArg }
 
 --          Blocks
-<0>         Valar(@ws)Morghulis\.                                                                  { makeToken TknOpenBlock }
-<0>         Valar(@ws)Dohaeris\.                                                                    { makeToken TknCloseBlock }
+<0>         Valar(@ws)Morghulis\.                                                                       { makeToken TknOpenBlock }
+<0>         Valar(@ws)Dohaeris\.                                                                        { makeToken TknCloseBlock }
 
 --          Procedures call
 <0>         traveling(@ws)                                                                              { makeToken TknProcCallOpen }
@@ -175,7 +175,7 @@ tokens :-
 
 --          Simple Selection
 <0>         If                                                                                          { makeToken TknBeginSimpleSelection }
-<0>         may(@ws)be(@ws)the(@ws)True(@ws)King(@ws)of(@ws)the(@ws)Seven(@ws)Kingdoms\,(@ws)then(@ws)   { makeToken TknSimpleSelectionDecorator }
+<0>         may(@ws)be(@ws)the(@ws)True(@ws)King(@ws)of(@ws)the(@ws)Seven(@ws)Kingdoms\,(@ws)then(@ws)  { makeToken TknSimpleSelectionDecorator }
 <0>         Otherwise                                                                                   { makeToken TknElse }
 <0>         And(@ws)so(@ws)our(@ws)fate(@ws)rests(@ws)upon(@ws)this(@ws)decision                        { makeToken TknEndSimpleSelection }
 
@@ -197,7 +197,7 @@ tokens :-
 <0>         [a-z]+                                                                                      { makeToken TknAtomLit }
 
 --          Appendix
-<0>         Appendix:                                                                                   { makeToken TknAliasDec }
+<0>         Appendix\:                                                                                  { makeToken TknAliasDec }
 
 --          Dot, Comma
 <0>         \,                                                                                          { makeToken TknComma }
@@ -209,7 +209,7 @@ tokens :-
 <0>         «                                                                                           { makeToken TknOpenParenthesis }
 <0>         »                                                                                           { makeToken TknCloseParenthesis }
 
-<0>         [^\ \t\n\f\v\r]+                                                                            { invalidWord }
+<0>         [A-Za-z]+                                                                                   { invalidWord }
 <0>         .                                                                                           { invalidCharacter }
 
 -- Lexer and wrapper function definitions
