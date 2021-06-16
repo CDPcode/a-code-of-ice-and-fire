@@ -122,7 +122,7 @@ es:
 
 ```
 The things I do for <id> of House Lanninteger.
-I would kill from <inicial> up until <final>.
+I would kill from <inicial> up to <final>.
     <code>
 That, and much more I would to get her love.
 ```
