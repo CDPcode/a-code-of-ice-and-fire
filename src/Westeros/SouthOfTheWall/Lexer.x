@@ -162,7 +162,7 @@ tokens :-
 <0>         The(@ws)things(@ws)I(@ws)do(@ws)for(@ws)                                                    { makeToken TknFor }
 <0>         I(@ws)would(@ws)kill(@ws)from(@ws)                                                          { makeToken TknForLB }
 <0>         up(@ws)to(@ws)                                                                              { makeToken TknForUB }
-<0>         That,(@ws)and(@ws)much(@ws)more(@ws)I(@ws)would(@ws)do(ws)to(@ws)get(@ws)her(@ws)love       { makeToken TknEndFor }
+<0>         That\,(@ws)and(@ws)much(@ws)more(@ws)I(@ws)would(@ws)do(ws)to(@ws)get(@ws)her(@ws)love       { makeToken TknEndFor }
 
 --          Undeterminate repetition
 <0>         While(@ws)                                                                                  { makeToken TknWhile }
@@ -175,7 +175,7 @@ tokens :-
 
 --          Simple Selection
 <0>         If                                                                                          { makeToken TknBeginSimpleSelection }
-<0>         may(@ws)be(@ws)the(@ws)True(@ws)King(@ws)of(@ws)the(@ws)Seven(@ws)Kingdoms,(@ws)then(@ws)   { makeToken TknSimpleSelectionDecorator }
+<0>         may(@ws)be(@ws)the(@ws)True(@ws)King(@ws)of(@ws)the(@ws)Seven(@ws)Kingdoms\,(@ws)then(@ws)   { makeToken TknSimpleSelectionDecorator }
 <0>         Otherwise                                                                                   { makeToken TknElse }
 <0>         And(@ws)so(@ws)our(@ws)fate(@ws)rests(@ws)upon(@ws)this(@ws)decision                        { makeToken TknEndSimpleSelection }
 

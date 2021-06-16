@@ -25,99 +25,107 @@ data Token = Token
     deriving Show
 
 data AbstractToken = 
-    TknComment
-    | TknString 
-
-    -- Type tokens
-    | TknProgramStart
-    | TknProgramName
-    | TknVar
-    | TknConst
+    -- Type Declaration
+    TknVar     
+    | TknConst 
+    | TknVarPointer
     | TknType
+    | TknConstValue
     | TknBeginAlias
     | TknStrongAlias
     | TknWeakAlias
+
+    -- Simple Types
     | TknInt
-    | TknIntLit
     | TknFloat
-    | TknFloatLit
     | TknTrilean
-    | TknTrue
-    | TknNeutral
-    | TknFalse
     | TknChar
+    | TknAtom
+    | TknVoid
+    
+    -- Literals
+    | TknTrue
+    | TknFalse
+    | TknIntLit
+    | TknFloatLit
     | TknCharLit
-    | TknBeginCompType
-    | TknEndIDCompType
-    | TknStruct
-    | TknUnion
-    | TknArray
-    | TknStringLit
-    | TknPointer
-    | TknArraySize
-    | TknStringSize
-    | TknArrayDecl
-    | TknStringDecl
-    | TknTuple
+    | TknBeginArrayLit
+    | TknEndArrayLit
+    | TknBeginTupleLit
+    | TknEndTupleLit
+    | TknNull
+    | TknNaturalLit
 
-    -- Assignment tokens
+    -- Composite Types
+    | TknBeginCompTypeId
+    | TknEndCompTypeId
+    | TknBeginArray
+    | TknEndArray
+    | TknString
+    | TknBeginSizes
+    | TknEndSizes
+    | TknBeginStruct
+    | TknEndStruct
+    | TknBeginUnion
+    | TknEndUnion
+    | TknPointerType
+    | TknBeginTuple
+    | TknEndTuple
+
+    -- Type conversion
+    | TknCast
+
+    -- Operators
     | TknAssign
-    | TknBeginMultAssign
-    | TknEndMultAssign
-    | TknTupleAsign
-
-    -- Operators tokens
-    | TknMinus
+    | TknTupleAssign
     | TknPlus
+    | TknMinus
     | TknMult
     | TknDivide
-    | TknMod
     | TknNegate
+    | TknMod
+    | TknAnd
+    | TknOr
     | TknEqual
     | TknNotEqual
     | TknLessThan
     | TknGreaterThan
     | TknLessEqThan
     | TknGreaterEqThan
-    | TknBeginExit
-    | TknEndExit
-    | TknNot
-    | TknAnd
-    | TknOr
-    | TknBoolEqual
-    | TknBoolNotEqual
 
-    -- Composite Types Operators
+    -- Composite types operators
     | TknStructField
-    | TknBeginUnionQuestion
-    | TknUnionQuestion
-    | TknEndUnionQuestion
+    | TknUnionQuery
     | TknUnionField
     | TknBeginIndex
-    | TknBeginTupleIndex
     | TknEndIndex
-    | TknPtr 
+    | TknTupleSelect
+    | TknPtr
     | TknDereference
-    | TknFree 
+    | TknFree
 
-    -- IO tokens
+    -- Exit Statement
+    | TknBeginExit
+    | TknEndExit
+
+    -- IO
     | TknRead
     | TknPrint
 
-    -- Procedure Tokens
+    -- Empty Statement
+    | TknPass
+
+    -- Procedures definition
     | TknBeginFuncDecl
-    | TknListFunction
-    | TknFirstMain
-    | TknLastMain
-    | TknPass -- OJO
-    | TknFunctionParams
+    | TknFunctionItem
+    | TknGlobalDec
+    | TknMain
+    | TknBeginFunctionParams
+    | TknEndFunctionParams 
     | TknBeginReturnVals
     | TknEndReturnVals
     | TknReturnOpen
     | TknReturnClose
-    | TknProcCallOpen
-    | TknProcCallArgs
-    | TknProcCallClose
     | TknValueArg
     | TknReferenceArg
 
@@ -125,34 +133,54 @@ data AbstractToken =
     | TknOpenBlock
     | TknCloseBlock
 
-    | TknVoid
+    -- Procedure Call
+    | TknProcCallOpen
+    | TknProcCallArgs
+    | TknProcCallClose
 
-    -- Repetition Tokens
+    -- Determinate Repetition
     | TknFor
     | TknForLB
     | TknForUB
-    | TknWhile
-    | TknWhileDecoration
-    | TknContinue
-    | TknBreak 
+    | TknEndFor
 
-    -- Selection Tokens
-    | TknBeginSelection
-    | TknSelectionDecorator
-    | TknTrueBranch
-    | TknUnknownBranch
-    | TknFalseBranch 
-    | TknEndSelection
+    -- Undeterminate Repetition
+    | TknWhile
+    | TknWhileDecorator
+    | TknWhileEn
+
+    -- Non-Structured flow
+    | TknContinue
+    | TknBreak
+
+    -- Simple Selection
+    | TknBeginSimpleSelection
+    | TknSimpleSelectionDecorator
+    | TknElse
+    | TknEndSimpleSelection
+
+    -- Multiple Selection
+    | TknBeginMultipleSelection
+    | TknMultipleSelectionDecorator
+    | TknBranch
+    | TknEndMultipleSelection
 
     -- Identifiers
     | TknID
     | TknArgNumber
 
-    -- Punctuation
+    -- Atoms
+    | TknNothing
+    | TknAtomLit
+
+    -- Appendix
+    | TknAliasDec
+
+    -- Dot, Comman
     | TknComma
     | TknDot
-    
-    -- Expressions
+
+    -- Miscelaneous symbols
     | TknOpenParenthesis
     | TknCloseParenthesis
-    deriving Show
+   deriving Show
