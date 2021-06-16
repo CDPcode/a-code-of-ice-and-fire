@@ -19,3 +19,12 @@ White Walker possessing
     Lanninteger
 wights
 ```
+
+## Literales
+
+Para especificar tuplas literales, se tiene la
+siguiente sintaxis
+
+```
+The dead bodies of <val_1>, ..., <val_n> coming from beyond the Wall
+```

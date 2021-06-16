@@ -62,6 +62,20 @@ Son operadores con cortocircuito.
 * `and (&&)`
 * `or (||)`
 
+## Operador de derreferenciación
+
+Para derreferenciar un apuntador, se utiliza la siguiente
+sintáxis:
+```
+Spouse of <pointer>
+```
+donde *pointer* es una expresión de tipo apuntador
+con r-value. El resultado de esta expresión
+tiene l-value. Se arrojará un error si *pointer*
+evalúa al apuntador nulo. El operador
+de derreferencia tiene mayor precedencia que todos
+los demas operadores.
+
 ## Operadores de indexación
 
 ### Sobre arreglos y strings

@@ -108,6 +108,34 @@ con cualquier átomo. Es decir, una vez qeu se llegue al
 bloque `Once for nothing.` se ejecutará dicho bloque. Se
 recomienda ponerlo al final.
 
+## Memoria
+
+### Alocación
+
+Para reservar un espacio de memoria se debe tener
+un apuntador, y se reservará la cantidad de memoria
+que ocupa el tipo apuntado. La sintaxis de la
+instrucción de alocación es la siguiente
+
+```
+<pointer> marries.
+```
+donde *pointer* es una expresión de tipo apuntador
+con l-value. En caso de que el apuntador ya apunte
+a algo antes de llamar esta instrucción, entonces
+es equivialente a un No-Op.
+
+### Liberación
+
+La sintaxis para liberar memoria es la siguiente:
+```
+<pointer> becomes widowed.
+```
+donde *pointer* es una expresión de tipo apuntador
+con l-value. Despues de la operación *pointer* tomará
+el valor del apuntador nulo. Si ya evaluaba al
+apuntador nulo, es equivalente a un No-Op.
+
 ## Repetición
 
 ### Determinada
