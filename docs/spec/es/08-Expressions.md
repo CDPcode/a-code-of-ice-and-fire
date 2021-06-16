@@ -13,7 +13,7 @@ son
 
 * `joined by (+)`
 * `left by (-)`
-* `? (*)`
+* `combined forces with (*)`
 * `cut into pieces by (/)`
 * `turncloak (- unario)`
 
