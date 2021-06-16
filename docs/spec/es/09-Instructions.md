@@ -70,7 +70,7 @@ donde *r-value* es una expresión con r-value.
 Para tener selección simple (if-else) se utiliza la siguiente
 sintáxis:
 ```
-if <cond> may be the True King of the Seven Kingdoms, then
+If <cond> may be the True King of the Seven Kingdoms, then
     <if-block>
 [Otherwise, <else-block>]
 And so our fate rests upon this decision.
