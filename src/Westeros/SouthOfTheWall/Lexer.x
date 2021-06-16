@@ -39,7 +39,7 @@ tokens :-
 
 --          Program Start
 <0>         A\ Song\ of\ Ice\ and\ Fire\:                                                               { makeToken TknProgramStart }
-<0>         \-\-\ [A-Z][a-z]*([ ][A-Z][a-z]*)* \-\-                                                     { makeToken TknProgramName }
+<0>         \-\-\ [A-Z][a-z]*(\ [A-Z][a-z]*)*\ \-\-                                                     { makeToken TknProgramName }
 
 --          Type Declaration
 <0>         Lord(@ws)                                                                                   { makeToken TknVar }
@@ -150,8 +150,8 @@ tokens :-
 <0>         Honorable                                                                                   { makeToken TknReferenceArg }
 
 --          Blocks
-<0>         Valar(@ws)Morghules(@ws)\.                                                                  { makeToken TknOpenBlock }
-<0>         Valar(@ws)Dohaeres(ws)\.                                                                    { makeToken TknCloseBlock }
+<0>         Valar(@ws)Morghulis\.                                                                  { makeToken TknOpenBlock }
+<0>         Valar(@ws)Dohaeris\.                                                                    { makeToken TknCloseBlock }
 
 --          Procedures call
 <0>         traveling(@ws)                                                                              { makeToken TknProcCallOpen }

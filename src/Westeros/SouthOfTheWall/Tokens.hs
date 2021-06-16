@@ -25,8 +25,12 @@ data Token = Token
     deriving Show
 
 data AbstractToken = 
+    -- Program Start
+    TknProgramStart   
+    | TknProgramName 
+
     -- Type Declaration
-    TknVar     
+    | TknVar     
     | TknConst 
     | TknVarPointer
     | TknType
@@ -71,6 +75,7 @@ data AbstractToken =
     | TknPointerType
     | TknBeginTuple
     | TknEndTuple
+    | TknStringLit
 
     -- Type conversion
     | TknCast
@@ -147,7 +152,7 @@ data AbstractToken =
     -- Undeterminate Repetition
     | TknWhile
     | TknWhileDecorator
-    | TknWhileEn
+    | TknWhileEnd
 
     -- Non-Structured flow
     | TknContinue
@@ -183,4 +188,7 @@ data AbstractToken =
     -- Miscelaneous symbols
     | TknOpenParenthesis
     | TknCloseParenthesis
+
+    -- Comments
+    | TknComment
    deriving Show
