@@ -1,7 +1,7 @@
 # Constantes
 
-En el lenguaje se pueden declarar constantes con las
-palabras clave `Lady` y `Lord`. Es indistinto cuál
+En el lenguaje se pueden declarar constantes con la
+palabra clave `Knight`. Es indistinto cuál
 de las dos palabras se use, pero se busca que el
 desarrollador haga coincidir la palabra clave
 con el género del nombre propio usado como
@@ -10,7 +10,7 @@ asignar un valor al momento de ser declarardas.
 
 La sintaxis para declarar constantes es la siguiente
 ```
-<Lord|Lady> <id> of House <tipo> hosts a feast for <valor>.
+Knight <id> of House <tipo> hosts a feast for <valor>.
 ```
 donde *id* es un identificador válido, *tipo* es un tipo
 primitivo o un alias válido y *valor* es una expresión
@@ -19,7 +19,7 @@ que evalúa al tipo *tipo*.
 Para los tipos compuestos, la sintaxis es ligeramente
 distinta:
 ```
-Former <Lord|Lady> <id> now <tipo> hosts a feast for <valor>.
+Former Knight <id> now <tipo> hosts a feast for <valor>.
 ```
 donde *tipo* es un tipo compuesto (struct, arreglo, union,
 string o tupla).

@@ -39,12 +39,12 @@ tokens :-
 
 --          Program Start
 <0>         A\ Song\ of\ Ice\ and\ Fire\:                                                           { makeToken TknProgramStart }
-<0>         \-\-\ [A-Z][a-z]*([ ][A-Z][a-z]*)* \-\-                                                 { makeToken TknProgramName } 
+<0>         \-\-\ [A-Z][a-z]*([ ][A-Z][a-z]*)* \-\-                                                 { makeToken TknProgramName }
 
 --          Type Declaration
-<0>         Lord                                                                                    { makeToken TknConst }
-<0>         Lady                                                                                    { makeToken TknConst }
-<0>         Knight                                                                                  { makeToken TknVar }
+<0>         Lord                                                                                    { makeToken TknVar }
+<0>         Lady                                                                                    { makeToken TknVar }
+<0>         Knight                                                                                  { makeToken TknConst }
 <0>         Wildling                                                                                { makeToken TknVarPointer }
 <0>         of(@ws)House                                                                            { makeToken TknType }
 <0>         hosts(@ws)a(@ws)feast(@ws)for                                                           { makeToken TknConstValue }
@@ -60,7 +60,7 @@ tokens :-
 <0>         Barathom                                                                                { makeToken TknAtom }
 <0>         No(@ws)one                                                                              { makeToken TknVoid }
 
---          Literals 
+--          Literals
 <0>         True(@ws)Heir                                                                           { makeToken TknTrue }
 <0>         Usurper                                                                                 { makeToken TknFalse }
 <0>         $digits+(@ws)soldiers                                                                   { makeToken TknIntLit }
@@ -118,7 +118,7 @@ tokens :-
 <0>         under(@ws)command(@ws)of                                                                { makeToken TknEndIndex }
 <0>         Wight(@ws)[0-9]+                                                                        { makeToken TknTupleSelect }
 <0>         marries(@ws)a                                                                           { makeToken TknPtr }
-<0>         Spouse(@ws)of                                                                           { makeToken TknDereference } 
+<0>         Spouse(@ws)of                                                                           { makeToken TknDereference }
 <0>         forsakes(@ws)marriage                                                                   { makeToken TknFree }
 
 --          Exit Statement
@@ -168,12 +168,12 @@ tokens :-
 
 --          Non-structured flow
 <0>         What(@ws)is(@ws)dead(@ws)may(@ws)never(@ws)die                                          { makeToken TknContinue }
-<0>         This(@ws)is(@ws)the(@ws)doom(@ws)of(@ws)Valyria                                         { makeToken TknBreak } 
+<0>         This(@ws)is(@ws)the(@ws)doom(@ws)of(@ws)Valyria                                         { makeToken TknBreak }
 
 --          Simple Selection
-<0>         if                                                                                      { makeToken TknBeginSimpleSelection } 
+<0>         if                                                                                      { makeToken TknBeginSimpleSelection }
 <0>         may(@ws)be(@ws)the(@ws)True(@ws)King(@ws)of(@ws)the(@ws)Seven(@ws)Kingdoms,(@ws)then    { makeToken TknSimpleSelectionDecorator }
-<0>         Otherwise                                                                               { makeToken TknElse } 
+<0>         Otherwise                                                                               { makeToken TknElse }
 <0>         And(@ws)so(@ws)our(@ws)fate(@ws)rests(@ws)upon(@ws)this(@ws)decision                    { makeToken TknSimpleSelectionEnd }
 
 --          Multiple Selection
@@ -192,7 +192,7 @@ tokens :-
 --          Appendix
 <0>         Appendix:                                                                               { makeToken TknAliasDec }
 
---          Dot, Comma 
+--          Dot, Comma
 <0>         \,                                                                                      { makeToken TknComma }
 <0>         \.                                                                                      { makeToken TknDot }
 
@@ -224,9 +224,9 @@ alexInitUserState = LexerState {
 alexEOF :: Alex AlexUserState
 alexEOF = do
     ust <- getUserState
-    case lexerString ust of 
+    case lexerString ust of
         [] -> return ust
-        _ -> do 
+        _ -> do
             addErrorToState $ Error "Unclosed string at EOF."
             getUserState
 
@@ -271,26 +271,26 @@ makeCommentToken (AlexPn _ r c, _, _, _) _ = do
     alexMonadScan
 
 invalidBreak :: AlexAction AlexUserState
-invalidBreak (AlexPn _ r c, _, _, _) _ = do 
+invalidBreak (AlexPn _ r c, _, _, _) _ = do
     addErrorToState $ Error $ "Invalid break at line " ++ show r ++ " column " ++ show c
     alexMonadScan
 
 invalidCharacter, invalidWord :: AlexAction AlexUserState
-invalidCharacter (AlexPn _ r c, _, _, _) _ = do 
+invalidCharacter (AlexPn _ r c, _, _, _) _ = do
     addErrorToState $ Error $ "Unexpected character at line " ++ show r ++ " column " ++ show c
     alexMonadScan
 
-invalidWord (AlexPn _ r c, _, _, _) _ = do 
+invalidWord (AlexPn _ r c, _, _, _) _ = do
     addErrorToState $ Error $ "Unexpected word at line " ++ show r ++ " column " ++ show c
     alexMonadScan
 
 pushToString :: AlexAction AlexUserState
-pushToString (_, _, _, str) len = do 
+pushToString (_, _, _, str) len = do
     let str' = reverse $ take len str
     addStringToState str'
     alexMonadScan
 
-mapScaped :: Char -> String 
+mapScaped :: Char -> String
 mapScaped 'n' = "\n"
 mapScaped 't' = "\t"
 mapScaped '\'' = "\'"
@@ -302,12 +302,12 @@ pushScapedToString (_, _, _, str) len = do
     let str' = take len str
     addStringToState $ mapScaped $ last str'
     alexMonadScan
-    
+
 addTokenToState :: Token -> Alex ()
 addTokenToState tk = Alex $ \s@AlexState{alex_ust=ust}
     -> Right (s{
         alex_ust = ust{
-            lexerTokens = tk : lexerTokens ust 
+            lexerTokens = tk : lexerTokens ust
         }
     }, ())
 
@@ -315,7 +315,7 @@ addErrorToState :: Error -> Alex ()
 addErrorToState err = Alex $ \s@AlexState{alex_ust=ust}
     -> Right (s{
         alex_ust = ust{
-            lexerErrors = err : lexerErrors ust 
+            lexerErrors = err : lexerErrors ust
         }
     }, ())
 
@@ -332,35 +332,35 @@ addStringToState str = Alex $ \s@AlexState{alex_ust=ust}
     -> Right (s{ alex_ust = ust{ lexerString = str ++ lexerString ust } }, ())
 
 scanTokens :: String -> Either [Error] [Token]
-scanTokens str = 
+scanTokens str =
     case runAlex str alexMonadScan of
         Left err -> Left [Error $ "Alex error: " ++ show err]
-        Right ust -> 
-            case lexerErrors ust of 
+        Right ust ->
+            case lexerErrors ust of
                 [] -> Right $ reverse $ map postProcess $ lexerTokens ust
                 _ -> Left $ reverse $ lexerErrors ust
 
-postProcess :: Token -> Token 
+postProcess :: Token -> Token
 postProcess (Token TknCharLit s _ p) = Token TknCharLit s (processCharLit s) p
 postProcess (Token TknStringLit s _ p) = Token TknStringLit s (processStringLit s) p
 postProcess (Token TknIntLit s _ p) = Token TknIntLit s (processIntLit s) p
 postProcess (Token TknTupleSelect s _ p) = Token TknTupleSelect s (processIntLit s) p
 postProcess tkn = tkn
 
-processCharLit :: String -> String 
-processCharLit str = 
+processCharLit :: String -> String
+processCharLit str =
     let str' = init $ tail $ dropWhile (/= '\'') str in
-        if head str' == '\\' 
+        if head str' == '\\'
             then mapScaped $ last str'
             else str'
 
-processStringLit :: String -> String 
+processStringLit :: String -> String
 processStringLit str = init $ tail $ dropWhile (/= '\"') str
 
-processIntLit :: String -> String 
+processIntLit :: String -> String
 processIntLit = filter (\x -> isDigit x || x == '-')
 
-processFloatLit :: String -> String 
+processFloatLit :: String -> String
 processFloatLit = filter (\x -> isDigit x || x == '.' || x == '-')
 
 }
