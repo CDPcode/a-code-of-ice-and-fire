@@ -14,7 +14,7 @@ donde *dimensiones* es un número natural `[0-9]+`
 representando el número de dimensiones del arreglo y
 *tipo* es un identificador de tipo válido.
 
-Para especificar los tipos de las dimensiones se utiliza
+Para especificar los tamaños de las dimensiones se utiliza
 la siguiente sintaxis
 `leading <tam_1>, ..., <tam_n> to their deaths`
 donde *tam_i* son expresiones enteras especificando el
