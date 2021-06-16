@@ -158,21 +158,36 @@ tokens :-
 <0>         from                                                                                    { makeToken TknForLB }
 <0>         until                                                                                   { makeToken TknForUB }
 
+<0>         I(@ws)would(@ws)kill(@ws)from                                                           { makeToken TknForLB' }
+<0>         up to                                                                                   { makeToken TknForUB' }
+<0>         That,(@ws)and(@ws)much(@ws)more(@ws)I(@ws)would(@ws)to(@ws)get(@ws)her(@ws)love         { makeToken TknEndFor }
+-- ##
+
 --          Undeterminate repetition
 <0>         While                                                                                   { makeToken TknWhile }
 <0>         flows(@ws)down(@ws)then(@ws)river                                                       { makeToken TknWhileDecoration }
+
+<0>         reigns(@ws)truly(@ws)upon(@ws)the(@ws)land                                              { makeToken TknWhileDecorator' }
+<0>         Only(@ws)for(@ws)as(@ws)long(@ws)as(@ws)the(@ws)sovereign(@ws)lives                     { makeToken TknWhileEnd}
+-- ##
 
 --          Non-structured flow
 <0>         What(@ws)is(@ws)dead(@ws)may(@ws)never(@ws)die                                          { makeToken TknContinue }
 <0>         This(@ws)is(@ws)the(@ws)doom(@ws)of(@ws)Valyria                                         { makeToken TknBreak } 
 
---          Selection
-<0>         You(@ws)will(@ws)be(@ws)betrayed(@ws)by                                                 { makeToken TknBeginSelection }
-<0>         three(@ws)times                                                                         { makeToken TknSelectionDecorator }
-<0>         Once(@ws)for(@ws)blood                                                                  { makeToken TknTrueBranch }
-<0>         Once(@ws)for(@ws)love                                                                   { makeToken TknUnknownBranch }
-<0>         Once(@ws)for(@ws)gold                                                                   { makeToken TknFalseBranch } 
-<0>         So(@ws)the(@ws)prophecy(@ws)says                                                        { makeToken TknEndSelection }
+--          Simple Selection
+<0>         if                                                                                      { makeToken TknSimpleSelectionBegin } 
+<0>         may(@ws)be(@ws)the(@ws)True(@ws)King(@ws)of(@ws)the(@ws)Seven(@ws)Kingdoms,(@ws)then    { makeToken TknSimpleSelectionDecorator }
+<0>         Otherwise                                                                               { makeToken TknElse } 
+<0>         And(@ws)so(@ws)our(@ws)fate(@ws)rests(@ws)upon(@ws)this(@ws)decision                    { makeToken TknSimpleSelectionEnd }
+-- ##
+
+--          Multiple Selection
+<0>         You(@ws)will(@ws)be(@ws)betrayed(@ws)by                                                 { makeToken TknBeginMultipleSelection }
+<0>         several(@ws)times                                                                       { makeToken TknMultipleSelectionDecorator }
+<0>         Once(@ws)for                                                                            { makeToken TknBranch }
+<0>         So(@ws)the(@ws)prophecy(@ws)says                                                        { makeToken TknEndMultipleSelection }
+-- ##
 
 --          Identifiers
 <0>         [A-Z]([\']?[a-z]+)+                                                                     { makeToken TknID }
