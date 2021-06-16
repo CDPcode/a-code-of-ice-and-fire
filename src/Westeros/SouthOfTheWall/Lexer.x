@@ -89,62 +89,37 @@ tokens :-
 <0>         White(@ws)Walker(@ws)possesing                                                          { makeToken TknBeginTuple }
 <0>         wights                                                                                  { makeToken TknEndTuple }
 
+--          Type conversion
+<0>         adopted(@ws)by(@ws)House                                                                { makeToken TknCast }
+
 --          Operators
 <0>         takes                                                                                   { makeToken TknAssign }
-<0>         take                                                                                    { makeToken TknBeginMultAssign }
-<0>         respectively                                                                            { makeToken TknEndMultAssign }
-<0>         fight(@ws)against                                                                       { makeToken TknTupleAsign }
-<0>         without                                                                                 { makeToken TknMinus }
-<0>         with                                                                                    { makeToken TknPlus }
-<0>         times(@ws)the(@ws)power(@ws)of                                                          { makeToken TknMult }
-<0>         divided(@ws)by(@ws)the(@ws)power(@ws)of                                                 { makeToken TknDivide }
-<0>         picking(@ws)what(@ws)remains(@ws)of                                                     { makeToken TknMod }
-<0>         bastard                                                                                 { makeToken TknNegate }
-<0>         is(@ws)as(@ws)powerful(@ws)as                                                           { makeToken TknEqual }
-<0>         not(@ws)merely(@ws)powerful(@ws)as                                                      { makeToken TknNotEqual }
-<0>         is(@ws)weaker(@ws)than                                                                  { makeToken TknLessThan }
-<0>         is(@ws)stronger(@ws)than                                                                { makeToken TknGreaterThan }
-<0>         is(@ws)almost(@ws)as(@ws)weak(@ws)as                                                    { makeToken TknLessEqThan }
-<0>         is(@ws)almost(@ws)as(@ws)strong(@ws)as                                                  { makeToken TknGreaterEqThan }
-<0>         flayed                                                                                  { makeToken TknNot }
+<0>         fight(@ws)against                                                                       { makeToken TknTupleAssign }
+<0>         joined(@ws)by                                                                           { makeToken TknPlus }
+<0>         left(@ws)by                                                                             { makeToken TknMinus }
+<0>         combined(@ws)forces(@ws)with                                                            { makeToken TknMult }
+<0>         cut(@ws)into(@ws)pieces(@ws)by                                                          { makeToken TknDivide }
+<0>         turncloak                                                                               { makeToken TknNegate }
+<0>         stripped(@ws)of(@ws)his(@ws)dignity(@ws)by                                              { makeToken TknMod }
 <0>         and                                                                                     { makeToken TknAnd }
 <0>         or                                                                                      { makeToken TknOr }
-<0>         equals                                                                                  { makeToken TknBoolEqual }
-<0>         differentiates                                                                          { makeToken TknBoolNotEqual }
-
-<0>         joined(@ws)by                                                                           { makeToken TknPlus' }
-<0>         left(@ws)by                                                                             { makeToken TknMinus' }
-<0>         combined(@ws)forces(@ws)with                                                            { makeToken TknMult' }
-<0>         cut(@ws)into(@ws)pieces(@ws)by                                                          { makeToken TknDivide' }
-<0>         turncloak                                                                               { makeToken TknNegate' }
-<0>         stripped(@ws)of(@ws)his(@ws)dignity(@ws)by                                              { makeToken TknMod' }
-<0>         similar(@ws)to(@ws)                                                                     { makeToken TknEqual' }
-<0>         different(@ws)from(@ws)                                                                 { makeToken TknNotEqual' }
-<0>         bested(@ws)by(@ws)                                                                      { makeToken TknLessThan' }
-<0>         defeating(@ws)                                                                          { makeToken TknGreaterThan' }
-<0>         almost(@ws)bested(@ws)by(@ws)                                                           { makeToken TknLessEqThan' }
-<0>         almost(@ws)defeating(@ws)                                                               { makeToken TknGreaterEqThan' }
--- ##
+<0>         similar(@ws)to(@ws)                                                                     { makeToken TknEqual }
+<0>         different(@ws)from(@ws)                                                                 { makeToken TknNotEqual }
+<0>         bested(@ws)by(@ws)                                                                      { makeToken TknLessThan }
+<0>         defeating(@ws)                                                                          { makeToken TknGreaterThan }
+<0>         almost(@ws)bested(@ws)by(@ws)                                                           { makeToken TknLessEqThan }
+<0>         almost(@ws)defeating(@ws)                                                               { makeToken TknGreaterEqThan }
 
 --          Composite Types Operators
 <0>         subject(@ws)of                                                                          { makeToken TknStructField }
-<0>         Is                                                                                      { makeToken TknBeginUnionQuestion }
-<0>         using(@ws)the(@ws)face(@ws)of                                                           { makeToken TknUnionQuestion }
-<0>         \?                                                                                      { makeToken TknEndUnionQuestion }
+<0>         looking(@ws)in(@ws)the(@ws)mirror(@ws)at                                                { makeToken TknUnionQuery }
 <0>         acting(@ws)as                                                                           { makeToken TknUnionField }
 <0>         Soldier(@ws)acquainted(@ws)with                                                         { makeToken TknBeginIndex }
-<0>         Wight(@ws)following                                                                     { makeToken TknBeginTupleIndex }
 <0>         under(@ws)command(@ws)of                                                                { makeToken TknEndIndex }
+<0>         Wight(@ws)[0-9]+                                                                        { makeToken TknTupleSelect }
 <0>         marries(@ws)a                                                                           { makeToken TknPtr }
 <0>         Spouse(@ws)of                                                                           { makeToken TknDereference } 
 <0>         forsakes(@ws)marriage                                                                   { makeToken TknFree }
-
-<0>         looking(@ws)in(@ws)the(@ws)mirror(@ws)at                                                { makeToken TknUnionQuery }
-<0>         Wight                                                                                   { makeToken TknBeginTupleIndex' }
-
--- Type conversion
-<0>         adopted(@ws)by(@ws)House                                                                { makeToken TknCoerce }
--- ##
 
 --          Exit Statement
 <0>         The(@ws)book                                                                            { makeToken TknBeginExit }
@@ -182,39 +157,30 @@ tokens :-
 
 --          Determinate repetition
 <0>         The(@ws)things(@ws)I(@ws)do(@ws)for                                                     { makeToken TknFor }
-<0>         from                                                                                    { makeToken TknForLB }
-<0>         until                                                                                   { makeToken TknForUB }
-
-<0>         I(@ws)would(@ws)kill(@ws)from                                                           { makeToken TknForLB' }
-<0>         up to                                                                                   { makeToken TknForUB' }
-<0>         That,(@ws)and(@ws)much(@ws)more(@ws)I(@ws)would(@ws)to(@ws)get(@ws)her(@ws)love         { makeToken TknEndFor }
--- ##
+<0>         I(@ws)would(@ws)kill(@ws)from                                                           { makeToken TknForLB }
+<0>         up(@ws)to                                                                               { makeToken TknForUB }
+<0>         That,(@ws)and(@ws)much(@ws)more(@ws)I(@ws)would(@ws)do(ws)to(@ws)get(@ws)her(@ws)love   { makeToken TknEndFor }
 
 --          Undeterminate repetition
 <0>         While                                                                                   { makeToken TknWhile }
-<0>         flows(@ws)down(@ws)then(@ws)river                                                       { makeToken TknWhileDecoration }
-
-<0>         reigns(@ws)truly(@ws)upon(@ws)the(@ws)land                                              { makeToken TknWhileDecorator' }
+<0>         reigns(@ws)truly(@ws)upon(@ws)the(@ws)land                                              { makeToken TknWhileDecorator }
 <0>         Only(@ws)for(@ws)as(@ws)long(@ws)as(@ws)the(@ws)sovereign(@ws)lives                     { makeToken TknWhileEnd}
--- ##
 
 --          Non-structured flow
 <0>         What(@ws)is(@ws)dead(@ws)may(@ws)never(@ws)die                                          { makeToken TknContinue }
 <0>         This(@ws)is(@ws)the(@ws)doom(@ws)of(@ws)Valyria                                         { makeToken TknBreak } 
 
 --          Simple Selection
-<0>         if                                                                                      { makeToken TknSimpleSelectionBegin } 
+<0>         if                                                                                      { makeToken TknBeginSimpleSelection } 
 <0>         may(@ws)be(@ws)the(@ws)True(@ws)King(@ws)of(@ws)the(@ws)Seven(@ws)Kingdoms,(@ws)then    { makeToken TknSimpleSelectionDecorator }
 <0>         Otherwise                                                                               { makeToken TknElse } 
 <0>         And(@ws)so(@ws)our(@ws)fate(@ws)rests(@ws)upon(@ws)this(@ws)decision                    { makeToken TknSimpleSelectionEnd }
--- ##
 
 --          Multiple Selection
 <0>         You(@ws)will(@ws)be(@ws)betrayed(@ws)by                                                 { makeToken TknBeginMultipleSelection }
 <0>         several(@ws)times                                                                       { makeToken TknMultipleSelectionDecorator }
 <0>         Once(@ws)for                                                                            { makeToken TknBranch }
 <0>         So(@ws)the(@ws)prophecy(@ws)says                                                        { makeToken TknEndMultipleSelection }
--- ##
 
 --          Identifiers
 <0>         [A-Z]([\']?[a-z]+)+                                                                     { makeToken TknID }
@@ -378,6 +344,7 @@ postProcess :: Token -> Token
 postProcess (Token TknCharLit s _ p) = Token TknCharLit s (processCharLit s) p
 postProcess (Token TknStringLit s _ p) = Token TknStringLit s (processStringLit s) p
 postProcess (Token TknIntLit s _ p) = Token TknIntLit s (processIntLit s) p
+postProcess (Token TknTupleSelect s _ p) = Token TknTupleSelect s (processIntLit s) p
 postProcess tkn = tkn
 
 processCharLit :: String -> String 
