@@ -141,9 +141,9 @@ tokens :-
 <0>         Prologue                                                                                    { makeToken TknGlobalDec }
 <0>         Epilogue                                                                                    { makeToken TknMain }
 <0>         watches                                                                                     { makeToken TknBeginFunctionParams }
-<0>         approach(@ws)from(@ws)a(@ws)distance($white*)\;(@ws)                                        { makeToken TknEndFunctionParams }
+<0>         approach(@ws)from(@ws)a(@ws)distance\;(@ws)                                        { makeToken TknEndFunctionParams }
 <0>         I(@ws)must(@ws)warn(@ws)you($white*)\,(@ws)                                                 { makeToken TknBeginReturnVals }
-<0>         is(@ws)coming(@ws)\.                                                                        { makeToken TknEndReturnVals }
+<0>         is(@ws)coming\.                                                                        { makeToken TknEndReturnVals }
 <0>         Dracarys                                                                                    { makeToken TknReturnOpen }
 <0>         !                                                                                           { makeToken TknReturnClose }
 <0>         Valued                                                                                      { makeToken TknValueArg }
@@ -209,7 +209,7 @@ tokens :-
 <0>         «                                                                                           { makeToken TknOpenParenthesis }
 <0>         »                                                                                           { makeToken TknCloseParenthesis }
 
-<0>         [A-Za-z]+                                                                                   { invalidWord }
+<0>         [A-Za-z0-9]+                                                                                   { invalidWord }
 <0>         .                                                                                           { invalidCharacter }
 
 -- Lexer and wrapper function definitions
