@@ -1,7 +1,7 @@
 {
 module Westeros.SouthOfTheWall.Parser (parse) where
     import qualified Westeros.SouthOfTheWall.Tokens as Tk
-    import qualified Westeros.SouthOfTheWall.AST as Ast
+--    import qualified Westeros.SouthOfTheWall.AST as Ast
 }
 
 %name                parse
@@ -12,7 +12,7 @@ module Westeros.SouthOfTheWall.Parser (parse) where
 -- Token aliases definitions
 %token
 
--- Program
+     -- Program
 programStart    { Tk.Token { Tk.aToken=Tk.TknProgramStart } }
 programName     { Tk.Token { Tk.aToken=Tk.TknProgramName } }
 
@@ -37,8 +37,8 @@ floatLit        { Tk.Token { Tk.aToken=Tk.TknFloatLit } }
 charLit         { Tk.Token { Tk.aToken=Tk.TknCharLit } }
 '{{'            { Tk.Token { Tk.aToken=Tk.TknBeginArrayLit } }
 '}}'            { Tk.Token { Tk.aToken=Tk.TknEndArrayLit } }
-'(('            { Tk.Token { Tk.aToken=Tk.TknBeginTupleLit } }
-'))'            { Tk.Token { Tk.aToken=Tk.TknEndTupleLit } }
+'[['            { Tk.Token { Tk.aToken=Tk.TknBeginTupleLit } }
+']]'            { Tk.Token { Tk.aToken=Tk.TknEndTupleLit } }
 null            { Tk.Token { Tk.aToken=Tk.TknNull } }
 naturalLit      { Tk.Token { Tk.aToken=Tk.TknNaturalLit } }
 beginCompTypeId { Tk.Token { Tk.aToken=Tk.TknBeginCompTypeId } }
@@ -91,7 +91,7 @@ beginFuncDec    { Tk.Token { Tk.aToken=Tk.TknBeginFuncDecl } }
 item            { Tk.Token { Tk.aToken=Tk.TknFunctionItem } }
 globalDec       { Tk.Token { Tk.aToken=Tk.TknGlobalDec } }
 main            { Tk.Token { Tk.aToken=Tk.TknMain } }
-beginFuncParams { Tk.Token { Tk.aToken=Tk.TknBeginFunctionParams }
+beginFuncParams { Tk.Token { Tk.aToken=Tk.TknBeginFunctionParams } }
 endFuncParams   { Tk.Token { Tk.aToken=Tk.TknEndFunctionParams } }
 beginReturnVals { Tk.Token { Tk.aToken=Tk.TknBeginReturnVals } }
 endReturnVals   { Tk.Token { Tk.aToken=Tk.TknEndReturnVals } }
@@ -109,7 +109,7 @@ forLB           { Tk.Token { Tk.aToken=Tk.TknForLB } }
 forUB           { Tk.Token { Tk.aToken=Tk.TknForUB } }
 endFor          { Tk.Token { Tk.aToken=Tk.TknEndFor } }
 while           { Tk.Token { Tk.aToken=Tk.TknWhile } }
-whileDecorator  { Tk.Token { Tk.aToken=Tk.TknWhileDecorator } }
+whileDec        { Tk.Token { Tk.aToken=Tk.TknWhileDecorator } }
 endWhile        { Tk.Token { Tk.aToken=Tk.TknEndWhile } }
 continue        { Tk.Token { Tk.aToken=Tk.TknContinue } }
 break           { Tk.Token { Tk.aToken=Tk.TknBreak } }
@@ -159,197 +159,199 @@ comment         { Tk.Token { Tk.aToken=Tk.TknComment }  }
 -- comments at any point as long as they do not interfere with an expression
 
 -- Program --
-PROGRAM : HEADER CONTENTS GLOBAL FUNCTIONS MAIN
-        | HEADER CONTENTS GLOBAL FUNCTIONS MAIN ALIASES
+PROGRAM : HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                                     {}
+        | HEADER CONTENTS GLOBAL FUNCTIONS MAIN ALIASES                                             {}
 
-HEADER : beginProgram programName  '.'
+HEADER : programStart programName  '.'                                                              {}
 
-CONTENTS : beginFunctionDec FUNCTION_DECLARATIONS
+CONTENTS : beginFuncDec FUNCTION_DECLARATIONS                                                       {}
 
-FUNCTION_DECLARATIONS : item global FUNCTION_NAMES item main
+FUNCTION_DECLARATIONS : item globalDec FUNCTION_NAMES item main                                     {}
 
-FUNCTION_NAMES : {- empty -}
-               | FUNCTION_NAMES item id argCnt
+FUNCTION_NAMES : {- empty -}                                                                        {}
+               | FUNCTION_NAMES item id argNumber                                                   {}
 
-GLOBAL : global '{' DECLARATIONS '}'
+GLOBAL : globalDec '{' DECLARATIONS '}'                                                             {}
 
-MAIN : main FUNCTION_BODY
+MAIN : main FUNCTION_BODY                                                                           {}
 
-ALIASES : aliasDec ALIAS_DECLARATIONS
+ALIASES : aliasDec ALIAS_DECLARATIONS                                                               {}
 
-ALIAS_DECLARATIONS: ALIAS_DECLARATION
-                  | ALIAS_DECLARATIONS ALIAS_DECLARATION
+ALIAS_DECLARATIONS: ALIAS_DECLARATION                                                               {}
+                  | ALIAS_DECLARATIONS ALIAS_DECLARATION                                            {}
 
 -- Subrutines --
 
-FUNCTIONS : {- empty -}
-          | FUNCTIONS FUNCTION
+FUNCTIONS : {- empty -}                                                                             {}
+          | FUNCTIONS FUNCTION                                                                      {}
 
-FUNCTION : id FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY
+FUNCTION : id FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY                                     {}
 
-FUNCTION_PARAMETERS : beginFuncParams PARAMETERS_LIST endFuncParams
+FUNCTION_PARAMETERS : beginFuncParams PARAMETER_LIST endFuncParams                                  {}
 
-PARAMETER_LIST : void
-               | PARAMETERS
+PARAMETER_LIST : void                                                                               {}
+               | PARAMETERS                                                                         {}
 
-PARAMETERS : PARAMETER
-           | PARAMETERS ',' PARAMETER
+PARAMETERS : PARAMETER                                                                              {}
+           | PARAMETERS ',' PARAMETER                                                               {}
 
-PARAMETER: PARAMETER_TYPE id TYPE
+PARAMETER: PARAMETER_TYPE id TYPE                                                                   {}
 
-PARAMETER_TYPE : var
-               | ref
+PARAMETER_TYPE : valueArg                                                                           {}
+               | refArg                                                                             {}
 
-FUNCTION_RETURN : beginReturn RETURN_TYPES endReturn
+FUNCTION_RETURN : beginReturnVals RETURN_TYPES endReturnVals                                        {}
 
-RETURN_TYPES : void
-             | TYPES
+RETURN_TYPES : void                                                                                 {}
+             | TYPES                                                                                {}
 
-TYPES : TYPE
-      | TYPES ',' TYPE
+TYPES : TYPE                                                                                        {}
+      | TYPES ',' TYPE                                                                              {}
 
-FUNCTION_BODY : '{' INSTRUCTIONS '}'
+FUNCTION_BODY : '{' INSTRUCTIONS '}'                                                                {}
 
 -- Types ---
 
-TYPE : PRIMITIVE_TYPE
-     | COMPOSITE_TYPE
-     | id -- alias
+TYPE : PRIMITIVE_TYPE                                                                               {}
+     | COMPOSITE_TYPE                                                                               {}
+     | id                                                                                           {}
 
-PRIMITIVE_TYPE : int
-               | float
-               | char
-               | bool
-               | atom
+PRIMITIVE_TYPE : int                                                                                {}
+               | float                                                                              {}
+               | char                                                                               {}
+               | bool                                                                               {}
+               | atom                                                                               {}
 
-COMPOSITE_TYPE : | beginArray naturalLit TYPE endArray
-                 | string
-                 | pointerType TYPE
-                 | beginStruct SIMPLE_DECLARATIONS endStruct
-                 | beginUnion SIMPLE_DECLARATIONS endUnion
-                 | beginTuple TUPLE_TYPES endTuple
+COMPOSITE_TYPE : beginArray naturalLit TYPE endArray                                                {}
+               | string                                                                             {}
+               | pointerType TYPE                                                                   {}
+               | beginStruct SIMPLE_DECLARATIONS endStruct                                          {}
+               | beginUnion SIMPLE_DECLARATIONS endUnion                                            {}
+               | beginTuple TUPLE_TYPES endTuple                                                    {}
 
-TUPLE_TYPES: {- empty -}
-           | TYPES
+TUPLE_TYPES: {- empty -}                                                                            {}
+           | TYPES                                                                                  {}
 
 -- Alias Declaration --
 
-DECLARATIONS : DECLARATION
-             | DECLARATIONS DECLARATION
+DECLARATIONS : DECLARATION                                                                          {}
+             | DECLARATIONS DECLARATION                                                             {}
 
-DECLARATION : SIMPLE_DECLARATION '.'
-            | SIMPLE_DECLARATION ":=" EXPR '.'
-            | SIMPLE_DECLARATION ":==" EXPR '.'
-            | CONST_DECLARATION '.'
+DECLARATION : SIMPLE_DECLARATION '.'                                                                {}
+            | SIMPLE_DECLARATION ':=' EXPR '.'                                                      {}
+            | SIMPLE_DECLARATION ':==' EXPR '.'                                                     {}
+            | CONST_DECLARATION '.'                                                                 {}
 
-SIMPLE_DECLARATIONS : SIMPLE_DECLARATION
-                    | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION
+SIMPLE_DECLARATIONS : SIMPLE_DECLARATION                                                            {}
+                    | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION                                    {}
 
-SIMPLE_DECLARATION : PRIMITIVE_DECLARATION
-                   | COMPOSITE_DECLARATION
+SIMPLE_DECLARATION : PRIMITIVE_DECLARATION                                                          {}
+                   | COMPOSITE_DECLARATION                                                          {}
 
-PRIMITIVE_DECLARATION : var id type TYPE
+PRIMITIVE_DECLARATION : var id type TYPE                                                            {}
 
-COMPOSITE_DECLARATION : beginCompTypeId var id endCompTypeId TYPE
-                      | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz -- array and string
+COMPOSITE_DECLARATION : beginCompTypeId var id endCompTypeId TYPE                                   {}
+                      | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz            {}
+                      | beginCompTypeId pointerVar id endCompTypeId TYPE                            {}
+                      | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz     {}
 
-CONST_DECLARATION : const id type TYPE constValue EXPR
-                  | beginCompTypeId const id endCompTypeId TYPE constValue EXPR
+CONST_DECLARATION : const id type TYPE constValue EXPR                                              {}
+                  | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                     {}
 
-ALIAS_DECLARATION : beginAlias id ALIAS_TYPE TYPE '.'
+ALIAS_DECLARATION : beginAlias id ALIAS_TYPE TYPE '.'                                               {}
 
-ALIAS_TYPE : strongAlias
-           | weakAlias
+ALIAS_TYPE : strongAlias                                                                            {}
+           | weakAlias                                                                              {}
 
 -- Instructions --
 
-INSTRUCTIONS : INSTRUCTION
-             | INSTRUCTIONS INSTRUCTION
+INSTRUCTIONS : INSTRUCTION                                                                          {}
+             | INSTRUCTIONS INSTRUCTION                                                             {}
 
-INSTRUCTION : EXRP ':=' EXRP '.'
-            | EXPRLIST ':==' EXPR '.'
-            | void ':=' EXPR '.'
-            | void ':==' EXPR '.'
-            | pass '.'
-            | beginExit programName endExit '.'
-            | read EXPR '.'
-            | print EXPR '.'
-            | EXPR new '.'
-            | EXPR free '.'
-            | continue '.'
-            | break '.'
-            | returnOpen EXPRLIST returnClose
-            | returnOpen returnClose
-            | comment
-            | IF
-            | SWITCHCASE
-            | FOR
-            | WHILE
-            | comment
+INSTRUCTION : EXPR ':=' EXPR '.'                                                                    {}
+            | EXPRLIST ':==' EXPR '.'                                                               {}
+            | void ':=' EXPR '.'                                                                    {}
+            | void ':==' EXPR '.'                                                                   {}
+            | pass '.'                                                                              {}
+            | beginExit programName endExit '.'                                                     {}
+            | read EXPR '.'                                                                         {}
+            | print EXPR '.'                                                                        {}
+            | EXPR new '.'                                                                          {}
+            | EXPR free '.'                                                                         {}
+            | continue '.'                                                                          {}
+            | break '.'                                                                             {}
+            | returnOpen EXPRLIST returnClose                                                       {}
+            | returnOpen returnClose                                                                {}
+            | IF                                                                                    {}
+            | SWITCHCASE                                                                            {}
+            | FOR                                                                                   {}
+            | WHILE                                                                                 {}
+            | comment                                                                               {}
 
-IF : if EXRP then INSTRUCTIONS endif
-   | if EXPR then INSTRUCTIONS else INSTRUCTIONS endif
+IF : if EXPR then INSTRUCTIONS endif                                                                {}
+   | if EXPR then INSTRUCTIONS else INSTRUCTIONS endif                                              {}
 
-SWITCHCASE : switch EXPR switchDec CASES endSwitch
+SWITCHCASE : switch EXPR switchDec CASES endSwitch                                                  {}
 
-CASES : CASE
-      | CASES CASE
+CASES : CASE                                                                                        {}
+      | CASES CASE                                                                                  {}
 
-CASE : case atomLit '.' INSTRUCTIONS
-     | case nothing '.' INSTRUCTIONS
+CASE : case atomLit '.' INSTRUCTIONS                                                                {}
+     | case nothing '.' INSTRUCTIONS                                                                {}
 
-FOR : for id type int '.' forLB EXPR forUB EXPR '.' INSTRUCTIONS endFor
+FOR : for id type int '.' forLB EXPR forUB EXPR '.' INSTRUCTIONS endFor                             {}
 
-WHILE : while EXPR whileDec INSTRUCTIONS endWhile
+WHILE : while EXPR whileDec INSTRUCTIONS endWhile                                                   {}
 
 -- Expresions --
 
-EXPR : EXPR '+' EXPR
-     | EXPR '-' EXPR
-     | EXPR '*' EXPR
-     | EXPR '/' EXPR
-     | EXPR '%' EXPR
-     | EXPR '=' EXPR
-     | EXPR '!=' EXPR
-     | EXPR '<' EXPR
-     | EXPR '>' EXPR
-     | EXPR '<=' EXPR
-     | EXPR '>=' EXPR
-     | EXPR and EXPR
-     | EXPR or EXPR
-     | EXPR '~'
-     | deref EXPR
-     | '[' EXPRLIST ']' EXPR
-     | id '<-' EXPR
-     | EXPR '->' id
-     | EXPR '?' id
-     | '[(' naturalLit ']' EXPR
-     | EXPR cast TYPE
-     | '(' EXPR ')'
-     | ARRAYLIT
-     | TUPLELIT
-     | FUNCTIONCALL
-     | intLit
-     | floatLit
-     | charLit
-     | atomLit
-     | stringLit
-     | true
-     | false
-     | id
+EXPR : EXPR '+' EXPR                                                                                {}
+     | EXPR '-' EXPR                                                                                {}
+     | EXPR '*' EXPR                                                                                {}
+     | EXPR '/' EXPR                                                                                {}
+     | EXPR '%' EXPR                                                                                {}
+     | EXPR '=' EXPR                                                                                {}
+     | EXPR '!=' EXPR                                                                               {}
+     | EXPR '<' EXPR                                                                                {}
+     | EXPR '>' EXPR                                                                                {}
+     | EXPR '<=' EXPR                                                                               {}
+     | EXPR '>=' EXPR                                                                               {}
+     | EXPR and EXPR                                                                                {}
+     | EXPR or EXPR                                                                                 {}
+     | EXPR '~'                                                                                     {}
+     | deref EXPR                                                                                   {}
+     | '[' EXPRLIST ']' EXPR                                                                        {}
+     | id '<-' EXPR                                                                                 {}
+     | EXPR '->' id                                                                                 {}
+     | EXPR '?' id                                                                                  {}
+     | '[(' naturalLit ']' EXPR                                                                     {}
+     | EXPR cast TYPE                                                                               {}
+     | '(' EXPR ')'                                                                                 {}
+     | ARRAYLIT                                                                                     {}
+     | TUPLELIT                                                                                     {}
+     | FUNCTIONCALL                                                                                 {}
+     | intLit                                                                                       {}
+     | floatLit                                                                                     {}
+     | charLit                                                                                      {}
+     | atomLit                                                                                      {}
+     | stringLit                                                                                    {}
+     | true                                                                                         {}
+     | false                                                                                        {}
+     | id                                                                                           {}
+     | null                                                                                         {}
 
-FUNCTIONCALL : id '((' procCallArgs EXPRLIST '))'
-             | id '((' procCallArgs void '))'
-             | id '(('  '))'
+FUNCTIONCALL : id '((' procCallArgs EXPRLIST '))'                                                   {}
+             | id '((' procCallArgs void '))'                                                       {}
+             | id '(('  '))'                                                                        {}
 
-ARRAYLIT : '{{' EXPRLIST '}}'
-         | '{{' '}}'
+ARRAYLIT : '{{' EXPRLIST '}}'                                                                       {}
+         | '{{' '}}'                                                                                {}
 
-TUPLELIT : '[[' EXPRLIST ']]'
-         | '[[' ']]'
+TUPLELIT : '[[' EXPRLIST ']]'                                                                       {}
+         | '[[' ']]'                                                                                {}
 
-EXPRLIST : EXPR
-         | EXPRLIST ',' EXPR
+EXPRLIST : EXPR                                                                                     {}
+         | EXPRLIST ',' EXPR                                                                        {}
 
 {
 	-- Helper functions
@@ -357,5 +359,6 @@ EXPRLIST : EXPR
 -- Error Function
 
 parseError :: [Tk.Token] -> a
-parseError _ = undefined
+parseError _ = error "You Dieded."
+
 }
