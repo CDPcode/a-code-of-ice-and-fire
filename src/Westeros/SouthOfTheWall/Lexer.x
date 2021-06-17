@@ -55,7 +55,7 @@ tokens :-
 --          Data Types
 <0>         Lanninteger                                                                                 { makeToken TknInt }
 <0>         Freyt                                                                                       { makeToken TknFloat }
-<0>         Boolton                                                                                     { makeToken TknTrilean }
+<0>         Boolton                                                                                     { makeToken TknBoo }
 <0>         Starkhar                                                                                    { makeToken TknChar }
 <0>         Barathom                                                                                    { makeToken TknAtom }
 <0>         No(@ws)One                                                                                  { makeToken TknVoid }
@@ -120,7 +120,7 @@ tokens :-
 <0>         Soldier(@ws)acquainted(@ws)with(@ws)                                                        { makeToken TknBeginIndex }
 <0>         under(@ws)command(@ws)of(@ws)                                                               { makeToken TknEndIndex }
 <0>         Wight(@ws)                                                                                  { makeToken TknTupleSelect }
-<0>         marries                                                                                     { makeToken TknPtr }
+<0>         marries                                                                                     { makeToken TknNew }
 <0>         Spouse(@ws)of(@ws)                                                                          { makeToken TknDereference }
 <0>         becomes(@ws)widowed                                                                         { makeToken TknFree }
 
@@ -141,9 +141,9 @@ tokens :-
 <0>         Prologue                                                                                    { makeToken TknGlobalDec }
 <0>         Epilogue                                                                                    { makeToken TknMain }
 <0>         watches                                                                                     { makeToken TknBeginFunctionParams }
-<0>         approach(@ws)from(@ws)a(@ws)distance\;(@ws)                                        { makeToken TknEndFunctionParams }
+<0>         approach(@ws)from(@ws)a(@ws)distance\;(@ws)                                                 { makeToken TknEndFunctionParams }
 <0>         I(@ws)must(@ws)warn(@ws)you($white*)\,(@ws)                                                 { makeToken TknBeginReturnVals }
-<0>         is(@ws)coming\.                                                                        { makeToken TknEndReturnVals }
+<0>         is(@ws)coming\.                                                                             { makeToken TknEndReturnVals }
 <0>         Dracarys                                                                                    { makeToken TknReturnOpen }
 <0>         !                                                                                           { makeToken TknReturnClose }
 <0>         Valued                                                                                      { makeToken TknValueArg }
@@ -167,7 +167,7 @@ tokens :-
 --          Undeterminate repetition
 <0>         While(@ws)                                                                                  { makeToken TknWhile }
 <0>         reigns(@ws)truly(@ws)upon(@ws)the(@ws)land                                                  { makeToken TknWhileDecorator }
-<0>         Only(@ws)for(@ws)as(@ws)long(@ws)as(@ws)the(@ws)sovereign(@ws)lives                         { makeToken TknWhileEnd}
+<0>         Only(@ws)for(@ws)as(@ws)long(@ws)as(@ws)the(@ws)sovereign(@ws)lives                         { makeToken TknEndWhile }
 
 --          Non-structured flow
 <0>         What(@ws)is(@ws)dead(@ws)may(@ws)never(@ws)die                                              { makeToken TknContinue }

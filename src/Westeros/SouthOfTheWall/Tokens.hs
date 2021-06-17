@@ -42,7 +42,7 @@ data AbstractToken =
     -- Simple Types
     | TknInt
     | TknFloat
-    | TknTrilean
+    | TknBool
     | TknChar
     | TknAtom
     | TknVoid
@@ -105,7 +105,7 @@ data AbstractToken =
     | TknBeginIndex
     | TknEndIndex
     | TknTupleSelect
-    | TknPtr
+    | TknNew
     | TknDereference
     | TknFree
 
@@ -152,7 +152,7 @@ data AbstractToken =
     -- Undeterminate Repetition
     | TknWhile
     | TknWhileDecorator
-    | TknWhileEnd
+    | TknEndWhile
 
     -- Non-Structured flow
     | TknContinue

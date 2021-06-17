@@ -1,5 +1,6 @@
 *.hi
 *.o
+*.info
 .stack-work/*
 .stack-work
 *~
