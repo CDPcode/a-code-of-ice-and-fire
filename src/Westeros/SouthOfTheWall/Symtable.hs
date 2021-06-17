@@ -16,18 +16,19 @@ data Category
    deriving Show 
   
 
-data SymbolInfo = SymbolTable 
+data SymbolInfo = SymbolInfo 
     { category :: Category
     , scope :: Int
     , tp :: Maybe String -- pointer to a table entry
     -- , extra :: someType
     }
 
-type Dict = M.Map Symbol SymbolInfo
+type Dict = M.Map Symbol [SymbolInfo]
 
 data SymbolTable = SymbolTable 
     { dict :: Dict
     , scopeStack :: [Int]
+    , nextScope :: Int -- indicates the next scope to assign
     -- , additional :: someType 
     }
 
@@ -35,7 +36,6 @@ data SymbolTable = SymbolTable
 
 insertST :: SymbolTable -> String -> SymbolInfo -> SymbolTable
 insertST = undefined
--- how to handle equal keys?
 
 findSymbol :: SymbolTable -> String -> Maybe SymbolInfo
 findSymbol = undefined
