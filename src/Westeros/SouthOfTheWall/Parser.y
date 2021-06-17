@@ -177,7 +177,7 @@ FUNCTION_DECLARATIONS : item globalDec FUNCTION_NAMES item main                 
 FUNCTION_NAMES : {- empty -}                                                                        {}
                | FUNCTION_NAMES item id argNumber                                                   {}
 
-GLOBAL : globalDec '{' INSTRUCTIONS '}'                                                             {}
+GLOBAL : globalDec '{' DECLARATIONS '}'                                                             {}
 
 MAIN : main FUNCTION_BODY                                                                           {}
 
@@ -240,8 +240,9 @@ TUPLE_TYPES: {- empty -}                                                        
 
 -- Alias Declaration --
 
--- DECLARATIONS : DECLARATION                                                                          {}
---              | DECLARATIONS DECLARATION                                                             {}
+DECLARATIONS : {- empty -}                                                                          {}
+             | DECLARATIONS DECLARATION                                                             {}
+             | DECLARATIONS comment                                                                 {}
 
 DECLARATION : SIMPLE_DECLARATION '.'                                                                {}
             | SIMPLE_DECLARATION ':=' EXPR '.'                                                      {}
@@ -273,6 +274,7 @@ ALIAS_TYPE : strongAlias                                                        
 
 INSTRUCTIONS : {- empty -}                                                                          {}
              | INSTRUCTIONS INSTRUCTION                                                             {}
+             | INSTRUCTIONS comment                                                                 {}
 
 INSTRUCTION : EXPR ':=' EXPR '.'                                                                    {}
             | EXPRLIST ':==' EXPR '.'                                                               {}
@@ -292,7 +294,6 @@ INSTRUCTION : EXPR ':=' EXPR '.'                                                
             | SWITCHCASE                                                                            {}
             | FOR                                                                                   {}
             | WHILE                                                                                 {}
-            | comment                                                                               {}
             | DECLARATION                                                                           {}
 
 IF : if EXPR then INSTRUCTIONS endif                                                                {}
