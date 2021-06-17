@@ -137,11 +137,17 @@ comment         { Tk.Token { Tk.aToken=Tk.TknComment }  }
 
 %nonassoc ':=' ':=='
 %left ','
+%left cast
 %left and or
 %nonassoc '=' '!=' '<' '>' '<=' '>='
 %left '+' '-'
 %left '*' '%' '/'
 %right '~'
+%left deref
+%left ']'
+%left '->'
+%right '<-'
+%nonassoc '?'
 %left '('
 
 %% -- Grammar
