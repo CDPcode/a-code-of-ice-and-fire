@@ -4,163 +4,145 @@ module Westeros.SouthOfTheWall.Parser (parse) where
     import qualified Westeros.SouthOfTheWall.AST as Ast
 }
 
-%name                parse 
+%name                parse
 %tokentype            { Tk.Token }
 %error                { parseError }
 -- TODO: %monad expr to properly handle errors
 
--- Token aliases definitions 
+-- Token aliases definitions
 %token
 
-    comment           { Tk.Token  { Tk.aToken=Tk.TknComment } }
-    str               { Tk.Token  { Tk.aToken=Tk.TknString } } 
-                                               
-    -- Type tokens                             
-    beginProgram      { Tk.Token  { Tk.aToken=Tk.TknProgramStart } }
-    programName       { Tk.Token  { Tk.aToken=Tk.TknProgramName } }
-    var               { Tk.Token  { Tk.aToken=Tk.TknVar } }
-    const             { Tk.Token  { Tk.aToken=Tk.TknConst } }
-    type              { Tk.Token  { Tk.aToken=Tk.TknType } }
-    beginAlias        { Tk.Token  { Tk.aToken=Tk.TknBeginAlias } }
-    strongAlias       { Tk.Token  { Tk.aToken=Tk.TknStrongAlias } }
-    weakAlias         { Tk.Token  { Tk.aToken=Tk.TknWeakAlias } }
+-- Program
+programStart    { Tk.Token { Tk.aToken=Tk.TknProgramStart } }
+programName     { Tk.Token { Tk.aToken=Tk.TknProgramName } }
 
-    -- Simple                                  
-    int               { Tk.Token  { Tk.aToken=Tk.TknInt } }
-    intLit            { Tk.Token  { Tk.aToken=Tk.TknIntLit } }
-    float             { Tk.Token  { Tk.aToken=Tk.TknFloat } }
-    floatLit          { Tk.Token  { Tk.aToken=Tk.TknFloatLit } }
-    trilean           { Tk.Token  { Tk.aToken=Tk.TknTrilean } }
-    true              { Tk.Token  { Tk.aToken=Tk.TknTrue } }
-    neutral           { Tk.Token  { Tk.aToken=Tk.TknNeutral } }
-    false             { Tk.Token  { Tk.aToken=Tk.TknFalse } }
-    char              { Tk.Token  { Tk.aToken=Tk.TknChar } }
-    charLit           { Tk.Token  { Tk.aToken=Tk.TknCharLit } }
-
-    -- Compound                                
-    beginCompType     { Tk.Token  { Tk.aToken=Tk.TknBeginCompType } }
-    endCompType       { Tk.Token  { Tk.aToken=Tk.TknEndIDCompType } }
-    struct            { Tk.Token  { Tk.aToken=Tk.TknStruct } }
-    union             { Tk.Token  { Tk.aToken=Tk.TknUnion } }
-    array             { Tk.Token  { Tk.aToken=Tk.TknArray } }
-    tuple             { Tk.Token  { Tk.aToken=Tk.TknTuple } }
-    stringLit         { Tk.Token  { Tk.aToken=Tk.TknStringLit } }
-    pointer           { Tk.Token  { Tk.aToken=Tk.TknPointer } }
-    arraySz           { Tk.Token  { Tk.aToken=Tk.TknArraySize } }
-    stringSz          { Tk.Token  { Tk.aToken=Tk.TknStringSize } }
-    arrayDecl         { Tk.Token  { Tk.aToken=Tk.TknArrayDecl } }
-    stringDecl        { Tk.Token  { Tk.aToken=Tk.TknStringDecl } }
-                                               
-    -- Assignment tokens                       
-    ':='              { Tk.Token  { Tk.aToken=Tk.TknAssign } }
-    beginMultAssign   { Tk.Token  { Tk.aToken=Tk.TknBeginMultAssign } }
-    endMultAssign     { Tk.Token  { Tk.aToken=Tk.TknEndMultAssign } }
-    tupleAssign       { Tk.Token  { Tk.aToken=Tk.TknTupleAsign } }
-                                               
-    -- Operators tokens                        
-    '+'               { Tk.Token  { Tk.aToken=Tk.TknPlus } }
-    '-'               { Tk.Token  { Tk.aToken=Tk.TknMinus } }
-    '*'               { Tk.Token  { Tk.aToken=Tk.TknMult } }
-    '\\'               { Tk.Token  { Tk.aToken=Tk.TknDivide } } -- OJO
-    '%'               { Tk.Token  { Tk.aToken=Tk.TknMod } }
-    '~'               { Tk.Token  { Tk.aToken=Tk.TknNegate } }
-    '='               { Tk.Token  { Tk.aToken=Tk.TknEqual } }
-    '!='              { Tk.Token  { Tk.aToken=Tk.TknNotEqual } }
-    '<'               { Tk.Token  { Tk.aToken=Tk.TknLessThan } }
-    '>'               { Tk.Token  { Tk.aToken=Tk.TknGreaterThan } }
-    '<='              { Tk.Token  { Tk.aToken=Tk.TknLessEqThan } }
-    '>='              { Tk.Token  { Tk.aToken=Tk.TknGreaterEqThan } }
-    beginExit         { Tk.Token  { Tk.aToken=Tk.TknBeginExit } }
-    endExit           { Tk.Token  { Tk.aToken=Tk.TknEndExit } }
-    not               { Tk.Token  { Tk.aToken=Tk.TknNot } }
-    and               { Tk.Token  { Tk.aToken=Tk.TknAnd } }
-    or                { Tk.Token  { Tk.aToken=Tk.TknOr } }
-
-    -- Do we need these?                       
-    '<=>'             { Tk.Token  { Tk.aToken=Tk.TknBoolEqual } }
-    '<!=>'            { Tk.Token  { Tk.aToken=Tk.TknBoolNotEqual } }
-                                               
-    -- Composite Types Operators               
-    structField       { Tk.Token  { Tk.aToken=Tk.TknStructField } }
-    beginUnionQ       { Tk.Token  { Tk.aToken=Tk.TknBeginUnionQuestion } }
-    unionQ            { Tk.Token  { Tk.aToken=Tk.TknUnionQuestion } }
-    endUnionQ         { Tk.Token  { Tk.aToken=Tk.TknEndUnionQuestion } }
-    unionField        { Tk.Token  { Tk.aToken=Tk.TknUnionField } }
-    beginIdx          { Tk.Token  { Tk.aToken=Tk.TknBeginIndex } }
-    tupleIdx          { Tk.Token  { Tk.aToken=Tk.TknBeginTupleIndex } }
-    endIdx            { Tk.Token  { Tk.aToken=Tk.TknEndIndex } }
-    points            { Tk.Token  { Tk.aToken=Tk.TknPtr } }
-    '*'               { Tk.Token  { Tk.aToken=Tk.TknDereference } }
-    free              { Tk.Token  { Tk.aToken=Tk.TknFree } }
-    
-    
-                                               
-    -- IO tokens                               
-    read              { Tk.Token  { Tk.aToken=Tk.TknRead } }
-    print             { Tk.Token  { Tk.aToken=Tk.TknPrint } }
-                                               
-    -- Procedure Tokens                        
-    beginFunctionDec  { Tk.Token  { Tk.aToken=Tk.TknBeginFuncDecl } }
-    item              { Tk.Token  { Tk.aToken=Tk.TknListFunction } }
-    firstMain         { Tk.Token  { Tk.aToken=Tk.TknFirstMain } }
-    secondMain        { Tk.Token  { Tk.aToken=Tk.TknLastMain } }
-    pass              { Tk.Token  { Tk.aToken=Tk.TknPass } } -- OJO
-    functionParams    { Tk.Token  { Tk.aToken=Tk.TknFunctionParams } }
-    beginReturn       { Tk.Token  { Tk.aToken=Tk.TknBeginReturnVals } }
-    endReturn         { Tk.Token  { Tk.aToken=Tk.TknEndReturnVals } }
-    returnOpen        { Tk.Token  { Tk.aToken=Tk.TknReturnOpen } }
-    returnClose       { Tk.Token  { Tk.aToken=Tk.TknReturnClose } }
-    functionCallOpen  { Tk.Token  { Tk.aToken=Tk.TknProcCallOpen } }
-    functionCallArgs  { Tk.Token  { Tk.aToken=Tk.TknProcCallArgs } }
-    functionCallClose { Tk.Token  { Tk.aToken=Tk.TknProcCallClose } }
-    val               { Tk.Token  { Tk.aToken=Tk.TknValueArg } }
-    ref               { Tk.Token  { Tk.aToken=Tk.TknReferenceArg } }
-                                               
-    -- Blocks                                  
-    '{'               { Tk.Token  { Tk.aToken=Tk.TknOpenBlock } }
-    '}'               { Tk.Token  { Tk.aToken=Tk.TknCloseBlock } }
-                                               
-    void              { Tk.Token  { Tk.aToken=Tk.TknVoid } }
-                                               
-    -- Repetition Tokens                       
-    for               { Tk.Token  { Tk.aToken=Tk.TknFor } }
-    forLb             { Tk.Token  { Tk.aToken=Tk.TknForLB } }
-    forUb             { Tk.Token  { Tk.aToken=Tk.TknForUB } }
-    while             { Tk.Token  { Tk.aToken=Tk.TknWhile } }
-    whileDecorator    { Tk.Token  { Tk.aToken=Tk.TknWhileDecoration } }
-    continue          { Tk.Token  { Tk.aToken=Tk.TknContinue } }
-    break             { Tk.Token  { Tk.aToken=Tk.TknBreak } } 
-                                               
-    -- Selection Tokens                        
-    beginSelect       { Tk.Token  { Tk.aToken=Tk.TknBeginSelection } }
-    decoratorSelct    { Tk.Token  { Tk.aToken=Tk.TknSelectionDecorator } }
-    trueBranch        { Tk.Token  { Tk.aToken=Tk.TknTrueBranch } }
-    neutralBranch     { Tk.Token  { Tk.aToken=Tk.TknUnknownBranch } }
-    falseBranch       { Tk.Token  { Tk.aToken=Tk.TknFalseBranch } } 
-    endSelect         { Tk.Token  { Tk.aToken=Tk.TknEndSelection } }
-                                               
-    -- Identifiers                             
-    id                { Tk.Token  { Tk.aToken=Tk.TknID } }
-    argCnt            { Tk.Token  { Tk.aToken=Tk.TknArgNumber } }
-                                               
-    -- Punctuation                             
-    ','               { Tk.Token  { Tk.aToken=Tk.TknComma } }
-    '.'               { Tk.Token  { Tk.aToken=Tk.TknDot } }
-                                               
-    -- Expressions                             
-    '('               { Tk.Token  { Tk.aToken=Tk.TknOpenParenthesis } }
-    ')'               { Tk.Token  { Tk.aToken=Tk.TknCloseParenthesis } }
+var             { Tk.Token { Tk.aToken=Tk.TknVar } }
+const           { Tk.Token { Tk.aToken=Tk.TknConst } }
+pointerVar      { Tk.Token { Tk.aToken=Tk.TknVarPointer } }
+type            { Tk.Token { Tk.aToken=Tk.TknType } }
+constValue      { Tk.Token { Tk.aToken=Tk.TknConstValue } }
+beginAlias      { Tk.Token { Tk.aToken=Tk.TknBeginAlias } }
+strongAlias     { Tk.Token { Tk.aToken=Tk.TknStrongAlias } }
+weakAlias       { Tk.Token { Tk.aToken=Tk.TknWeakAlias } }
+int             { Tk.Token { Tk.aToken=Tk.TknInt } }
+float           { Tk.Token { Tk.aToken=Tk.TknFloat } }
+bool            { Tk.Token { Tk.aToken=Tk.TknBoolean } }
+char            { Tk.Token { Tk.aToken=Tk.TknChar } }
+atom            { Tk.Token { Tk.aToken=Tk.TknAtom } }
+void            { Tk.Token { Tk.aToken=Tk.TknVoid } }
+true            { Tk.Token { Tk.aToken=Tk.TknTrue } }
+false           { Tk.Token { Tk.aToken=Tk.TknFalse } }
+intLit          { Tk.Token { Tk.aToken=Tk.TknIntLit } }
+floatLit        { Tk.Token { Tk.aToken=Tk.TknFloatLit } }
+charLit         { Tk.Token { Tk.aToken=Tk.TknCharLit } }
+'{{'            { Tk.Token { Tk.aToken=Tk.TknBeginArrayLit } }
+'}}'            { Tk.Token { Tk.aToken=Tk.TknEndArrayLit } }
+'(('            { Tk.Token { Tk.aToken=Tk.TknBeginTupleLit } }
+'))'            { Tk.Token { Tk.aToken=Tk.TknEndTupleLit } }
+null            { Tk.Token { Tk.aToken=Tk.TknNull } }
+naturalLit      { Tk.Token { Tk.aToken=Tk.TknNaturalLit } }
+beginCompTypeId { Tk.Token { Tk.aToken=Tk.TknBeginCompTypeId } }
+endCompTypeId   { Tk.Token { Tk.aToken=Tk.TknEndCompTypeId } }
+beginArray      { Tk.Token { Tk.aToken=Tk.TknBeginArray } }
+endArray        { Tk.Token { Tk.aToken=Tk.TknEndArray } }
+string          { Tk.Token { Tk.aToken=Tk.TknString } }
+beginSz         { Tk.Token { Tk.aToken=Tk.TknBeginSizes } }
+endSz           { Tk.Token { Tk.aToken=Tk.TknEndSizes } }
+beginStruct     { Tk.Token { Tk.aToken=Tk.TknBeginStruct } }
+endStruct       { Tk.Token { Tk.aToken=Tk.TknEndStruct } }
+beginUnion      { Tk.Token { Tk.aToken=Tk.TknBeginUnion } }
+endUnion        { Tk.Token { Tk.aToken=Tk.TknEndUnion } }
+pointerType     { Tk.Token { Tk.aToken=Tk.TknPointerType } }
+beginTuple      { Tk.Token { Tk.aToken=Tk.TknBeginTuple } }
+endTuple        { Tk.Token { Tk.aToken=Tk.TknEndTuple } }
+stringLit       { Tk.Token { Tk.aToken=Tk.TknStringLit }  }
+cast            { Tk.Token { Tk.aToken=Tk.TknCast } }
+':='            { Tk.Token { Tk.aToken=Tk.TknAssign } }
+':=='           { Tk.Token { Tk.aToken=Tk.TknTupleAssign } }
+'+'             { Tk.Token { Tk.aToken=Tk.TknPlus } }
+'-'             { Tk.Token { Tk.aToken=Tk.TknMinus } }
+'*'             { Tk.Token { Tk.aToken=Tk.TknMult } }
+'/'             { Tk.Token { Tk.aToken=Tk.TknDivide } }
+'~'             { Tk.Token { Tk.aToken=Tk.TknNegate } }
+'%'             { Tk.Token { Tk.aToken=Tk.TknMod } }
+and             { Tk.Token { Tk.aToken=Tk.TknAnd } }
+or              { Tk.Token { Tk.aToken=Tk.TknOr } }
+'='             { Tk.Token { Tk.aToken=Tk.TknEqual } }
+'!='            { Tk.Token { Tk.aToken=Tk.TknNotEqual } }
+'<'             { Tk.Token { Tk.aToken=Tk.TknLessThan } }
+'>'             { Tk.Token { Tk.aToken=Tk.TknGreaterThan } }
+'<='            { Tk.Token { Tk.aToken=Tk.TknLessEqThan } }
+'>='            { Tk.Token { Tk.aToken=Tk.TknGreaterEqThan } }
+'<-'            { Tk.Token { Tk.aToken=Tk.TknStructField } }
+'?'             { Tk.Token { Tk.aToken=Tk.TknUnionQuery } }
+'->'            { Tk.Token { Tk.aToken=Tk.TknUnionField } }
+'['             { Tk.Token { Tk.aToken=Tk.TknBeginIndex } }
+']'             { Tk.Token { Tk.aToken=Tk.TknEndIndex } }
+'[('            { Tk.Token { Tk.aToken=Tk.TknTupleSelect } }
+new             { Tk.Token { Tk.aToken=Tk.TknNew } }
+deref           { Tk.Token { Tk.aToken=Tk.TknDereference } }
+free            { Tk.Token { Tk.aToken=Tk.TknFree } }
+beginExit       { Tk.Token { Tk.aToken=Tk.TknBeginExit } }
+endExit         { Tk.Token { Tk.aToken=Tk.TknEndExit } }
+read            { Tk.Token { Tk.aToken=Tk.TknRead } }
+print           { Tk.Token { Tk.aToken=Tk.TknPrint } }
+pass            { Tk.Token { Tk.aToken=Tk.TknPass } }
+beginFuncDec    { Tk.Token { Tk.aToken=Tk.TknBeginFuncDecl } }
+item            { Tk.Token { Tk.aToken=Tk.TknFunctionItem } }
+globalDec       { Tk.Token { Tk.aToken=Tk.TknGlobalDec } }
+main            { Tk.Token { Tk.aToken=Tk.TknMain } }
+beginFuncParams { Tk.Token { Tk.aToken=Tk.TknBeginFunctionParams }
+endFuncParams   { Tk.Token { Tk.aToken=Tk.TknEndFunctionParams } }
+beginReturnVals { Tk.Token { Tk.aToken=Tk.TknBeginReturnVals } }
+endReturnVals   { Tk.Token { Tk.aToken=Tk.TknEndReturnVals } }
+returnOpen      { Tk.Token { Tk.aToken=Tk.TknReturnOpen } }
+returnClose     { Tk.Token { Tk.aToken=Tk.TknReturnClose } }
+valueArg        { Tk.Token { Tk.aToken=Tk.TknValueArg } }
+refArg          { Tk.Token { Tk.aToken=Tk.TknReferenceArg } }
+'{'             { Tk.Token { Tk.aToken=Tk.TknOpenBlock } }
+'}'             { Tk.Token { Tk.aToken=Tk.TknCloseBlock } }
+'(('            { Tk.Token { Tk.aToken=Tk.TknProcCallOpen } }
+procCallArgs    { Tk.Token { Tk.aToken=Tk.TknProcCallArgs } }
+'))'            { Tk.Token { Tk.aToken=Tk.TknProcCallClose } }
+for             { Tk.Token { Tk.aToken=Tk.TknFor } }
+forLB           { Tk.Token { Tk.aToken=Tk.TknForLB } }
+forUB           { Tk.Token { Tk.aToken=Tk.TknForUB } }
+endFor          { Tk.Token { Tk.aToken=Tk.TknEndFor } }
+while           { Tk.Token { Tk.aToken=Tk.TknWhile } }
+whileDecorator  { Tk.Token { Tk.aToken=Tk.TknWhileDecorator } }
+endWhile        { Tk.Token { Tk.aToken=Tk.TknEndWhile } }
+continue        { Tk.Token { Tk.aToken=Tk.TknContinue } }
+break           { Tk.Token { Tk.aToken=Tk.TknBreak } }
+if              { Tk.Token { Tk.aToken=Tk.TknBeginSimpleSelection } }
+then            { Tk.Token { Tk.aToken=Tk.TknSimpleSelectionDecorator } }
+else            { Tk.Token { Tk.aToken=Tk.TknElse } }
+endif           { Tk.Token { Tk.aToken=Tk.TknEndSimpleSelection } }
+switch          { Tk.Token { Tk.aToken=Tk.TknBeginMultipleSelection } }
+switchDec       { Tk.Token { Tk.aToken=Tk.TknMultipleSelectionDecorator } }
+case            { Tk.Token { Tk.aToken=Tk.TknBranch } }
+endSwitch       { Tk.Token { Tk.aToken=Tk.TknEndMultipleSelection } }
+id              { Tk.Token { Tk.aToken=Tk.TknID } }
+argNumber       { Tk.Token { Tk.aToken=Tk.TknArgNumber } }
+nothing         { Tk.Token { Tk.aToken=Tk.TknNothing } }
+atomLit         { Tk.Token { Tk.aToken=Tk.TknAtomLit } }
+aliasDec        { Tk.Token { Tk.aToken=Tk.TknAliasDec } }
+','             { Tk.Token { Tk.aToken=Tk.TknComma } }
+'.'             { Tk.Token { Tk.aToken=Tk.TknDot } }
+'('             { Tk.Token { Tk.aToken=Tk.TknOpenParenthesis } }
+')'             { Tk.Token { Tk.aToken=Tk.TknCloseParenthesis } }
+comment         { Tk.Token { Tk.aToken=Tk.TknComment }  }
 
 
--- Precedences and Associativities 
+-- Precedences and Associativities
 
-%left '+' '-'
-%left '*' '%' -- '/'
-
-%nonassoc '=' '!=' '<' '>' '<=' '>='
+%nonassoc ':=' ':=='
+%left ','
 %left and or
-%right not
-
+%nonassoc '=' '!=' '<' '>' '<=' '>='
+%left '+' '-'
+%left '*' '%' '/'
+%right '~'
+%left '('
 
 %% -- Grammar
 
@@ -176,166 +158,204 @@ module Westeros.SouthOfTheWall.Parser (parse) where
 -- an epilogue which is again, a function definition.
 -- comments at any point as long as they do not interfere with an expression
 
-PROGRAM : HEADER CONTENTS PROLOGUE FUNCTIONS EPILOGUE                                             { AST.Program $1 $2 $3 $4 $5 }
-    
-HEADER : beginProgram programName  '.'                                                            { AST.Header (Tk.capturedString $2) }
+-- Program --
+PROGRAM : HEADER CONTENTS GLOBAL FUNCTIONS MAIN
+        | HEADER CONTENTS GLOBAL FUNCTIONS MAIN ALIASES
 
-CONTENTS : beginFunctionDec FUNCTION_DECLARATIONS                                                 { AST.Contents $2 }
+HEADER : beginProgram programName  '.'
 
-FUNCTION_DECLARATIONS : item firstMain FUNCTION_NAMES item secondMain                             { AST.FunctionDeclarations $1 : $2 :}
+CONTENTS : beginFunctionDec FUNCTION_DECLARATIONS
 
-FUNCTION_NAMES : {- empty -} 
-               | FUNCTION_NAMES item id argCnt                                                    
- 
-PROLOGUE : firstMain FUNCTION_DEFINITION
+FUNCTION_DECLARATIONS : item global FUNCTION_NAMES item main
 
-EPILOGUE : secondMain FUNCTION_DEFINITION
+FUNCTION_NAMES : {- empty -}
+               | FUNCTION_NAMES item id argCnt
 
+GLOBAL : global '{' DECLARATIONS '}'
+
+MAIN : main FUNCTION_BODY
+
+ALIASES : aliasDec ALIAS_DECLARATIONS
+
+ALIAS_DECLARATIONS: ALIAS_DECLARATION
+                  | ALIAS_DECLARATIONS ALIAS_DECLARATION
 
 -- Subrutines --
 
 FUNCTIONS : {- empty -}
           | FUNCTIONS FUNCTION
 
-FUNCTION : id FUNCTION_DEFINITION
+FUNCTION : id FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY
 
-FUNCTION_DEFINITION : FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY
+FUNCTION_PARAMETERS : beginFuncParams PARAMETERS_LIST endFuncParams
 
-FUNCTION_PARAMETERS : functionParams PARAMETER
-                    | FUNCTION_PARAMETERS ',' PARAMETER  
+PARAMETER_LIST : void
+               | PARAMETERS
 
-PARAMETER : val id type TYPE
-          | ref id type TYPE  
-          | void
+PARAMETERS : PARAMETER
+           | PARAMETERS ',' PARAMETER
+
+PARAMETER: PARAMETER_TYPE id TYPE
+
+PARAMETER_TYPE : var
+               | ref
 
 FUNCTION_RETURN : beginReturn RETURN_TYPES endReturn
 
 RETURN_TYPES : void
-             | TYPES 
-
-FUNCTION_BODY : '{' INSTRUCTIONS '}' 
-
--- Types --
+             | TYPES
 
 TYPES : TYPE
       | TYPES ',' TYPE
 
-TYPE : SIMPLE_TYPE
-     | COMPOUND_TYPE
-     | POINTER
-     | id -- ALIASES
+FUNCTION_BODY : '{' INSTRUCTIONS '}'
 
-SIMPLE_TYPE : int
-            | float 
-            | char 
-            | trilean
+-- Types ---
 
-COMPOUND_TYPE : array TYPE arraySz EXPR 
-              | string stringSz
-              | struct DECLARATIONS
-              | union DECLARATIONS
-              | tuple TYPES 
+TYPE : PRIMITIVE_TYPE
+     | COMPOSITE_TYPE
+     | id -- alias
 
-POINTER : pointer TYPE -- OJO : es un tipo en si para poder declararlo solo constante
+PRIMITIVE_TYPE : int
+               | float
+               | char
+               | bool
+               | atom
 
-DECLARATIONS : DECLARATION -- OJO : podra ser vacia ?
-             | DECLARATIONS ',' DECLARATION
+COMPOSITE_TYPE : | beginArray naturalLit TYPE endArray
+                 | string
+                 | pointerType TYPE
+                 | beginStruct SIMPLE_DECLARATIONS endStruct
+                 | beginUnion SIMPLE_DECLARATIONS endUnion
+                 | beginTuple TUPLE_TYPES endTuple
 
-DECLARATION : SIMPLE_DECLARATION
-            | COMPOSITE_DECLARATION
-            | ALIAS_DECLARATION
-            
-SIMPLE_DECLARATION : var id type SIMPLE_TYPE
-                   | const id type SIMPLE_TYPE
+TUPLE_TYPES: {- empty -}
+           | TYPES
 
-COMPOSITE_DECLARATION : beginCompType var id endCompType COMPOUND_TYPE 
-                      | beginCompType const id endCompType COMPOUND_TYPE 
-                      | beginCompType const id endCompType POINTER 
+-- Alias Declaration --
 
-ALIAS_DECLARATION : beginAlias id weakAlias TYPE
-                  | beginAlias id strongAlias TYPE
+DECLARATIONS : DECLARATION
+             | DECLARATIONS DECLARATION
 
-COMPOSITE_DECLARATION_PREFFIX : beginCompType var id endCompType
-                              | beginCompType const id endCompType
+DECLARATION : SIMPLE_DECLARATION '.'
+            | SIMPLE_DECLARATION ":=" EXPR '.'
+            | SIMPLE_DECLARATION ":==" EXPR '.'
+            | CONST_DECLARATION '.'
 
+SIMPLE_DECLARATIONS : SIMPLE_DECLARATION
+                    | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION
+
+SIMPLE_DECLARATION : PRIMITIVE_DECLARATION
+                   | COMPOSITE_DECLARATION
+
+PRIMITIVE_DECLARATION : var id type TYPE
+
+COMPOSITE_DECLARATION : beginCompTypeId var id endCompTypeId TYPE
+                      | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz -- array and string
+
+CONST_DECLARATION : const id type TYPE constValue EXPR
+                  | beginCompTypeId const id endCompTypeId TYPE constValue EXPR
+
+ALIAS_DECLARATION : beginAlias id ALIAS_TYPE TYPE '.'
+
+ALIAS_TYPE : strongAlias
+           | weakAlias
 
 -- Instructions --
 
-INSTRUCTIONS : INSTRUCTION '.'
-             | INSTRUCTIONS INSTRUCTION '.'
+INSTRUCTIONS : INSTRUCTION
+             | INSTRUCTIONS INSTRUCTION
 
-INSTRUCTION : DECLARATION 
-            | INICIALIZATION
-            | ASSIGNMENT
+INSTRUCTION : EXRP ':=' EXRP '.'
+            | EXPRLIST ':==' EXPR '.'
+            | void ':=' EXPR '.'
+            | void ':==' EXPR '.'
+            | pass '.'
+            | beginExit programName endExit '.'
+            | read EXPR '.'
+            | print EXPR '.'
+            | EXPR new '.'
+            | EXPR free '.'
+            | continue '.'
+            | break '.'
+            | returnOpen EXPRLIST returnClose
+            | returnOpen returnClose
+            | comment
+            | IF
+            | SWITCHCASE
+            | FOR
+            | WHILE
+            | comment
 
-INICIALIZATION : COMPOSITE_DECLARATION_PREFFIX arrayDecl EXPRESSIONS
-               | COMPOSITE_DECLARATION_PREFFIX stringDecl EXPRESSIONS 
-               | SIMPLE_DECLARATION ':=' EXPR
-               | DECLARATIONS beginMultAssign EXPRESSIONS endMultAssign
-               -- faltan apuntadores, structs y uniones
+IF : if EXRP then INSTRUCTIONS endif
+   | if EXPR then INSTRUCTIONS else INSTRUCTIONS endif
 
-ASSIGNMENT : SIMPLE_ASSIGNMENT
-           | MULTIPLE_ASSIGNMENT
+SWITCHCASE : switch EXPR switchDec CASES endSwitch
 
-SIMPLE_ASSIGNMENT : LVALUE ':=' RVALUE
-                  | LVALUE ':=' RVALUES -- OJO : for arrays, structs ,strings and tuples (??)
-                  -- definir LVALUES
+CASES : CASE
+      | CASES CASE
 
-MULTIPLE_ASSIGNMENT : LVALUES beginMultAssign EXPRESSIONS endMultAssign 
-                    -- definir LVALUES
-                    
-LVALUES : LVALUE
-        | LVALUES ',' LVALUE
- 
-LVALUE : COMMON_VALUE
-       -- falta la dereferenciacion
+CASE : case atomLit '.' INSTRUCTIONS
+     | case nothing '.' INSTRUCTIONS
 
-RVALUES : RVALUE
-        | RVALUES ',' RVALUE
+FOR : for id type int '.' forLB EXPR forUB EXPR '.' INSTRUCTIONS endFor
 
-RVALUE : COMMON_VALUE
-       | EXPR
+WHILE : while EXPR whileDec INSTRUCTIONS endWhile
 
-COMMON_VALUE : id
-             | id structField id
-             | id unionField id -- beginUnionQ id unionQ id endUnionQ 
-             | beginIdx EXPR endIdx id -- OJO 
-             | tupleIdx int endIdx id
+-- Expresions --
 
-
--- Expressions --
-
-EXPRESSIONS : EXPR
-           | EXPRESSIONS ',' EXPR
-
-EXPR : intLit                                                   { AST.IntLit (read (Tk.cleanedString $1)::Int) }  
-     | floatLit                                                 { AST.FloatLit (read (Tk.cleanedString $1)::Float) }
-     | charLit                                                  { AST.CharLit (head (Tk.cleanedString $1)) }
-     | stringLit
-     | true  
-     | neutral 
-     | false  
-     | EXPR '+' EXPR 
-     | EXPR '-' EXPR 
-     | EXPR '*' EXPR 
-     | EXPR '%' EXPR 
+EXPR : EXPR '+' EXPR
+     | EXPR '-' EXPR
+     | EXPR '*' EXPR
      | EXPR '/' EXPR
-     | EXPR '=' EXPR 
-     | EXPR '!=' EXPR 
-     | EXPR '<' EXPR 
-     | EXPR '>' EXPR 
-     | EXPR '<=' EXPR 
-     | EXPR '>=' EXPR 
-     | not EXPR 
-     | EXPR and EXPR 
-     | EXPR or EXPR 
+     | EXPR '%' EXPR
+     | EXPR '=' EXPR
+     | EXPR '!=' EXPR
+     | EXPR '<' EXPR
+     | EXPR '>' EXPR
+     | EXPR '<=' EXPR
+     | EXPR '>=' EXPR
+     | EXPR and EXPR
+     | EXPR or EXPR
+     | EXPR '~'
+     | deref EXPR
+     | '[' EXPRLIST ']' EXPR
+     | id '<-' EXPR
+     | EXPR '->' id
+     | EXPR '?' id
+     | '[(' naturalLit ']' EXPR
+     | EXPR cast TYPE
+     | '(' EXPR ')'
+     | ARRAYLIT
+     | TUPLELIT
+     | FUNCTIONCALL
+     | intLit
+     | floatLit
+     | charLit
+     | atomLit
+     | stringLit
+     | true
+     | false
+     | id
+
+FUNCTIONCALL : id '((' procCallArgs EXPRLIST '))'
+             | id '((' procCallArgs void '))'
+             | id '(('  '))'
+
+ARRAYLIT : '{{' EXPRLIST '}}'
+         | '{{' '}}'
+
+TUPLELIT : '[[' EXPRLIST ']]'
+         | '[[' ']]'
+
+EXPRLIST : EXPR
+         | EXPRLIST ',' EXPR
 
 {
--- Helper functions
+	-- Helper functions
 -- TODO:
 -- Error Function
 
 parseError :: [Tk.Token] -> a
 parseError _ = undefined
-
 }
