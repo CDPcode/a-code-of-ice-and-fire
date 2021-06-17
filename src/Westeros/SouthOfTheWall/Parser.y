@@ -145,9 +145,9 @@ comment         { Tk.Token { Tk.aToken=Tk.TknComment }  }
 %right '~'
 %left deref
 %left ']'
+%nonassoc '?'
 %left '->'
 %right '<-'
-%nonassoc '?'
 %left '('
 
 %% -- Grammar
@@ -177,7 +177,7 @@ FUNCTION_DECLARATIONS : item globalDec FUNCTION_NAMES item main                 
 FUNCTION_NAMES : {- empty -}                                                                        {}
                | FUNCTION_NAMES item id argNumber                                                   {}
 
-GLOBAL : globalDec '{' DECLARATIONS '}'                                                             {}
+GLOBAL : globalDec '{' INSTRUCTIONS '}'                                                             {}
 
 MAIN : main FUNCTION_BODY                                                                           {}
 
@@ -240,8 +240,8 @@ TUPLE_TYPES: {- empty -}                                                        
 
 -- Alias Declaration --
 
-DECLARATIONS : DECLARATION                                                                          {}
-             | DECLARATIONS DECLARATION                                                             {}
+-- DECLARATIONS : DECLARATION                                                                          {}
+--              | DECLARATIONS DECLARATION                                                             {}
 
 DECLARATION : SIMPLE_DECLARATION '.'                                                                {}
             | SIMPLE_DECLARATION ':=' EXPR '.'                                                      {}
@@ -271,7 +271,7 @@ ALIAS_TYPE : strongAlias                                                        
 
 -- Instructions --
 
-INSTRUCTIONS : INSTRUCTION                                                                          {}
+INSTRUCTIONS : {- empty -}                                                                          {}
              | INSTRUCTIONS INSTRUCTION                                                             {}
 
 INSTRUCTION : EXPR ':=' EXPR '.'                                                                    {}
@@ -293,6 +293,7 @@ INSTRUCTION : EXPR ':=' EXPR '.'                                                
             | FOR                                                                                   {}
             | WHILE                                                                                 {}
             | comment                                                                               {}
+            | DECLARATION                                                                           {}
 
 IF : if EXPR then INSTRUCTIONS endif                                                                {}
    | if EXPR then INSTRUCTIONS else INSTRUCTIONS endif                                              {}
