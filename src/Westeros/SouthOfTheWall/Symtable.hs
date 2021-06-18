@@ -1,7 +1,7 @@
 module Westeros.SouthOfTheWall.Symtable where
 
 import qualified Data.Map.Strict as M
-import qualified Westeros.SouthOfTheWall.Token as TK
+import qualified Westeros.SouthOfTheWall.Tokens as Tk
 
 
 type Symbol = String
@@ -11,16 +11,18 @@ data Category -- anything with a name
     | Variable
     | Constant
     | Function
-    | Param
-    | Field
-    | Alias
+    | Param    
+    | Field    
+    | Alias    
+    -- | Pointer
    deriving Show 
   
 data AdditionalInfo 
-    = ReturnTypes [String] -- For functions we save: name and return type(s).
+    = ReturnTypes [String]   -- For functions we save: name and return type(s).
     | PassType String        -- For parameters we save: name, type and either it is value or reference passed.
     | AliasType String       -- For aliases we save: name and the type it is a sinonym of.
     | PointedType String     -- For pointers we save: name and the pointed type
+    | UnderlyingSize Int     -- For Arrays, Strings, Tuples, Structs and Tuples the respective size of what they hold
    deriving Show
 
 data SymbolInfo = SymbolInfo 
@@ -44,52 +46,166 @@ data SymbolTable = SymbolTable
 
 {- ST creation functions -}
 
+toTypeSymbol :: Tk.Token -> Symbol
+toTypeSymbol token = case Tk.aToken token of 
+    Tk.TknInt          -> "int"
+    Tk.TknChar         -> "char"
+    Tk.TknFloat        -> "float"
+    Tk.TknBool         -> "bool"
+    Tk.TknAtom         -> "atom"
+    
+    Tk.TknPointerType  -> "pointer"
+    Tk.TknString       -> "string"
+    Tk.TknBeginArray   -> "array"
+    Tk.TknBeginStruct  -> "struct"
+    Tk.TknBeginUnion   -> "union"
+    Tk.TknBeginTuple   -> "tuple"
+
+    _                  -> error "Not a token Type" -- OJO : enhance error correction
+
+
 getTypeInfo
     :: Tk.Token -- Typename
     -> (Symbol, SymbolInfo)
-getTypeInfo = undefined
+getTypeInfo typename = (symbol, info)
+    where
+        symbol = Tk.cleanedString typename 
+        info = SymbolInfo {                
+            category   = Type,
+            scope      = pervasiveScope,
+            tp         = Nothing ,
+            additional = Nothing 
+        }
 
-getStandardSymbolInfo 
+getPrimitiveSymbolInfo 
     :: Tk.Token -- Variability
     -> Tk.Token -- Id
     -> Tk.Token -- Type
     -> (Symbol, SymbolInfo)
-getStandardSymbolInfo = undefined
+getPrimitiveSymbolInfo variability id symType = (symbol, info)
+    where
+        symbol = Tk.cleanedString id 
+        info   = SymbolInfo { 
+            category   = case Tk.aToken variability of 
+                            Tk.TknVar   -> Variable
+                            Tk.TknConst -> Constant
+                            _           -> error "Invalid Variability", 
+                            -- OJO : enhance error management
+            scope      = pervasiveScope,
+            tp         = Just (toTypeSymbol symType),
+            additional = Nothing
+        }
+
+
+getCompositeSymbolInfo 
+    :: Tk.Token -- Variability
+    -> Tk.Token -- Id
+    -> Tk.Token -- Type
+    -> (Symbol, SymbolInfo)
+getCompositeSymbolInfo variability id symType = undefined
+    where
+        symbol = Tk.cleanedString id 
+        info   = SymbolInfo { 
+            category   = case Tk.aToken variability of 
+                            Tk.TknVar   -> Variable
+                            Tk.TknConst -> Constant
+                            _           -> error "Invalid Variability", 
+                            -- OJO : enhance error management
+            scope      = pervasiveScope,
+            tp         = Just (toTypeSymbol symType),
+            additional = Nothing
+        }
 
 getFunctionInfo
     :: Tk.Token   -- Id
     -> [Tk.Token] -- Return types
     -> (Symbol,SymbolInfo)
-getFunctionInfo = undefined
+getFunctionInfo id returnTypes = (symbol, info)
+ where
+    symbol = Tk.cleanedString id 
+    info   = SymbolInfo { 
+        category   = Function,
+        scope      = functionScope,
+        tp         = Nothing, 
+        additional = Just $ ReturnTypes (map toTypeSymbol returnTypes)
+    }
 
 getParamInfo
     :: Tk.Token -- Either value or reference
     -> Tk.Token -- Id
     -> Tk.Token -- Type
     -> (Symbol, SymbolInfo)
-getParamInfo = undefined
+getParamInfo passType id symType = (symbol, info)
+    where 
+        symbol = Tk.cleanedString id 
+        info   = SymbolInfo { 
+            category   = Param,
+            scope      = defaultScope,
+            tp         = Just (toTypeSymbol symType),
+            additional = case Tk.aToken passType of 
+                            Tk.TknValueArg     -> Just (PassType "value")
+                            Tk.TknReferenceArg -> Just (PassType "reference")
+                            _                  -> error "Invalid Variability" 
+                            -- OJO : enhance error management
+        }
 
 getFieldInfo
     :: Tk.Token -- Id
     -> Tk.Token -- Type
     -> (Symbol, SymbolInfo)
-getFieldInfo = undefined
+getFieldInfo id symType = undefined
+    where  
+        symbol = Tk.cleanedString id
+        info = SymbolInfo { 
+            category   = Field,
+            scope      = defaultScope,
+            tp         = Just (toTypeSymbol symType),
+            additional = Nothing
+        } 
 
 getAliasInfo 
-    :: Tk.Token -- Id
+    :: Tk.Token -- Alias
     -> Tk.Token -- Pointed type
-    -> Tk.Token -- Alias type
     -> (Symbol, SymbolInfo)
- getAliasInfo = undefined
+getAliasInfo aliasName pointedType = undefined
+    where
+        symbol = Tk.cleanedString aliasName 
+        info   = SymbolInfo { 
+            category   = Alias, 
+            scope      = pervasiveScope, 
+            tp         = Nothing,
+            additional = Just $ AliasType (toTypeSymbol pointedType)
+        }
 
-insertDict :: Dict -> Symbol -> SymbolInfo -> Dict
-insertDict = undefined
+
+insertDict :: Dict -> (Symbol ,SymbolInfo) -> Dict
+insertDict dict (k,v) = M.insertWith (++) k [v] dict
     
-insertST :: SymbolTable -> Symbol -> SymbolInfo -> SymbolTable
-insertST = undefined
+
+insertST :: SymbolTable -> (Symbol ,SymbolInfo) -> SymbolTable
+insertST st (k,v) = case category v of 
+    Variable -> st { dict = insertDict (dict st) (k,v) } 
+    Constant -> st { dict = insertDict (dict st) (k,v) } 
+    Function -> undefined
+    Param    -> undefined
+    Field    -> undefined
+    Alias    -> undefined
+    _        -> undefined
+-- intended to be called in some parser rule like such: 
+-- var id type TYPE   { insertST (getPrimitiveSymbolInfo $1 $2 $3) } 
 
 
 {- ST lookup Functions -}
 
 findSymbol :: SymbolTable -> String -> Maybe SymbolInfo
 findSymbol = undefined
+
+
+{- Default Type Literals, and constants -}
+
+tps = [ "int" , "char" , "float" , "bool" , "atom", "string", "array", "struct", "union", "pointer", "tuple" ]
+
+
+pervasiveScope = 0
+defaultScope = maxBound :: Int
+functionScope = 1

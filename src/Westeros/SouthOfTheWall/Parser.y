@@ -193,7 +193,7 @@ FUNCTIONS : {- empty -}                                                         
 
 FUNCTION : id FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY                                     {}
 
-FUNCTION_PARAMETERS : beginFuncParams PARAMETER_LIST endFuncParams                                  {}
+FUNCTION_PARAMETERS : beginFuncParams PARAMETER_LIST endFuncParams                                  {} -- ## (a??)
 
 PARAMETER_LIST : void                                                                               {}
                | PARAMETERS                                                                         {}
@@ -201,7 +201,7 @@ PARAMETER_LIST : void                                                           
 PARAMETERS : PARAMETER                                                                              {}
            | PARAMETERS ',' PARAMETER                                                               {}
 
-PARAMETER: PARAMETER_TYPE id TYPE                                                                   {}
+PARAMETER: PARAMETER_TYPE id TYPE                                                                   {} -- ## (a??) 
 
 PARAMETER_TYPE : valueArg                                                                           {}
                | refArg                                                                             {}
@@ -228,12 +228,12 @@ PRIMITIVE_TYPE : int                                                            
                | bool                                                                               {}
                | atom                                                                               {}
 
-COMPOSITE_TYPE : beginArray naturalLit TYPE endArray                                                {}
-               | string                                                                             {}
-               | pointerType TYPE                                                                   {}
-               | beginStruct SIMPLE_DECLARATIONS endStruct                                          {}
-               | beginUnion SIMPLE_DECLARATIONS endUnion                                            {}
-               | beginTuple TUPLE_TYPES endTuple                                                    {}
+COMPOSITE_TYPE : beginArray naturalLit TYPE endArray                                                {} -- ##
+               | string                                                                             {} -- ##
+               | pointerType TYPE                                                                   {} -- ## 
+               | beginStruct SIMPLE_DECLARATIONS endStruct                                          {} -- ## 
+               | beginUnion SIMPLE_DECLARATIONS endUnion                                            {} -- ##
+               | beginTuple TUPLE_TYPES endTuple                                                    {} -- ## 
 
 TUPLE_TYPES: {- empty -}                                                                            {}
            | TYPES                                                                                  {}
@@ -255,17 +255,17 @@ SIMPLE_DECLARATIONS : SIMPLE_DECLARATION                                        
 SIMPLE_DECLARATION : PRIMITIVE_DECLARATION                                                          {}
                    | COMPOSITE_DECLARATION                                                          {}
 
-PRIMITIVE_DECLARATION : var id type TYPE                                                            {}
+PRIMITIVE_DECLARATION : var id type TYPE                                                            {} -- ## 
 
-COMPOSITE_DECLARATION : beginCompTypeId var id endCompTypeId TYPE                                   {}
-                      | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz            {}
-                      | beginCompTypeId pointerVar id endCompTypeId TYPE                            {}
-                      | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz     {}
+COMPOSITE_DECLARATION : beginCompTypeId var id endCompTypeId TYPE                                   {} -- ##
+                      | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz            {} -- ##
+                      | beginCompTypeId pointerVar id endCompTypeId TYPE                            {} -- ##
+                      | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz     {} -- ##
 
-CONST_DECLARATION : const id type TYPE constValue EXPR                                              {}
-                  | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                     {}
+CONST_DECLARATION : const id type TYPE constValue EXPR                                              {} -- ##
+                  | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                     {} -- ##
 
-ALIAS_DECLARATION : beginAlias id ALIAS_TYPE TYPE '.'                                               {}
+ALIAS_DECLARATION : beginAlias id ALIAS_TYPE TYPE '.'                                               {} -- ##
 
 ALIAS_TYPE : strongAlias                                                                            {}
            | weakAlias                                                                              {}
