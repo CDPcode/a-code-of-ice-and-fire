@@ -7,20 +7,20 @@ import qualified Westeros.SouthOfTheWall.Tokens as Tk
 type Symbol = String
 
 data Category -- anything with a name
-    = Type
-    | Variable
+    = Alias    
     | Constant
+    | Field    
     | Function
     | Param    
-    | Field    
-    | Alias    
+    | Type
+    | Variable
     -- | Pointer
    deriving Show 
   
 data AdditionalInfo 
-    = ReturnTypes [String]   -- For functions we save: name and return type(s).
+    = AliasType String       -- For aliases we save: name and the type it is a sinonym of.
     | PassType String        -- For parameters we save: name, type and either it is value or reference passed.
-    | AliasType String       -- For aliases we save: name and the type it is a sinonym of.
+    | ReturnTypes [String]   -- For functions we save: name and return type(s).
     | PointedType String     -- For pointers we save: name and the pointed type
     | UnderlyingSize Int     -- For Arrays, Strings, Tuples, Structs and Tuples the respective size of what they hold
    deriving Show
@@ -63,18 +63,18 @@ toTypeSymbol token = case Tk.aToken token of
 
     _                  -> error "Not a token Type" -- OJO : enhance error correction
 
-
-getTypeInfo
-    :: Tk.Token -- Typename
+getAliasInfo 
+    :: Tk.Token -- Alias
+    -> Tk.Token -- Pointed type
     -> (Symbol, SymbolInfo)
-getTypeInfo typename = (symbol, info)
+getAliasInfo aliasName pointedType = undefined
     where
-        symbol = Tk.cleanedString typename 
-        info = SymbolInfo {                
-            category   = Type,
-            scope      = pervasiveScope,
-            tp         = Nothing ,
-            additional = Nothing 
+        symbol = Tk.cleanedString aliasName 
+        info   = SymbolInfo { 
+            category   = Alias, 
+            scope      = pervasiveScope, 
+            tp         = Nothing,
+            additional = Just $ AliasType (toTypeSymbol pointedType)
         }
 
 getPrimitiveSymbolInfo 
@@ -91,12 +91,19 @@ getPrimitiveSymbolInfo variability id symType = (symbol, info)
                             Tk.TknConst -> Constant
                             _           -> error "Invalid Variability", 
                             -- OJO : enhance error management
-            scope      = pervasiveScope,
+            scope      = defaultScope,
             tp         = Just (toTypeSymbol symType),
             additional = Nothing
         }
 
+{-
+COMPOSITE_DECLARATION : beginCompTypeId var id endCompTypeId TYPE                                   {} -- ##
+                      | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz            {} -- ##
+                      | beginCompTypeId pointerVar id endCompTypeId TYPE                            {} -- ##
+                      | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz     {} -- ##
 
+
+-}
 getCompositeSymbolInfo 
     :: Tk.Token -- Variability
     -> Tk.Token -- Id
@@ -111,10 +118,24 @@ getCompositeSymbolInfo variability id symType = undefined
                             Tk.TknConst -> Constant
                             _           -> error "Invalid Variability", 
                             -- OJO : enhance error management
-            scope      = pervasiveScope,
+            scope      = defaultScope,
             tp         = Just (toTypeSymbol symType),
             additional = Nothing
         }
+
+getFieldInfo
+    :: Tk.Token -- Id
+    -> Tk.Token -- Type
+    -> (Symbol, SymbolInfo)
+getFieldInfo id symType = undefined
+    where  
+        symbol = Tk.cleanedString id
+        info = SymbolInfo { 
+            category   = Field,
+            scope      = defaultScope,
+            tp         = Just (toTypeSymbol symType),
+            additional = Nothing
+        } 
 
 getFunctionInfo
     :: Tk.Token   -- Id
@@ -149,34 +170,18 @@ getParamInfo passType id symType = (symbol, info)
                             -- OJO : enhance error management
         }
 
-getFieldInfo
-    :: Tk.Token -- Id
-    -> Tk.Token -- Type
+getTypeInfo
+    :: Tk.Token -- Typename
     -> (Symbol, SymbolInfo)
-getFieldInfo id symType = undefined
-    where  
-        symbol = Tk.cleanedString id
-        info = SymbolInfo { 
-            category   = Field,
-            scope      = defaultScope,
-            tp         = Just (toTypeSymbol symType),
-            additional = Nothing
-        } 
-
-getAliasInfo 
-    :: Tk.Token -- Alias
-    -> Tk.Token -- Pointed type
-    -> (Symbol, SymbolInfo)
-getAliasInfo aliasName pointedType = undefined
+getTypeInfo typename = (symbol, info)
     where
-        symbol = Tk.cleanedString aliasName 
-        info   = SymbolInfo { 
-            category   = Alias, 
-            scope      = pervasiveScope, 
-            tp         = Nothing,
-            additional = Just $ AliasType (toTypeSymbol pointedType)
+        symbol = Tk.cleanedString typename 
+        info = SymbolInfo {                
+            category   = Type,
+            scope      = pervasiveScope,
+            tp         = Nothing ,
+            additional = Nothing 
         }
-
 
 insertDict :: Dict -> (Symbol ,SymbolInfo) -> Dict
 insertDict dict (k,v) = M.insertWith (++) k [v] dict
