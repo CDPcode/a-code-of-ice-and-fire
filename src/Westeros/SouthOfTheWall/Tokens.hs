@@ -191,4 +191,4 @@ data AbstractToken =
 
     -- Comments
     | TknComment
-   deriving Show
+   deriving (Show,Eq)

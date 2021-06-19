@@ -176,7 +176,7 @@ tokens :-
 --          Simple Selection
 <0>         If                                                                                          { makeToken TknBeginSimpleSelection }
 <0>         may(@ws)be(@ws)the(@ws)True(@ws)King(@ws)of(@ws)the(@ws)Seven(@ws)Kingdoms\,(@ws)then(@ws)  { makeToken TknSimpleSelectionDecorator }
-<0>         Otherwise                                                                                   { makeToken TknElse }
+<0>         Otherwise\,                                                                                 { makeToken TknElse } -- ##
 <0>         And(@ws)so(@ws)our(@ws)fate(@ws)rests(@ws)upon(@ws)this(@ws)decision                        { makeToken TknEndSimpleSelection }
 
 --          Multiple Selection

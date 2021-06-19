@@ -1,11 +1,17 @@
 {
-module Westeros.SouthOfTheWall.Parser (parse) where
-import qualified Westeros.SouthOfTheWall.Tokens as Tk
+module Westeros.SouthOfTheWall.Parser (preParse) where
+
 import qualified Westeros.SouthOfTheWall.Symtable as ST 
+import qualified Westeros.SouthOfTheWall.Tokens as Tk
+import qualified Westeros.SouthOfTheWall.Error as Err
+
+import Control.Monad.State (State(..))
+
 --    import qualified Westeros.SouthOfTheWall.AST as Ast
 }
 
-%name                parse
+%name                 preParse
+%monad                { ST.MonadParser }
 %tokentype            { Tk.Token }
 %error                { parseError }
 -- TODO: %monad expr to properly handle errors
@@ -166,17 +172,18 @@ comment         { Tk.Token { Tk.aToken=Tk.TknComment }  }
 -- comments at any point as long as they do not interfere with an expression
 
 -- Program --
-PROGRAM : HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                                     {ST.beginSymbolScan}
-        | HEADER CONTENTS GLOBAL FUNCTIONS MAIN ALIASES                                             {ST.beginSymbolScan}
+PROGRAM : HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                                     {}
+        | HEADER CONTENTS GLOBAL FUNCTIONS MAIN ALIASES                                             {}
 
-HEADER : programStart programName  '.'                                                              {}
+HEADER : programStart programName                                                                   {}
 
 CONTENTS : beginFuncDec FUNCTION_DECLARATIONS                                                       {}
 
 FUNCTION_DECLARATIONS : item globalDec FUNCTION_NAMES item main                                     {}
 
-FUNCTION_NAMES : {- empty -}                                                                        {}
-               | FUNCTION_NAMES item id argNumber                                                   {}
+FUNCTION_NAMES :: { () }
+     : {- empty -}                                                                                  { () }
+     | FUNCTION_NAMES item id argNumber                                                             {% ST.statefullSTupdate (ST.getFunctionDeclarationInfo $3 $4)}
 
 GLOBAL : globalDec '{' DECLARATIONS '}'                                                             {}
 
@@ -192,7 +199,7 @@ ALIAS_DECLARATIONS: ALIAS_DECLARATION                                           
 FUNCTIONS : {- empty -}                                                                             {}
           | FUNCTIONS FUNCTION                                                                      {}
 
-FUNCTION : id FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY                                     { ST.statefullSTupdate (ST.getFunctionInfo $1 $3) } 
+FUNCTION : id FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY                                     {} 
 
 FUNCTION_PARAMETERS : beginFuncParams PARAMETER_LIST endFuncParams                                  {} 
 
@@ -202,15 +209,15 @@ PARAMETER_LIST : void                                                           
 PARAMETERS : PARAMETER                                                                              {}
            | PARAMETERS ',' PARAMETER                                                               {}
 
-PARAMETER: PARAMETER_TYPE id TYPE                                                                   {} 
+PARAMETER : PARAMETER_TYPE id type TYPE                                                             {}
 
 PARAMETER_TYPE : valueArg                                                                           {}
                | refArg                                                                             {}
 
 FUNCTION_RETURN : beginReturnVals RETURN_TYPES endReturnVals                                        {} 
 
-RETURN_TYPES : void                                                                                 {}
-             | TYPES                                                                                {}
+RETURN_TYPES  : void                                                                                {}
+              | TYPES                                                                               {}
 
 TYPES : TYPE                                                                                        {}
       | TYPES ',' TYPE                                                                              {}
@@ -219,22 +226,25 @@ FUNCTION_BODY : '{' INSTRUCTIONS '}'                                            
 
 -- Types ---
 
-TYPE : PRIMITIVE_TYPE                                                                               {} 
-     | COMPOSITE_TYPE                                                                               {}
-     | id                                                                                           {}
+TYPE :: { Tk.Token }
+     : PRIMITIVE_TYPE                                                                               { $1 } 
+     | COMPOSITE_TYPE                                                                               { $1 }
+     | id                                                                                           { $1 }
 
-PRIMITIVE_TYPE : int                                                                                {} 
-               | float                                                                              {} 
-               | char                                                                               {} 
-               | bool                                                                               {} 
-               | atom                                                                               {} 
+PRIMITIVE_TYPE :: { Tk.Token }
+     : int                                                                                          { $1 } 
+     | float                                                                                        { $1 } 
+     | char                                                                                         { $1 } 
+     | bool                                                                                         { $1 } 
+     | atom                                                                                         { $1 } 
 
-COMPOSITE_TYPE : beginArray naturalLit TYPE endArray                                                {} 
-               | string                                                                             {} 
-               | pointerType TYPE                                                                   {} 
-               | beginStruct SIMPLE_DECLARATIONS endStruct                                          {} 
-               | beginUnion SIMPLE_DECLARATIONS endUnion                                            {} 
-               | beginTuple TUPLE_TYPES endTuple                                                    {} 
+COMPOSITE_TYPE :: { Tk.Token }
+     : beginArray naturalLit TYPE endArray                                                          { $1 } 
+     | string                                                                                       { $1 } 
+     | pointerType TYPE                                                                             { $1 } 
+     | beginStruct SIMPLE_DECLARATIONS endStruct                                                    { $1 } 
+     | beginUnion SIMPLE_DECLARATIONS endUnion                                                      { $1 } 
+     | beginTuple TUPLE_TYPES endTuple                                                              { $1 } 
 
 TUPLE_TYPES: {- empty -}                                                                            {} 
            | TYPES                                                                                  {} 
@@ -266,10 +276,12 @@ COMPOSITE_DECLARATION : beginCompTypeId var id endCompTypeId TYPE               
 CONST_DECLARATION : const id type TYPE constValue EXPR                                              {} 
                   | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                     {} 
 
-ALIAS_DECLARATION : beginAlias id ALIAS_TYPE TYPE '.'                                               {} 
+ALIAS_DECLARATION :: { () }
+     : beginAlias id ALIAS_TYPE TYPE '.'                                                            {% ST.statefullSTupdate (ST.getAliasInfo $2 $3 $4) }
 
-ALIAS_TYPE : strongAlias                                                                            {} 
-           | weakAlias                                                                              {} 
+ALIAS_TYPE :: { Tk.Token } 
+     : strongAlias                                                                                  { $1 } 
+     | weakAlias                                                                                    { $1 } 
 
 -- Instructions --
 
@@ -291,11 +303,12 @@ INSTRUCTION : EXPR ':=' EXPR '.'                                                
             | break '.'                                                                             {}
             | returnOpen EXPRLIST returnClose                                                       {}
             | returnOpen returnClose                                                                {}
-            | IF                                                                                    {}
+            | IF '.'                                                                                {} -- ##
             | SWITCHCASE                                                                            {}
-            | FOR                                                                                   {}
+            | FOR '.'                                                                               {} -- ##
             | WHILE                                                                                 {}
             | DECLARATION                                                                           {}
+            | FUNCTIONCALL                                                                          {} 
 
 IF : if EXPR then INSTRUCTIONS endif                                                                {}
    | if EXPR then INSTRUCTIONS else INSTRUCTIONS endif                                              {}
@@ -363,11 +376,8 @@ EXPRLIST : EXPR                                                                 
          | EXPRLIST ',' EXPR                                                                        {}
 
 {
-	-- Helper functions
--- TODO:
--- Error Function
-
-parseError :: [Tk.Token] -> a
-parseError _ = error "You Dieded."
+     
+parseError :: [Tk.Token] -> ST.MonadParser a
+parseError tks = fail (Err.displayErrorContext tks) 
 
 }
