@@ -1,6 +1,7 @@
 {
 module Westeros.SouthOfTheWall.Parser (parse) where
 import qualified Westeros.SouthOfTheWall.Tokens as Tk
+import qualified Westeros.SouthOfTheWall.Symtable as ST 
 --    import qualified Westeros.SouthOfTheWall.AST as Ast
 }
 
@@ -165,8 +166,8 @@ comment         { Tk.Token { Tk.aToken=Tk.TknComment }  }
 -- comments at any point as long as they do not interfere with an expression
 
 -- Program --
-PROGRAM : HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                                     {}
-        | HEADER CONTENTS GLOBAL FUNCTIONS MAIN ALIASES                                             {}
+PROGRAM : HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                                     {ST.beginSymbolScan}
+        | HEADER CONTENTS GLOBAL FUNCTIONS MAIN ALIASES                                             {ST.beginSymbolScan}
 
 HEADER : programStart programName  '.'                                                              {}
 
@@ -191,9 +192,9 @@ ALIAS_DECLARATIONS: ALIAS_DECLARATION                                           
 FUNCTIONS : {- empty -}                                                                             {}
           | FUNCTIONS FUNCTION                                                                      {}
 
-FUNCTION : id FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY                                     {}
+FUNCTION : id FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY                                     { ST.statefullSTupdate (ST.getFunctionInfo $1 $3) } 
 
-FUNCTION_PARAMETERS : beginFuncParams PARAMETER_LIST endFuncParams                                  {} -- ## (a??)
+FUNCTION_PARAMETERS : beginFuncParams PARAMETER_LIST endFuncParams                                  {} 
 
 PARAMETER_LIST : void                                                                               {}
                | PARAMETERS                                                                         {}
@@ -201,12 +202,12 @@ PARAMETER_LIST : void                                                           
 PARAMETERS : PARAMETER                                                                              {}
            | PARAMETERS ',' PARAMETER                                                               {}
 
-PARAMETER: PARAMETER_TYPE id TYPE                                                                   {} -- ## (a??) 
+PARAMETER: PARAMETER_TYPE id TYPE                                                                   {} 
 
 PARAMETER_TYPE : valueArg                                                                           {}
                | refArg                                                                             {}
 
-FUNCTION_RETURN : beginReturnVals RETURN_TYPES endReturnVals                                        {}
+FUNCTION_RETURN : beginReturnVals RETURN_TYPES endReturnVals                                        {} 
 
 RETURN_TYPES : void                                                                                 {}
              | TYPES                                                                                {}
@@ -222,21 +223,21 @@ TYPE : PRIMITIVE_TYPE                                                           
      | COMPOSITE_TYPE                                                                               {}
      | id                                                                                           {}
 
-PRIMITIVE_TYPE : int                                                                                {} -- ##
-               | float                                                                              {} -- ##
-               | char                                                                               {} -- ##
-               | bool                                                                               {} -- ##
-               | atom                                                                               {} -- ##
+PRIMITIVE_TYPE : int                                                                                {} 
+               | float                                                                              {} 
+               | char                                                                               {} 
+               | bool                                                                               {} 
+               | atom                                                                               {} 
 
-COMPOSITE_TYPE : beginArray naturalLit TYPE endArray                                                {} -- ##
-               | string                                                                             {} -- ##
-               | pointerType TYPE                                                                   {} -- ## 
-               | beginStruct SIMPLE_DECLARATIONS endStruct                                          {} -- ## 
-               | beginUnion SIMPLE_DECLARATIONS endUnion                                            {} -- ##
-               | beginTuple TUPLE_TYPES endTuple                                                    {} -- ## 
+COMPOSITE_TYPE : beginArray naturalLit TYPE endArray                                                {} 
+               | string                                                                             {} 
+               | pointerType TYPE                                                                   {} 
+               | beginStruct SIMPLE_DECLARATIONS endStruct                                          {} 
+               | beginUnion SIMPLE_DECLARATIONS endUnion                                            {} 
+               | beginTuple TUPLE_TYPES endTuple                                                    {} 
 
-TUPLE_TYPES: {- empty -}                                                                            {} -- ##
-           | TYPES                                                                                  {} -- ##
+TUPLE_TYPES: {- empty -}                                                                            {} 
+           | TYPES                                                                                  {} 
 
 -- Alias Declaration --
 
@@ -249,26 +250,26 @@ DECLARATION : SIMPLE_DECLARATION '.'                                            
             | SIMPLE_DECLARATION ':==' EXPR '.'                                                     {}
             | CONST_DECLARATION '.'                                                                 {}
 
-SIMPLE_DECLARATIONS : SIMPLE_DECLARATION                                                            {} -- ##
-                    | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION                                    {} -- ##
+SIMPLE_DECLARATIONS : SIMPLE_DECLARATION                                                            {} 
+                    | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION                                    {} 
 
-SIMPLE_DECLARATION : PRIMITIVE_DECLARATION                                                          {} -- ## 
-                   | COMPOSITE_DECLARATION                                                          {} -- ##
+SIMPLE_DECLARATION : PRIMITIVE_DECLARATION                                                          {} 
+                   | COMPOSITE_DECLARATION                                                          {} 
 
-PRIMITIVE_DECLARATION : var id type TYPE                                                            {} -- ## 
+PRIMITIVE_DECLARATION : var id type TYPE                                                            {} 
 
-COMPOSITE_DECLARATION : beginCompTypeId var id endCompTypeId TYPE                                   {} -- ##
-                      | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz            {} -- ##
-                      | beginCompTypeId pointerVar id endCompTypeId TYPE                            {} -- ##
-                      | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz     {} -- ##
+COMPOSITE_DECLARATION : beginCompTypeId var id endCompTypeId TYPE                                   {} 
+                      | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz            {} 
+                      | beginCompTypeId pointerVar id endCompTypeId TYPE                            {} 
+                      | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz     {} 
 
-CONST_DECLARATION : const id type TYPE constValue EXPR                                              {} -- ##
-                  | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                     {} -- ##
+CONST_DECLARATION : const id type TYPE constValue EXPR                                              {} 
+                  | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                     {} 
 
-ALIAS_DECLARATION : beginAlias id ALIAS_TYPE TYPE '.'                                               {} -- ##
+ALIAS_DECLARATION : beginAlias id ALIAS_TYPE TYPE '.'                                               {} 
 
-ALIAS_TYPE : strongAlias                                                                            {} -- ##
-           | weakAlias                                                                              {} -- ##
+ALIAS_TYPE : strongAlias                                                                            {} 
+           | weakAlias                                                                              {} 
 
 -- Instructions --
 
