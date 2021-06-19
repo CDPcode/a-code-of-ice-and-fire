@@ -111,7 +111,11 @@ getPrimitiveSymbolInfo variability id symType = (symbol, info)
         }
 
 {-
-PRIMITIVE_DECLARATION : var id type TYPE                                                            
+
+PROGRAM : HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                                   { beginSymbolScan }
+        | HEADER CONTENTS GLOBAL FUNCTIONS MAIN ALIASES                                           { beginSymbolScan }
+
+PRIMITIVE_DECLARATION : var id type TYPE                                                           
 
 COMPOSITE_DECLARATION : beginCompTypeId var id endCompTypeId TYPE                                 CT  
                       | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz          CT
@@ -152,6 +156,7 @@ TYPES : TYPE                                                                    
       | TYPES ',' TYPE                                                                             { $2 : $1 }  
 
 -}
+
 getCompositeSymbolInfo 
     :: Tk.Token -- Variability
     -> Tk.Token -- Id
@@ -255,11 +260,43 @@ findSymbol :: SymbolTable -> String -> Maybe SymbolInfo
 findSymbol = undefined
 
 
-{- Default Type Literals, and constants -}
+{- Constants -}
 
+-- Default type literals
 tps = [ "int" , "char" , "float" , "bool" , "atom", "string", "array", "struct", "union", "pointer", "tuple" ]
 
 
 pervasiveScope = 0
-defaultScope = maxBound :: Int
-functionScope = 1
+defaultScope   = maxBound :: Int
+functionScope  = 1
+
+
+initialTypes :: [SymbolInfo] 
+initialTypes = map buildDefaultTypeSymbolInfo tps
+    where
+        buildDefaultTypeSymbolInfo typeSymbol = SymbolInfo { 
+            category   = Type,
+            scope      = pervasiveScope,
+            tp         = Just typeSymbol,
+            additional = Nothing
+        }
+
+-- Symbol table to begin with scanning
+emptyST :: SymbolTable 
+emptyST = st { dict = newDictionary }
+    where  
+        newDictionary  = foldl insertDict (dict st) initialEntries
+
+        initialEntries = zip tps initialTypes
+
+        st = SymbolTable { 
+        dict       = M.empty :: M.Map Symbol [SymbolInfo],
+        scopeStack = [],
+        nextScope  = 1
+    }
+
+
+{- Statefull functions to be called on rules -}
+
+beginSymbolScan :: State SymbolTable () 
+beginSymbolScan = void (put emptyST)
