@@ -1,6 +1,6 @@
 {
 module Westeros.SouthOfTheWall.Parser (parse) where
-    import qualified Westeros.SouthOfTheWall.Tokens as Tk
+import qualified Westeros.SouthOfTheWall.Tokens as Tk
 --    import qualified Westeros.SouthOfTheWall.AST as Ast
 }
 
@@ -26,7 +26,7 @@ strongAlias     { Tk.Token { Tk.aToken=Tk.TknStrongAlias } }
 weakAlias       { Tk.Token { Tk.aToken=Tk.TknWeakAlias } }
 int             { Tk.Token { Tk.aToken=Tk.TknInt } }
 float           { Tk.Token { Tk.aToken=Tk.TknFloat } }
-bool            { Tk.Token { Tk.aToken=Tk.TknBoolean } }
+bool            { Tk.Token { Tk.aToken=Tk.TknBool } }
 char            { Tk.Token { Tk.aToken=Tk.TknChar } }
 atom            { Tk.Token { Tk.aToken=Tk.TknAtom } }
 void            { Tk.Token { Tk.aToken=Tk.TknVoid } }
@@ -218,15 +218,15 @@ FUNCTION_BODY : '{' INSTRUCTIONS '}'                                            
 
 -- Types ---
 
-TYPE : PRIMITIVE_TYPE                                                                               {}
+TYPE : PRIMITIVE_TYPE                                                                               {} 
      | COMPOSITE_TYPE                                                                               {}
      | id                                                                                           {}
 
-PRIMITIVE_TYPE : int                                                                                {}
-               | float                                                                              {}
-               | char                                                                               {}
-               | bool                                                                               {}
-               | atom                                                                               {}
+PRIMITIVE_TYPE : int                                                                                {} -- ##
+               | float                                                                              {} -- ##
+               | char                                                                               {} -- ##
+               | bool                                                                               {} -- ##
+               | atom                                                                               {} -- ##
 
 COMPOSITE_TYPE : beginArray naturalLit TYPE endArray                                                {} -- ##
                | string                                                                             {} -- ##
@@ -235,8 +235,8 @@ COMPOSITE_TYPE : beginArray naturalLit TYPE endArray                            
                | beginUnion SIMPLE_DECLARATIONS endUnion                                            {} -- ##
                | beginTuple TUPLE_TYPES endTuple                                                    {} -- ## 
 
-TUPLE_TYPES: {- empty -}                                                                            {}
-           | TYPES                                                                                  {}
+TUPLE_TYPES: {- empty -}                                                                            {} -- ##
+           | TYPES                                                                                  {} -- ##
 
 -- Alias Declaration --
 
@@ -249,11 +249,11 @@ DECLARATION : SIMPLE_DECLARATION '.'                                            
             | SIMPLE_DECLARATION ':==' EXPR '.'                                                     {}
             | CONST_DECLARATION '.'                                                                 {}
 
-SIMPLE_DECLARATIONS : SIMPLE_DECLARATION                                                            {}
-                    | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION                                    {}
+SIMPLE_DECLARATIONS : SIMPLE_DECLARATION                                                            {} -- ##
+                    | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION                                    {} -- ##
 
-SIMPLE_DECLARATION : PRIMITIVE_DECLARATION                                                          {}
-                   | COMPOSITE_DECLARATION                                                          {}
+SIMPLE_DECLARATION : PRIMITIVE_DECLARATION                                                          {} -- ## 
+                   | COMPOSITE_DECLARATION                                                          {} -- ##
 
 PRIMITIVE_DECLARATION : var id type TYPE                                                            {} -- ## 
 
@@ -267,8 +267,8 @@ CONST_DECLARATION : const id type TYPE constValue EXPR                          
 
 ALIAS_DECLARATION : beginAlias id ALIAS_TYPE TYPE '.'                                               {} -- ##
 
-ALIAS_TYPE : strongAlias                                                                            {}
-           | weakAlias                                                                              {}
+ALIAS_TYPE : strongAlias                                                                            {} -- ##
+           | weakAlias                                                                              {} -- ##
 
 -- Instructions --
 

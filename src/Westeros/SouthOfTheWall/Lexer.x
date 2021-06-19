@@ -55,7 +55,7 @@ tokens :-
 --          Data Types
 <0>         Lanninteger                                                                                 { makeToken TknInt }
 <0>         Freyt                                                                                       { makeToken TknFloat }
-<0>         Boolton                                                                                     { makeToken TknBoo }
+<0>         Boolton                                                                                     { makeToken TknBool }
 <0>         Starkhar                                                                                    { makeToken TknChar }
 <0>         Barathom                                                                                    { makeToken TknAtom }
 <0>         No(@ws)One                                                                                  { makeToken TknVoid }

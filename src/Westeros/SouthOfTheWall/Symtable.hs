@@ -2,9 +2,18 @@ module Westeros.SouthOfTheWall.Symtable where
 
 import qualified Data.Map.Strict as M
 import qualified Westeros.SouthOfTheWall.Tokens as Tk
+import Control.Monad.State  
 
 
 type Symbol = String
+
+-- Just a listing of known posisble errors. NOT a thing to use rn.
+data ParserError
+    = InvalidToken         -- given token does not fit context of grammar rule
+    | InvalidVariability   -- given var/const does not fit meta-context for what is being defined
+    | InvalidPrimitiveType -- given type for a primitive declaration is composite
+    | InvalidCompositeType -- given type for a composite decalration is primitive
+
 
 data Category -- anything with a name
     = Alias    
@@ -14,15 +23,20 @@ data Category -- anything with a name
     | Param    
     | Type
     | Variable
-    -- | Pointer
    deriving Show 
   
 data AdditionalInfo 
-    = AliasType String       -- For aliases we save: name and the type it is a sinonym of.
-    | PassType String        -- For parameters we save: name, type and either it is value or reference passed.
-    | ReturnTypes [String]   -- For functions we save: name and return type(s).
-    | PointedType String     -- For pointers we save: name and the pointed type
-    | UnderlyingSize Int     -- For Arrays, Strings, Tuples, Structs and Tuples the respective size of what they hold
+    = AliasType String        -- For aliases we save: name and the type it is a sinonym of.
+    | PassType String         -- For parameters we save: name, type and either it is value or reference passed
+    | ReturnTypes [String]    -- For functions we save: name and return type(s).
+
+    -- Special cases for composite types
+    | ArrayMetaData Int       -- For arrays we save: name and size
+    | StringMetaData Int      -- For strings we save: name and size
+    | PointerMetaData String  -- For pointers we save: name a
+    | StructMetaData [String] -- For structs we save: name and fields name
+    | UnionMetaData [String]  -- For unions we save: name and fields names
+    | TupleMetaData [String]  -- For tuples we save: name and types names
    deriving Show
 
 data SymbolInfo = SymbolInfo 
@@ -64,7 +78,7 @@ toTypeSymbol token = case Tk.aToken token of
     _                  -> error "Not a token Type" -- OJO : enhance error correction
 
 getAliasInfo 
-    :: Tk.Token -- Alias
+    :: Tk.Token -- Alias name
     -> Tk.Token -- Pointed type
     -> (Symbol, SymbolInfo)
 getAliasInfo aliasName pointedType = undefined
@@ -97,11 +111,45 @@ getPrimitiveSymbolInfo variability id symType = (symbol, info)
         }
 
 {-
-COMPOSITE_DECLARATION : beginCompTypeId var id endCompTypeId TYPE                                   {} -- ##
-                      | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz            {} -- ##
-                      | beginCompTypeId pointerVar id endCompTypeId TYPE                            {} -- ##
-                      | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz     {} -- ##
+PRIMITIVE_DECLARATION : var id type TYPE                                                            
 
+COMPOSITE_DECLARATION : beginCompTypeId var id endCompTypeId TYPE                                 CT  
+                      | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz          CT
+                      | beginCompTypeId pointerVar id endCompTypeId TYPE                          CT
+                      | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz   CT
+
+CONST_DECLARATION : const id type TYPE constValue EXPR                                              
+                  | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                   CT
+
+
+TYPE : PRIMITIVE_TYPE                                                                               
+     | COMPOSITE_TYPE                                                                               
+     | id                                                                                           
+
+PRIMITIVE_TYPE : int                                                                                
+               | float                                                                              
+               | char                                                                               
+               | bool                                                                               
+               | atom                                                                               
+
+COMPOSITE_TYPE : beginArray naturalLit TYPE endArray                                               EX - sz
+               | string                                                                            EX - sz
+               | pointerType TYPE                                                                  EX - tp
+               | beginStruct SIMPLE_DECLARATIONS endStruct                                         EX - dec , tp
+               | beginUnion SIMPLE_DECLARATIONS endUnion                                           EX - dec , tp
+               | beginTuple TUPLE_TYPES endTuple                                                   EX - sz , tp
+
+SIMPLE_DECLARATIONS : SIMPLE_DECLARATION                                                           { [$1] } 
+                    | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION                                   { $2 : $1 }
+
+SIMPLE_DECLARATIO : PRIMITIVE_DECLARATION                                                          { $1 }  
+                   | COMPOSITE_DECLARATION                                                         { $1 }  
+
+TUPLE_TYPES: {- empty -}                                                                           { [] }
+           | TYPES                                                                                 { $1 } }
+
+TYPES : TYPE                                                                                       { [$1] }
+      | TYPES ',' TYPE                                                                             { $2 : $1 }  
 
 -}
 getCompositeSymbolInfo 
@@ -114,9 +162,10 @@ getCompositeSymbolInfo variability id symType = undefined
         symbol = Tk.cleanedString id 
         info   = SymbolInfo { 
             category   = case Tk.aToken variability of 
-                            Tk.TknVar   -> Variable
-                            Tk.TknConst -> Constant
-                            _           -> error "Invalid Variability", 
+                            Tk.TknVar        -> Variable
+                            Tk.TknVarPointer -> Variable
+                            Tk.TknConst      -> Constant
+                            _                -> error "Invalid Variability", 
                             -- OJO : enhance error management
             scope      = defaultScope,
             tp         = Just (toTypeSymbol symType),
