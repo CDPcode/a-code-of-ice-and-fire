@@ -258,8 +258,8 @@ insertST st entry = st { dict = insertDict (dict st) entry }
 findDict :: Dict -> Symbol -> Maybe [SymbolInfo]
 findDict = flip M.lookup
 
-findSymbol :: SymbolTable -> Symbol -> Maybe SymbolInfo
-findSymbol = undefined
+findSymbol :: SymbolTable -> Symbol -> Maybe [SymbolInfo]
+findSymbol st = findDict (dict st) 
 
 
 {- Constants -}
