@@ -1,6 +1,7 @@
 module Westeros.SouthOfTheWall.Symtable where
 
 import qualified Westeros.SouthOfTheWall.Tokens as Tk
+import qualified Westeros.SouthOfTheWall.AST as Ast
 
 import qualified Data.Map.Strict as M
 import Control.Monad.RWS ( MonadState(put, get), RWST, when )
@@ -49,39 +50,10 @@ data FunctionInfo = FunctionInfo
 completeFunctionEntry :: FunctionInfo -> Bool
 completeFunctionEntry fInfo = null (fParameters fInfo) && null (fReturn fInfo)
 
---
-
-data Type
-    = Int
-    | Char
-    | Bool
-    | Float
-    | Atom
-    | Array Int Type
-    | Register [Declaration]
-    | VRegister [Declaration]
-    | Str
-    | Ptr Type
-    | Tuple [Type]
-    | Als String
-   deriving (Show,Eq)
-
-type Id = String
-
-data Variability = Var | Const | PtrVar deriving (Show,Eq)
-
-type Declaration = (Variability, Id, Type)
-
-data AliasType = Strong | Weak deriving (Show,Eq)
-
-type Parameter = (PassType, Id, Type)
-
---
-
 data SymbolInfo = SymbolInfo
     { category :: Category
     , scope :: Int
-    , tp :: Maybe Type               -- pointer to a table entry (the type)
+    , tp :: Maybe Ast.Type               -- pointer to a table entry (the type)
     , additional :: Maybe AdditionalInfo
 } deriving Eq
 
