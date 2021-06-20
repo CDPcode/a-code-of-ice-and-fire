@@ -211,19 +211,23 @@ FUNCTION :: { () }
                                                                                                          when (not $ ST.checkExisting symT functionId) (fail "F")
 
                                                                                                          -- match found
-                                                                                                         let entries         = fromJust $ ST.findSymbol symT functionId
-                                                                                                             actualFunctions = filter (\e-> ST.category e == ST.Function ) entries
+                                                                                                         let entries         = fromJust $ ST.findSymbol symT functionId            -- bring all definitions for functionId name
+                                                                                                             actualFunctions = filter (\e-> ST.category e == ST.Function ) entries -- filter those defined as functions
 
-                                                                                                             prefered = find (\info -> not $ ST.discriminant (ST.getFunctionMD info) ) actualFunctions -- falta comparar # de args
-                                                                                                             -- choose the function entry that matches de requirement
+                                                                                                             check fEntry = (not $ ST.discriminant (ST.getFunctionMD fEntry)) && ST.nArgs (ST.getFunctionMD fEntry) == length $2
+                                                                                                             matching     = find check actualFunctions
 
-                                                                                                         case prefered of
-                                                                                                              Nothing -> fail "F"
+                                                                                                             -- choose the function entry that matches de requirements:
+                                                                                                             --    + is a Function that hasn't been validated (.i.e: discriminant is false)
+                                                                                                             --    + is a Function with the same number of arguments
+
+                                                                                                         case matching of
+                                                                                                              Nothing -> fail ("Not a function \"" ++ functionId ++ "\" declared, or defined but matching number of arguments")
                                                                                                               Just e  -> do
 
                                                                                                                    let newAdditional = (ST.getFunctionMD e) { ST.discriminant = True, ST.fParameters = $2 , ST.fReturn = $3 }
                                                                                                                        newSymT = ST.searchAndReplaceSymbol symT (functionId,e) (e { ST.additional = Just (ST.FunctionMD newAdditional) })
-                                                                                                                   --
+                                                                                                                   
                                                                                                                    put newSymT
                                                                                                     }
 
@@ -232,7 +236,7 @@ FUNCTION :: { () }
 
 
 FUNCTION_PARAMETERS :: { [ST.Parameter] }
-     : beginFuncParams PARAMETER_LIST endFuncParams                                                 { $2 }
+     : beginFuncParams PARAMETER_LIST endFuncParams                                                 { reverse $2 }
 
 PARAMETER_LIST :: { [ST.Parameter] }
      : void                                                                                         { [] }
@@ -250,7 +254,7 @@ PARAMETER_TYPE :: { ST.PassType }
      | refArg                                                                                       { ST.Reference }
 
 FUNCTION_RETURN :: { [ST.Type] }
-     : beginReturnVals RETURN_TYPES endReturnVals                                                   { $2 }
+     : beginReturnVals RETURN_TYPES endReturnVals                                                   { reverse $2 }
 
 RETURN_TYPES  :: { [ST.Type] }
           : void                                                                                    { [] }
@@ -280,9 +284,9 @@ COMPOSITE_TYPE :: { ST.Type }
      : beginArray naturalLit TYPE endArray                                                          { ST.Array (read (Tk.cleanedString $2) :: Int) $3 }
      | string                                                                                       { ST.Str }
      | pointerType TYPE                                                                             { ST.Ptr $2 }
-     | beginStruct SIMPLE_DECLARATIONS endStruct                                                    { ST.Register $2 }
-     | beginUnion SIMPLE_DECLARATIONS endUnion                                                      { ST.VRegister $2 }
-     | beginTuple TUPLE_TYPES endTuple                                                              { ST.Tuple $2 }
+     | beginStruct SIMPLE_DECLARATIONS endStruct                                                    { ST.Register (reverse $2) }
+     | beginUnion SIMPLE_DECLARATIONS endUnion                                                      { ST.VRegister (reverse $2) }
+     | beginTuple TUPLE_TYPES endTuple                                                              { ST.Tuple (reverse $2) }
 
 TUPLE_TYPES :: { [ST.Type] }
           : {- empty -}                                                                             { [] }

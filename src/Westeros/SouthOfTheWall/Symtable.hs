@@ -5,7 +5,7 @@ import qualified Westeros.SouthOfTheWall.Tokens as Tk
 import qualified Data.Map.Strict as M
 import Control.Monad.RWS ( MonadState(put, get), RWST )
 
-import Data.List (intercalate)
+import Data.List (intercalate, find)
 import Data.Maybe (fromJust)
 
 
@@ -37,10 +37,10 @@ data AdditionalInfo
 
 getFunctionMD :: SymbolInfo -> FunctionInfo
 getFunctionMD SymbolInfo { additional = Just (FunctionMD e) } =  e
-getFunctionMD _                             = error "getFunctionMD: Unpropper use"
+getFunctionMD _                             = error "getFunctionMD: Unpropper use. Report use"
 
 data FunctionInfo = FunctionInfo
-    { nArgs :: String -- OJO
+    { nArgs :: Int 
     , fParameters :: [Parameter]
     , fReturn :: [Type]
     , discriminant :: Bool
@@ -169,115 +169,15 @@ getFunctionDeclarationInfo id argNumber = (symbol, info)
             scope      = functionScope,
             tp         = Nothing,
             additional = Just $ FunctionMD (FunctionInfo {
-                nArgs = Tk.cleanedString argNumber,
+                nArgs = read $ Tk.cleanedString argNumber :: Int,
                 fParameters =  [],
                 fReturn = [],
                 discriminant = False
             })
         }
-{-
-getFunctionDefinitionInfo
-    :: String   -- Id of Function
-    -> [Parameter] --  List of parameters
-    -> [Type]      -- return types
-    -> 
-getFunctionDefinitionInfo id params types = undefined
--}
 
 -- relevant get-* functions for preparser until here
 -----------------------------------------------------------------------
-
-
-getFunctionInfo
-    :: Tk.Token   -- Id
-    -> [Tk.Token] -- Return types
-    -> Entry
-getFunctionInfo id returnTypes = undefined
-
-getParamInfo
-    :: Tk.Token -- Either value or reference
-    -> Tk.Token -- Id
-    -> Tk.Token -- Type
-    -> Entry
-getParamInfo passType id symType = (symbol, info)
-    where
-        symbol = Tk.cleanedString id
-        info   = SymbolInfo {
-            category   = Parameter,
-            scope      = defaultScope, -- adjust Scope at ST insertion
-            tp         = Just (toTypeSymbol symType),
-            additional = case Tk.aToken passType of
-                            Tk.TknValueArg     -> Just (PassType "value")
-                            Tk.TknReferenceArg -> Just (PassType "reference")
-                            _                  -> error "Invalid Variability"
-                            -- OJO : enhance error management
-        }
-
-getPrimitiveSymbolInfo
-    :: Tk.Token -- Variability
-    -> Tk.Token -- Id
-    -> Tk.Token -- Type
-    -> Entry
-getPrimitiveSymbolInfo variability id symType = (symbol, info)
-    where
-        symbol = Tk.cleanedString id
-        info   = SymbolInfo {
-            category   = case Tk.aToken variability of
-                            Tk.TknVar   -> Variable
-                            Tk.TknConst -> Constant
-                            _           -> error "Invalid Variability",
-                            -- OJO : enhance error management
-            scope      = defaultScope,
-            tp         = Just (toTypeSymbol symType),
-            additional = Nothing
-        }
-
-getCompositeSymbolInfo
-    :: Tk.Token -- Variability
-    -> Tk.Token -- Id
-    -> Tk.Token -- Type
-    -> Entry
-getCompositeSymbolInfo variability id symType = undefined
-    where
-        symbol = Tk.cleanedString id
-        info   = SymbolInfo {
-            category   = case Tk.aToken variability of
-                            Tk.TknVar        -> Variable
-                            Tk.TknVarPointer -> Variable
-                            Tk.TknConst      -> Constant
-                            _                -> error "Invalid Variability",
-                            -- OJO : enhance error management
-            scope      = defaultScope, -- adjust scope at ST insertion
-            tp         = Just (toTypeSymbol symType),
-            additional = Nothing
-        }
-
-getFieldInfo
-    :: Tk.Token -- Id
-    -> Tk.Token -- Type
-    -> Entry
-getFieldInfo id symType = undefined
-    where
-        symbol = Tk.cleanedString id
-        info = SymbolInfo {
-            category   = Field,
-            scope      = defaultScope, -- adjust scope at ST insertion
-            tp         = Just (toTypeSymbol symType),
-            additional = Nothing
-        }
-
-getTypeInfo
-    :: Tk.Token -- Typename
-    -> Entry
-getTypeInfo typename = (symbol, info)
-    where
-        symbol = Tk.cleanedString typename
-        info = SymbolInfo {
-            category   = Type,
-            scope      = pervasiveScope,
-            tp         = Nothing ,
-            additional = Nothing
-        }
 
 -- relevant get-* functions for parser until here
 -----------------------------------------------------------------------
@@ -350,7 +250,7 @@ initialST = st { dict = newDictionary }
 
         st = SymbolTable {
         dict       = M.empty :: M.Map Symbol [SymbolInfo],
-        scopeStack = [],
+        scopeStack = [0],
         nextScope  = 1
     }
 
@@ -363,7 +263,8 @@ statefullSTupdate entry@(name,info) = do
     case category info of
         Alias     -> case findSymbol st name of
                         Nothing -> put $ insertST st entry
-                        Just _  -> fail "existing alias"  -- OJO
+                        Just _  -> let errMsg = "The name \""++name++"\" is an existing symbol"
+                                   in fail errMsg
         Function  -> case findSymbol st name of
                         Nothing      -> put $ insertST ( st { nextScope = succ (nextScope st) } ) entry
                         Just entries -> do
@@ -375,6 +276,7 @@ statefullSTupdate entry@(name,info) = do
 
                             if currentArgs `notElem` functionsArgs then
                                 put $ insertST ( st { nextScope = succ (nextScope st) } ) entry
-                                else fail "A function with the same name and # of arguments exists " -- OJO
 
-        _         -> undefined
+                                else let errMsg = "A function with the same name \""++name++"\" and # of arguments was already declared"
+                                     in fail errMsg
+        _         -> fail "Unexpected behaviour: Only Alias and Function categories are relevant in pre-parser"
