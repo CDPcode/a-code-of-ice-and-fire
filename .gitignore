@@ -1,5 +1,8 @@
 *.hi
 *.o
+*.info
 .stack-work/*
+.stack-work
 *~
 *.yaml.lock
+.vscode

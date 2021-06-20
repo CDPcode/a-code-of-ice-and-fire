@@ -20,173 +20,197 @@ $digits = [0-9]
 
 tokens :-
 --          Whites
-<0>         @ws                                                                                     ;
+<0>         @ws                                                                                         ;
 
 --          Comments
-<0>         Suddenly\,                                                                              { pushToString `andBegin` comment }
-<0>         In(@ws)the(@ws)midst(@ws)of                                                             { pushToString `andBegin` comment }
-<0>         Therefore                                                                               { pushToString `andBegin` comment }
-<comment>   \.                                                                                      { makeCommentToken `andBegin` 0 }
-<comment>   .                                                                                       { pushToString }
+<0>         Suddenly\,(@ws)                                                                             { pushToString `andBegin` comment }
+<0>         In(@ws)the(@ws)midst(@ws)of(@ws)                                                            { pushToString `andBegin` comment }
+<0>         Therefore(@ws)                                                                              { pushToString `andBegin` comment }
+<comment>   \.                                                                                          { makeCommentToken `andBegin` 0 }
+<comment>   .                                                                                           { pushToString }
 
 --          String Literals
-<0>         Maester(@ws)reading(@ws)\"                                                              { pushToString `andBegin` string }  --"
-<string>    \"                                                                                      { makeStringToken `andBegin` 0 }    --"
-<string>    @scapedchars                                                                            { pushScapedToString }
-<string>    @linebreaks                                                                             { invalidBreak }
-<string>    $printable                                                                              { pushToString }
-<string>    .                                                                                       { invalidCharacter }
+<0>         Maester(@ws)reading(@ws)\"                                                                  { pushToString `andBegin` string }  --"
+<string>    \"                                                                                          { makeStringToken `andBegin` 0 }    --"
+<string>    @scapedchars                                                                                { pushScapedToString }
+<string>    @linebreaks                                                                                 { invalidBreak }
+<string>    $printable                                                                                  { pushToString }
+<string>    .                                                                                           { invalidCharacter }
 
 --          Program Start
-<0>         A\ Song\ of\ Ice\ and\ Fire\:                                                           { makeToken TknProgramStart }
-<0>         \-\-\ ([A-Z][a-z]*\ )+\-\-                                                              { makeToken TknProgramName } 
+<0>         A\ Song\ of\ Ice\ and\ Fire\:                                                               { makeToken TknProgramStart }
+<0>         \-\-\ [A-Z][a-z]*(\ [A-Z][a-z]*)*\ \-\-                                                     { makeToken TknProgramName }
 
 --          Type Declaration
-<0>         Lord                                                                                    { makeToken TknVar }
-<0>         Lady                                                                                    { makeToken TknVar }
-<0>         Knight                                                                                  { makeToken TknConst }
-<0>         of(@ws)House                                                                            { makeToken TknType }
-<0>         House                                                                                   { makeToken TknBeginAlias }
-<0>         comes(@ws)from(@ws)the(@ws)old(@ws)lineage(@ws)of                                       { makeToken TknStrongAlias }
-<0>         are(@ws)the(@ws)dogs(@ws)of                                                             { makeToken TknWeakAlias }
+<0>         Lord(@ws)                                                                                   { makeToken TknVar }
+<0>         Lady(@ws)                                                                                   { makeToken TknVar }
+<0>         Knight(@ws)                                                                                 { makeToken TknConst }
+<0>         Wildling(@ws)                                                                               { makeToken TknVarPointer }
+<0>         of(@ws)House(@ws)                                                                           { makeToken TknType }
+<0>         hosts(@ws)a(@ws)feast(@ws)for(@ws)                                                          { makeToken TknConstValue }
+<0>         House(@ws)                                                                                  { makeToken TknBeginAlias }
+<0>         comes(@ws)from(@ws)the(@ws)old(@ws)lineage(@ws)of(@ws)                                      { makeToken TknStrongAlias }
+<0>         are(@ws)the(@ws)dogs(@ws)of(@ws)                                                            { makeToken TknWeakAlias }
 
 --          Data Types
-<0>         Lanninteger                                                                             { makeToken TknInt }
-<0>         Freyt                                                                                   { makeToken TknFloat }
-<0>         Boolton                                                                                 { makeToken TknTrilean }
-<0>         Starkhar                                                                                { makeToken TknChar }
+<0>         Lanninteger                                                                                 { makeToken TknInt }
+<0>         Freyt                                                                                       { makeToken TknFloat }
+<0>         Boolton                                                                                     { makeToken TknBool }
+<0>         Starkhar                                                                                    { makeToken TknChar }
+<0>         Barathom                                                                                    { makeToken TknAtom }
+<0>         No(@ws)One                                                                                  { makeToken TknVoid }
 
---          Literals 
-<0>         blood                                                                                   { makeToken TknTrue }
-<0>         gold                                                                                    { makeToken TknNeutral }
-<0>         love                                                                                    { makeToken TknFalse }
-<0>         $digits+(@ws)soldiers                                                                   { makeToken TknIntLit }
-<0>         $digits+\.$digits+(@ws)sons                                                             { makeToken TknFloatLit }
-<0>         Hodor(@ws)\'(@scapedchars)\'                                                            { makeToken TknCharLit }
-<0>         Hodor(@ws)\'$printable\'                                                                { makeToken TknCharLit }
-<0>         Hodor(@ws)\'(@linebreaks)\'                                                             { invalidBreak }
-<0>         Hodor(@ws)\'.\'                                                                         { invalidCharacter }
+--          Literals
+<0>         True(@ws)Heir                                                                               { makeToken TknTrue }
+<0>         Usurper                                                                                     { makeToken TknFalse }
+<0>         [\-]{0,1}$digits+(@ws)soldiers                                                              { makeToken TknIntLit }
+<0>         [\-]{0,1}$digits+\.$digits+(@ws)descendants                                                 { makeToken TknFloatLit }
+<0>         Hodor(@ws)\'(@scapedchars)\'                                                                { makeToken TknCharLit }
+<0>         Hodor(@ws)\'$printable\'                                                                    { makeToken TknCharLit }
+<0>         Hodor(@ws)\'(@linebreaks)\'                                                                 { invalidBreak }
+<0>         Hodor(@ws)\'.\'                                                                             { invalidCharacter }
+<0>         army(@ws)formation(@ws)of(@ws)                                                              { makeToken TknBeginArrayLit }
+<0>         aligned(@ws)together                                                                        { makeToken TknEndArrayLit }
+<0>         The(@ws)dead(@ws)bodies(@ws)of(@ws)                                                         { makeToken TknBeginTupleLit }
+<0>         coming(@ws)from(@ws)beyond(@ws)the(@ws)wall                                                 { makeToken TknEndTupleLit }
+<0>         Rickon                                                                                      { makeToken TknNull }
+<0>         [0-9]+                                                                                      { makeToken TknNaturalLit }
 
 --          Composite Types
-<0>         Former                                                                                  { makeToken TknBeginCompType }
-<0>         now                                                                                     { makeToken TknEndIDCompType }
-<0>         King(@ws)of                                                                             { makeToken TknStruct }
-<0>         Faceless(@ws)Man(@ws)holding(@ws)faces(@ws)of                                           { makeToken TknUnion }
-<0>         Lord(@ws)Commander(@ws)of                                                               { makeToken TknArray }
-<0>         Hand(@ws)of(@ws)the(@ws)King                                                            { makeToken TknString }
-<0>         Spearwife(@ws)of                                                                        { makeToken TknPointer }
-<0>         bannermen(@ws)holding                                                                   { makeToken TknArraySize }
-<0>         ruling(@ws)over                                                                         { makeToken TnkStringSize }
-<0>         bannermen(@ws)holding:                                                                  { makeToken TknArrayDecl }
-<0>         ruling(@ws)with(@ws)Grand                                                               { makeToken TnkStringDecl }
+<0>         Former(@ws)                                                                                 { makeToken TknBeginCompTypeId }
+<0>         now(@ws)                                                                                    { makeToken TknEndCompTypeId }
+<0>         Lord(@ws)Commander(@ws)of(@ws)                                                              { makeToken TknBeginArray }
+<0>         bannermen                                                                                   { makeToken TknEndArray }
+<0>         Hand(@ws)of(@ws)the(@ws)King                                                                { makeToken TknString }
+<0>         leading(@ws)                                                                                { makeToken TknBeginSizes }
+<0>         to(@ws)their(@ws)deaths                                                                     { makeToken TknEndSizes }
+<0>         King(@ws)to(@ws)whom(@ws)                                                                   { makeToken TknBeginStruct }
+<0>         have(@ws)bent(@ws)their(@ws)knees                                                           { makeToken TknEndStruct }
+<0>         Faceless(@ws)Man(@ws)who(@ws)stole(@ws)                                                     { makeToken TknBeginUnion }
+<0>         their(@ws)faces                                                                             { makeToken TknEndUnion }
+<0>         Spearwife(@ws)of(@ws)                                                                       { makeToken TknPointerType }
+<0>         White(@ws)Walker(@ws)possesing(@ws)                                                         { makeToken TknBeginTuple }
+<0>         wights                                                                                      { makeToken TknEndTuple }
+
+--          Type conversion
+<0>         adopted(@ws)by(@ws)House(@ws)                                                               { makeToken TknCast }
 
 --          Operators
-<0>         takes                                                                                   { makeToken TknAssign }
-<0>         take                                                                                    { makeToken TknBeginMultAssign }
-<0>         respectively                                                                            { makeToken TknEndMultAssign }
-<0>         fight(@ws)against                                                                       { makeToken TknTupleAsign }
-<0>         without                                                                                 { makeToken TknMinus }
-<0>         with                                                                                    { makeToken TknPlus }
-<0>         times(@ws)the(@ws)power(@ws)of                                                          { makeToken TknMult }
-<0>         picking(@ws)what(@ws)remains(@ws)of                                                     { makeToken TknMod }
-<0>         bastard                                                                                 { makeToken TknNegate }
-<0>         is(@ws)as(@ws)powerful(@ws)as                                                           { makeToken TknEqual }
-<0>         not(@ws)merely(@ws)powerful(@ws)as                                                      { makeToken TknNotEqual }
-<0>         is(@ws)weaker(@ws)than                                                                  { makeToken TknLessThan }
-<0>         is(@ws)stronger(@ws)than                                                                { makeToken TknGreaterThan }
-<0>         is(@ws)almost(@ws)as(@ws)weak(@ws)as                                                    { makeToken TknLessEqThan }
-<0>         is(@ws)almost(@ws)as(@ws)strong(@ws)as                                                  { makeToken TknGreaterEqThan }
-<0>         flayed                                                                                  { makeToken TknNot }
-<0>         and                                                                                     { makeToken TknAnd }
-<0>         or                                                                                      { makeToken TknOr }
-<0>         equals                                                                                  { makeToken TknBoolEqual }
-<0>         differentiates                                                                          { makeToken TknBoolNotEqual }
+<0>         takes(@ws)                                                                                  { makeToken TknAssign }
+<0>         fight(@ws)against(@ws)                                                                      { makeToken TknTupleAssign }
+<0>         joined(@ws)by(@ws)                                                                          { makeToken TknPlus }
+<0>         left(@ws)by(@ws)                                                                            { makeToken TknMinus }
+<0>         combined(@ws)forces(@ws)with(@ws)                                                           { makeToken TknMult }
+<0>         cut(@ws)into(@ws)pieces(@ws)by(@ws)                                                         { makeToken TknDivide }
+<0>         turncloak(@ws)                                                                              { makeToken TknNegate }
+<0>         stripped(@ws)of(@ws)his(@ws)dignity(@ws)by(@ws)                                             { makeToken TknMod }
+<0>         and(@ws)                                                                                    { makeToken TknAnd }
+<0>         or(@ws)                                                                                     { makeToken TknOr }
+<0>         similar(@ws)to(@ws)                                                                         { makeToken TknEqual }
+<0>         different(@ws)from(@ws)                                                                     { makeToken TknNotEqual }
+<0>         bested(@ws)by(@ws)                                                                          { makeToken TknLessThan }
+<0>         defeating(@ws)                                                                              { makeToken TknGreaterThan }
+<0>         almost(@ws)bested(@ws)by(@ws)                                                               { makeToken TknLessEqThan }
+<0>         almost(@ws)defeating(@ws)                                                                   { makeToken TknGreaterEqThan }
 
 --          Composite Types Operators
-<0>         subject(@ws)of                                                                          { makeToken TknStructField }
-<0>         Is                                                                                      { makeToken TknBeginUnionQuestion }
-<0>         using(@ws)the(@ws)face(@ws)of                                                           { makeToken TknUnionQuestion }
-<0>         \?                                                                                      { makeToken TknEndUnionQuestion }
-<0>         acting(@ws)as                                                                           { makeToken TknUnionField }
-<0>         Soldier(@ws)acquainted(@ws)with                                                         { makeToken TknBeginIndex }
-<0>         Wight(@ws)following                                                                     { makeToken TknBeginTupleIndex }
-<0>         under(@ws)command(@ws)of                                                                { makeToken TknEndIndex }
+<0>         subject(@ws)of(@ws)                                                                         { makeToken TknStructField }
+<0>         looking(@ws)in(@ws)the(@ws)mirror(@ws)at(@ws)                                               { makeToken TknUnionQuery }
+<0>         acting(@ws)as(@ws)                                                                          { makeToken TknUnionField }
+<0>         Soldier(@ws)acquainted(@ws)with(@ws)                                                        { makeToken TknBeginIndex }
+<0>         under(@ws)command(@ws)of(@ws)                                                               { makeToken TknEndIndex }
+<0>         Wight(@ws)                                                                                  { makeToken TknTupleSelect }
+<0>         marries                                                                                     { makeToken TknNew }
+<0>         Spouse(@ws)of(@ws)                                                                          { makeToken TknDereference }
+<0>         becomes(@ws)widowed                                                                         { makeToken TknFree }
 
 --          Exit Statement
-<0>         The(@ws)book                                                                            { makeToken TknBeginExit }
-<0>         has(@ws)reached(@ws)an(@ws)unexpected(@ws)end                                           { makeToken TknEndExit }
+<0>         The(@ws)book(@ws)                                                                           { makeToken TknBeginExit }
+<0>         has(@ws)reached(@ws)an(@ws)unexpected(@ws)end                                               { makeToken TknEndExit }
 
 --          IO
-<0>         A(@ws)raven(@ws)has(@ws)come(@ws)for                                                    { makeToken TknRead }
-<0>         We(@ws)must(@ws)send(@ws)a(@ws)raven(@ws)with(@ws)everything(@ws)we(@ws)know(@ws)of     { makeToken TknPrint }
+<0>         A(@ws)raven(@ws)has(@ws)come(@ws)for(@ws)                                                   { makeToken TknRead }
+<0>         We(@ws)must(@ws)send(@ws)a(@ws)raven(@ws)with(@ws)everything(@ws)we(@ws)know(@ws)of(@ws)    { makeToken TknPrint }
 
 --          Empty Statement
-<0>         The(@ws)three-eyed(@ws)raven(@ws)watches(@ws)from(@ws)afar                              { makeToken TknPass }
+<0>         The(@ws)Three\-Eyed(@ws)Raven(@ws)watches(@ws)from(@ws)afar                                 { makeToken TknPass }
 
 --          Procedures definition
-<0>         Table\ of\ Contents\:                                                                   { makeToken TknBeginFuncDecl }
-<0>         \-                                                                                      { makeToken TknListFunction }
-<0>         Prologue                                                                                { makeToken TknFirstMain }
-<0>         Epilogue                                                                                { makeToken TknLastMain }
-<0>         Hereby(@ws)I(@ws)introduce(@ws)the                                                      { makeToken TknFunctionArgs }
-<0>         I(@ws)must(@ws)warn(@ws)you                                                             { makeToken TknBeginReturnVals }
-<0>         is(@ws)coming                                                                           { makeToken TknEndReturnVals }
-<0>         Dracarys                                                                                { makeToken TknReturnOpen }
-<0>         !                                                                                       { makeToken TknReturnClose }
-<0>         Valued                                                                                  { makeToken TknValueArg }
-<0>         Honorable                                                                               { makeToken TknReferenceArg }
+<0>         Table\ of\ Contents\:                                                                       { makeToken TknBeginFuncDecl }
+<0>         \-                                                                                          { makeToken TknFunctionItem }
+<0>         Prologue                                                                                    { makeToken TknGlobalDec }
+<0>         Epilogue                                                                                    { makeToken TknMain }
+<0>         watches                                                                                     { makeToken TknBeginFunctionParams }
+<0>         approach(@ws)from(@ws)a(@ws)distance\;(@ws)                                                 { makeToken TknEndFunctionParams }
+<0>         I(@ws)must(@ws)warn(@ws)you($white*)\,(@ws)                                                 { makeToken TknBeginReturnVals }
+<0>         is(@ws)coming\.                                                                             { makeToken TknEndReturnVals }
+<0>         Dracarys                                                                                    { makeToken TknReturnOpen }
+<0>         !                                                                                           { makeToken TknReturnClose }
+<0>         Valued                                                                                      { makeToken TknValueArg }
+<0>         Honorable                                                                                   { makeToken TknReferenceArg }
 
 --          Blocks
-<0>         Valar(@ws)Morghules                                                                     { makeToken TknOpenBlock }
-<0>         Valar(@ws)Dohaeres                                                                      { makeToken TknCloseBlock }
+<0>         Valar(@ws)Morghulis\.                                                                       { makeToken TknOpenBlock }
+<0>         Valar(@ws)Dohaeris\.                                                                        { makeToken TknCloseBlock }
 
 --          Procedures call
-<0>         traveling                                                                               { makeToken TknProcCallOpen }
-<0>         alongside                                                                               { makeToken TknProcCallArgs }
-<0>         with(@ws)caution                                                                        { makeToken TknProcCallClose }
-
---          Unclassified
-<0>         Nobody                                                                                  { makeToken TknVoid }
+<0>         traveling(@ws)                                                                              { makeToken TknProcCallOpen }
+<0>         alongside(@ws)                                                                              { makeToken TknProcCallArgs }
+<0>         with(@ws)caution                                                                            { makeToken TknProcCallClose }
 
 --          Determinate repetition
-<0>         The(@ws)things(@ws)I(@ws)do(@ws)for                                                     { makeToken TknFor }
-<0>         from                                                                                    { makeToken TknForLB }
-<0>         until                                                                                   { makeToken TknForUB }
+<0>         The(@ws)things(@ws)I(@ws)do(@ws)for(@ws)                                                    { makeToken TknFor }
+<0>         I(@ws)would(@ws)kill(@ws)from(@ws)                                                          { makeToken TknForLB }
+<0>         up(@ws)to(@ws)                                                                              { makeToken TknForUB }
+<0>         That\,(@ws)and(@ws)much(@ws)more(@ws)I(@ws)would(@ws)do(@ws)to(@ws)get(@ws)her(@ws)love       { makeToken TknEndFor }
 
 --          Undeterminate repetition
-<0>         While                                                                                   { makeToken TknWhile }
-<0>         flows(@ws)down(@ws)then(@ws)river                                                       { makeToken TknWhileDecoration }
+<0>         While(@ws)                                                                                  { makeToken TknWhile }
+<0>         reigns(@ws)truly(@ws)upon(@ws)the(@ws)land                                                  { makeToken TknWhileDecorator }
+<0>         Only(@ws)for(@ws)as(@ws)long(@ws)as(@ws)the(@ws)sovereign(@ws)lives                         { makeToken TknEndWhile }
 
 --          Non-structured flow
-<0>         What(@ws)is(@ws)dead(@ws)may(@ws)never(@ws)die                                          { makeToken TknContinue }
-<0>         This(@ws)is(@ws)the(@ws)doom(@ws)of(@ws)Valyria                                         { makeToken TknBreak } 
+<0>         What(@ws)is(@ws)dead(@ws)may(@ws)never(@ws)die                                              { makeToken TknContinue }
+<0>         This(@ws)is(@ws)the(@ws)doom(@ws)of(@ws)Valyria                                             { makeToken TknBreak }
 
---          Selection
-<0>         You(@ws)will(@ws)be(@ws)betrayed(@ws)by                                                 { makeToken TknBeginSelection }
-<0>         three(@ws)times                                                                         { makeToken TknSelectionDecorator }
-<0>         Once(@ws)for(@ws)blood                                                                  { makeToken TknTrueBranch }
-<0>         Once(@ws)for(@ws)love                                                                   { makeToken TknUnknownBranch }
-<0>         Once(@ws)for(@ws)gold                                                                   { makeToken TknFalseBranch } 
-<0>         So(@ws)the(@ws)prophecy(@ws)says                                                        { makeToken TknEndSelection }
+--          Simple Selection
+<0>         If                                                                                          { makeToken TknBeginSimpleSelection }
+<0>         may(@ws)be(@ws)the(@ws)True(@ws)King(@ws)of(@ws)the(@ws)Seven(@ws)Kingdoms\,(@ws)then(@ws)  { makeToken TknSimpleSelectionDecorator }
+<0>         Otherwise                                                                                   { makeToken TknElse }
+<0>         And(@ws)so(@ws)our(@ws)fate(@ws)rests(@ws)upon(@ws)this(@ws)decision                        { makeToken TknEndSimpleSelection }
+
+--          Multiple Selection
+<0>         You(@ws)will(@ws)be(@ws)betrayed(@ws)by(@ws)                                                { makeToken TknBeginMultipleSelection }
+<0>         several(@ws)times                                                                           { makeToken TknMultipleSelectionDecorator }
+<0>         Once(@ws)for(@ws)                                                                           { makeToken TknBranch }
+<0>         So(@ws)the(@ws)prophecy(@ws)says                                                            { makeToken TknEndMultipleSelection }
 
 --          Identifiers
-<0>         [A-Z]([\']?[a-z]+)+                                                                     { makeToken TknID }
-<0>         M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{1,3})                                  { makeToken TknArgNumber }
-<0>         M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{1,3})(IX|IV|V?I{0,3})                                  { makeToken TknArgNumber }
-<0>         M{0,4}(CM|CD|D?C{1,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})                                  { makeToken TknArgNumber }
-<0>         M{1,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})                                  { makeToken TknArgNumber }
+<0>         [A-Z]([\']?[a-z]+)+                                                                         { makeToken TknID }
+<0>         M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{1,3})                                      { makeToken TknArgNumber }
+<0>         M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{1,3})(IX|IV|V?I{0,3})                                      { makeToken TknArgNumber }
+<0>         M{0,4}(CM|CD|D?C{1,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})                                      { makeToken TknArgNumber }
+<0>         M{1,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})                                      { makeToken TknArgNumber }
 
---          Dot, Comma 
-<0>         \,                                                                                      { makeToken TknComma }
-<0>         \.                                                                                      { makeToken TknDot }
+--          Atoms
+<0>         nothing                                                                                     { makeToken TknNothing }
+<0>         [a-z]+                                                                                      { makeToken TknAtomLit }
+
+--          Appendix
+<0>         Appendix\:                                                                                  { makeToken TknAliasDec }
+
+--          Dot, Comma
+<0>         \,                                                                                          { makeToken TknComma }
+<0>         \.                                                                                          { makeToken TknDot }
 
 --          Expressions
-<0>         \<\<                                                                                    { makeToken TknOpenParenthesis }
-<0>         \>\>                                                                                    { makeToken TknCloseParenthesis }
-<0>         «                                                                                       { makeToken TknOpenParenthesis }
-<0>         »                                                                                       { makeToken TknCloseParenthesis }
+<0>         \<\<                                                                                        { makeToken TknOpenParenthesis }
+<0>         \>\>                                                                                        { makeToken TknCloseParenthesis }
+<0>         «                                                                                           { makeToken TknOpenParenthesis }
+<0>         »                                                                                           { makeToken TknCloseParenthesis }
 
-<0>         .                                                                                       { invalidCharacter }
+<0>         [A-Za-z0-9]+                                                                                   { invalidWord }
+<0>         .                                                                                           { invalidCharacter }
 
 -- Lexer and wrapper function definitions
 {
@@ -207,9 +231,9 @@ alexInitUserState = LexerState {
 alexEOF :: Alex AlexUserState
 alexEOF = do
     ust <- getUserState
-    case lexerString ust of 
+    case lexerString ust of
         [] -> return ust
-        _ -> do 
+        _ -> do
             addErrorToState $ Error "Unclosed string at EOF."
             getUserState
 
@@ -254,22 +278,26 @@ makeCommentToken (AlexPn _ r c, _, _, _) _ = do
     alexMonadScan
 
 invalidBreak :: AlexAction AlexUserState
-invalidBreak (AlexPn _ r c, _, _, _) _ = do 
+invalidBreak (AlexPn _ r c, _, _, _) _ = do
     addErrorToState $ Error $ "Invalid break at line " ++ show r ++ " column " ++ show c
     alexMonadScan
 
-invalidCharacter :: AlexAction AlexUserState
-invalidCharacter (AlexPn _ r c, _, _, _) _ = do 
+invalidCharacter, invalidWord :: AlexAction AlexUserState
+invalidCharacter (AlexPn _ r c, _, _, _) _ = do
     addErrorToState $ Error $ "Unexpected character at line " ++ show r ++ " column " ++ show c
     alexMonadScan
 
+invalidWord (AlexPn _ r c, _, _, _) _ = do
+    addErrorToState $ Error $ "Unexpected word at line " ++ show r ++ " column " ++ show c
+    alexMonadScan
+
 pushToString :: AlexAction AlexUserState
-pushToString (_, _, _, str) len = do 
+pushToString (_, _, _, str) len = do
     let str' = reverse $ take len str
     addStringToState str'
     alexMonadScan
 
-mapScaped :: Char -> String 
+mapScaped :: Char -> String
 mapScaped 'n' = "\n"
 mapScaped 't' = "\t"
 mapScaped '\'' = "\'"
@@ -281,12 +309,12 @@ pushScapedToString (_, _, _, str) len = do
     let str' = take len str
     addStringToState $ mapScaped $ last str'
     alexMonadScan
-    
+
 addTokenToState :: Token -> Alex ()
 addTokenToState tk = Alex $ \s@AlexState{alex_ust=ust}
     -> Right (s{
         alex_ust = ust{
-            lexerTokens = tk : lexerTokens ust 
+            lexerTokens = tk : lexerTokens ust
         }
     }, ())
 
@@ -294,7 +322,7 @@ addErrorToState :: Error -> Alex ()
 addErrorToState err = Alex $ \s@AlexState{alex_ust=ust}
     -> Right (s{
         alex_ust = ust{
-            lexerErrors = err : lexerErrors ust 
+            lexerErrors = err : lexerErrors ust
         }
     }, ())
 
@@ -311,33 +339,55 @@ addStringToState str = Alex $ \s@AlexState{alex_ust=ust}
     -> Right (s{ alex_ust = ust{ lexerString = str ++ lexerString ust } }, ())
 
 scanTokens :: String -> Either [Error] [Token]
-scanTokens str = 
+scanTokens str =
     case runAlex str alexMonadScan of
         Left err -> Left [Error $ "Alex error: " ++ show err]
-        Right ust -> 
-            case lexerErrors ust of 
+        Right ust ->
+            case lexerErrors ust of
                 [] -> Right $ reverse $ map postProcess $ lexerTokens ust
                 _ -> Left $ reverse $ lexerErrors ust
 
-postProcess :: Token -> Token 
+postProcess :: Token -> Token
 postProcess (Token TknCharLit s _ p) = Token TknCharLit s (processCharLit s) p
-postProcess (Token TknStringLit s _ p) = Token TknCharLit s (processStringLit s) p
-postProcess (Token TknIntLit s _ p) = Token TknCharLit s (processIntLit s) p
+postProcess (Token TknStringLit s _ p) = Token TknStringLit s (processStringLit s) p
+postProcess (Token TknIntLit s _ p) = Token TknIntLit s (processIntLit s) p
+postProcess (Token TknTupleSelect s _ p) = Token TknTupleSelect s (processIntLit s) p
+postProcess (Token TknArgNumber s _ p) = Token TknArgNumber s (processArgNumber s) p
 postProcess tkn = tkn
 
-processCharLit :: String -> String 
-processCharLit str = 
+processCharLit :: String -> String
+processCharLit str =
     let str' = init $ tail $ dropWhile (/= '\'') str in
-        if head str' == '\\' 
+        if head str' == '\\'
             then mapScaped $ last str'
             else str'
 
-processStringLit :: String -> String 
+processStringLit :: String -> String
 processStringLit str = init $ tail $ dropWhile (/= '\"') str
 
-processIntLit :: String -> String 
-processIntLit = filter isDigit 
+processIntLit :: String -> String
+processIntLit = filter (\x -> isDigit x || x == '-')
 
-processFloatLit :: String -> String 
-processFloatLit = filter (\x -> isDigit x || x == '.')
+processFloatLit :: String -> String
+processFloatLit = filter (\x -> isDigit x || x == '.' || x == '-')
+
+processArgNumber :: String -> String
+processArgNumber str = show $ (parseRomanNumeral str) - 1
+  where
+    parseRomanNumeral :: String -> Int
+    parseRomanNumeral ('I':'V':xs) = 4 + parseRomanNumeral xs
+    parseRomanNumeral ('I':'X':xs) = 9 + parseRomanNumeral xs
+    parseRomanNumeral ('X':'L':xs) = 40 + parseRomanNumeral xs
+    parseRomanNumeral ('X':'C':xs) = 90 + parseRomanNumeral xs
+    parseRomanNumeral ('C':'D':xs) = 400 + parseRomanNumeral xs
+    parseRomanNumeral ('C':'M':xs) = 900 + parseRomanNumeral xs
+    parseRomanNumeral ('I':xs) = 1 + parseRomanNumeral xs
+    parseRomanNumeral ('V':xs) = 5 + parseRomanNumeral xs
+    parseRomanNumeral ('X':xs) = 10 + parseRomanNumeral xs
+    parseRomanNumeral ('L':xs) = 50 + parseRomanNumeral xs
+    parseRomanNumeral ('C':xs) = 100 + parseRomanNumeral xs
+    parseRomanNumeral ('D':xs) = 500 + parseRomanNumeral xs
+    parseRomanNumeral ('M':xs) = 1000 + parseRomanNumeral xs
+    parseRomanNumeral [] = 0
+
 }
