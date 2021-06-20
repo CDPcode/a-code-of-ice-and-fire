@@ -236,8 +236,6 @@ TYPES :: { [Ast.Type] }
 FUNCTION_BODY :: { [Ast.Instruction] }
     : '{' INSTRUCTIONS '}'                                                                          { reverse $2 }
 
--- Types ---
-
 TYPE :: { Ast.Type }
     : PRIMITIVE_TYPE                                                                                { $1 }
     | COMPOSITE_TYPE                                                                                { $1 }
