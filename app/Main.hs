@@ -1,9 +1,10 @@
 module Main where
 
 import Lib
-import Westeros.SouthOfTheWall.Lexer (scanTokens)
-import Westeros.SouthOfTheWall.Parser (parse)
-import System.Environment (getArgs)
+import Westeros.SouthOfTheWall.AST      (prettyPrintProgram)
+import Westeros.SouthOfTheWall.Lexer    (scanTokens)
+import Westeros.SouthOfTheWall.Parser   (parse)
+import System.Environment               (getArgs)
 
 main :: IO ()
 main = do
@@ -28,5 +29,5 @@ pparse = do
         Left errs -> mapM_ print errs
         Right tokens -> do
             mapM_ print tokens
-            print $ parse tokens
+            prettyPrintProgram $ parse tokens
 
