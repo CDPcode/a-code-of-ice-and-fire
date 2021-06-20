@@ -5,7 +5,9 @@ import qualified Westeros.SouthOfTheWall.Symtable as ST
 import qualified Westeros.SouthOfTheWall.Tokens as Tk
 import qualified Westeros.SouthOfTheWall.Error as Err
 
-import Control.Monad.State (State(..))
+import Control.Monad.RWS 
+import Data.List (find)
+import Data.Maybe (fromJust)
 
 --    import qualified Westeros.SouthOfTheWall.AST as Ast
 }
@@ -199,25 +201,60 @@ ALIAS_DECLARATIONS: ALIAS_DECLARATION                                           
 FUNCTIONS : {- empty -}                                                                             {}
           | FUNCTIONS FUNCTION                                                                      {}
 
-FUNCTION : id FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY                                     {} 
+FUNCTION :: { () } 
+     : id FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY                                         {% do 
+                                                                                                         symT <- get
 
-FUNCTION_PARAMETERS : beginFuncParams PARAMETER_LIST endFuncParams                                  {} 
+                                                                                                         let functionId = (Tk.cleanedString $1)
 
-PARAMETER_LIST : void                                                                               {}
-               | PARAMETERS                                                                         {}
+                                                                                                         -- name not in table 
+                                                                                                         when (not $ ST.checkExisting symT functionId) (fail "F")
+                                                                                                         
+                                                                                                         -- match found 
+                                                                                                         let entries         = fromJust $ ST.findSymbol symT functionId
+                                                                                                             actualFunctions = filter (\e-> ST.category e == ST.Function ) entries
+                                                                                                             
+                                                                                                             prefered = find (\info -> not $ ST.discriminant (ST.getFunctionMD info) ) actualFunctions -- falta comparar # de args
+                                                                                                             -- choose the function entry that matches de requirement 
 
-PARAMETERS : PARAMETER                                                                              {}
-           | PARAMETERS ',' PARAMETER                                                               {}
+                                                                                                         case prefered of 
+                                                                                                              Nothing -> fail "F"
+                                                                                                              Just e  -> do 
 
-PARAMETER : PARAMETER_TYPE id type TYPE                                                             {}
+                                                                                                                   let newAdditional = (ST.getFunctionMD e) { ST.discriminant = True, ST.fParameters = $2 , ST.fReturn = $3 }
+                                                                                                                       newSymT = ST.searchAndReplaceSymbol symT (functionId,e) (e { ST.additional = Just (ST.FunctionMD newAdditional) })
+                                                                                                                   -- 
+                                                                                                                   put newSymT
+                                                                                                    } 
 
-PARAMETER_TYPE : valueArg                                                                           {}
-               | refArg                                                                             {}
 
-FUNCTION_RETURN : beginReturnVals RETURN_TYPES endReturnVals                                        {} 
 
-RETURN_TYPES  : void                                                                                {}
-              | TYPES                                                                               {}
+
+
+FUNCTION_PARAMETERS :: { [ST.Parameter] }
+     : beginFuncParams PARAMETER_LIST endFuncParams                                                 { $2 } 
+
+PARAMETER_LIST :: { [ST.Parameter] }          
+     : void                                                                                         { [] }
+     | PARAMETERS                                                                                   { $1 }
+
+PARAMETERS :: { [ST.Parameter] }
+          : PARAMETER                                                                               { [$1] }
+          | PARAMETERS ',' PARAMETER                                                                { $3 : $1 }
+
+PARAMETER :: { ST.Parameter } 
+     : PARAMETER_TYPE id type TYPE                                                                  { ($1, Tk.cleanedString $2, $4) }
+
+PARAMETER_TYPE :: { ST.PassType }          
+     : valueArg                                                                                     { ST.Value }
+     | refArg                                                                                       { ST.Reference }
+
+FUNCTION_RETURN :: { [ST.Type] }
+     : beginReturnVals RETURN_TYPES endReturnVals                                                   { $2 } 
+
+RETURN_TYPES  :: { [ST.Type] }
+          : void                                                                                    { [] }
+          | TYPES                                                                                   { $1 }
 
 TYPES :: { [ST.Type] }
      : TYPE                                                                                         { [$1] }

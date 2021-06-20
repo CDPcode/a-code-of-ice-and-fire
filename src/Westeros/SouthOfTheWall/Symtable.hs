@@ -6,6 +6,7 @@ import qualified Data.Map.Strict as M
 import Control.Monad.RWS ( MonadState(put, get), RWST )
 
 import Data.List (intercalate)
+import Data.Maybe (fromJust)
 
 
 type Symbol = String
@@ -26,15 +27,29 @@ data Category -- anything with a name
     | Parameter
     | Type
     | Variable
-   deriving Show
+   deriving (Show,Eq)
 
 data AdditionalInfo
-    = AliasMD (AliasType,Type)                     -- For aliases we save: name and necessary info of the sinonymed type
-    | PassType String                     -- For parameters we save: name, type and either it is value or reference passed
-    | FunctionMD (String,[String])  -- For functions we save: name , number of arguments, and return type(s). 
-   deriving Show
+    = AliasMD AliasType Type               -- For aliases we save: name and necessary info of the sinonymed type
+    | FunctionMD FunctionInfo -- For functions we save: name , number of arguments, and return type(s). 
+    | PassType String                      -- For parameters we save: name, type and either it is value or reference passed
+   deriving (Show,Eq)
 
--- 
+getFunctionMD :: SymbolInfo -> FunctionInfo
+getFunctionMD SymbolInfo { additional = Just (FunctionMD e) } =  e
+getFunctionMD _                             = error "getFunctionMD: Unpropper use"
+
+data FunctionInfo = FunctionInfo
+    { nArgs :: String -- OJO
+    , fParameters :: [Parameter]
+    , fReturn :: [Type]
+    , discriminant :: Bool
+    } deriving (Show,Eq)
+
+completeFunctionEntry :: FunctionInfo -> Bool 
+completeFunctionEntry fInfo = null (fParameters fInfo) && null (fReturn fInfo) 
+
+--
 
 data Type
     = Int
@@ -55,9 +70,11 @@ type Id = String
 
 data Variability = Var | Const | PtrVar deriving (Show,Eq)
 
-type Declaration = (Variability,Id,Type)
+type Declaration = (Variability, Id, Type)
 
 data AliasType = Strong | Weak deriving (Show,Eq)
+
+type Parameter = (PassType, Id, Type)
 
 --
 
@@ -66,7 +83,7 @@ data SymbolInfo = SymbolInfo
     , scope :: Int
     , tp :: Maybe String                 -- pointer to a table entry (the type)
     , additional :: Maybe AdditionalInfo
-}
+} deriving Eq
 
 instance Show SymbolInfo where
     show = prettySymbolInfo 1
@@ -79,7 +96,7 @@ prettySymbolInfo n si = preTb "Category: " ++ show (category si) ++ "\n"
 
 type Entry = (Symbol,SymbolInfo)
 
-data PassType = Value | Reference deriving Show
+data PassType = Value | Reference deriving (Show,Eq)
 
 type Dict = M.Map Symbol [SymbolInfo]
 
@@ -137,7 +154,7 @@ getAliasInfo aliasName aliasType pointedType = (symbol, info)
             category   = Alias,
             scope      = pervasiveScope,
             tp         = Nothing,
-            additional = Just $ AliasMD (aliasType, pointedType)
+            additional = Just $ AliasMD aliasType pointedType
         }
 
 getFunctionDeclarationInfo
@@ -151,9 +168,21 @@ getFunctionDeclarationInfo id argNumber = (symbol, info)
             category   = Function,
             scope      = functionScope,
             tp         = Nothing,
-            additional = Just $ FunctionMD (Tk.cleanedString argNumber, [])
+            additional = Just $ FunctionMD (FunctionInfo {
+                nArgs = Tk.cleanedString argNumber,
+                fParameters =  [],
+                fReturn = [],
+                discriminant = False
+            })
         }
-
+{-
+getFunctionDefinitionInfo
+    :: String   -- Id of Function
+    -> [Parameter] --  List of parameters
+    -> [Type]      -- return types
+    -> 
+getFunctionDefinitionInfo id params types = undefined
+-}
 
 -- relevant get-* functions for preparser until here
 -----------------------------------------------------------------------
@@ -258,10 +287,23 @@ getTypeInfo typename = (symbol, info)
 insertDict :: Dict -> Entry -> Dict
 insertDict dict (k,v) = M.insertWith (++) k [v] dict
 
-
 insertST :: SymbolTable -> Entry -> SymbolTable
 insertST st entry = st { dict = insertDict (dict st) entry }
 
+searchAndReplaceSymbol :: SymbolTable -> Entry -> SymbolInfo -> SymbolTable
+searchAndReplaceSymbol st entry@(name,info) newInfo = st { dict = newDict }
+    where            
+        newDict = M.insert name (fromJust newList) (dict st)
+        newList = do 
+           oldList <- findSymbol st name 
+           return (searchAndReplace newInfo info oldList)
+        
+
+searchAndReplace :: Eq a => a -> a -> [a] -> [a]
+searchAndReplace _   _   [] = [] 
+searchAndReplace new old (x:xs) 
+ | x == old  = new : xs
+ | otherwise = x : searchAndReplace new old xs
 
 {- ST lookup Functions -}
 
@@ -271,6 +313,10 @@ findDict = flip M.lookup
 findSymbol :: SymbolTable -> Symbol -> Maybe [SymbolInfo]
 findSymbol st = findDict (dict st)
 
+checkExisting :: SymbolTable -> Symbol -> Bool
+checkExisting st sym = case findSymbol st sym of
+    Nothing -> False
+    Just _  -> True
 
 {- Constants -}
 
@@ -311,11 +357,24 @@ initialST = st { dict = newDictionary }
 
 {- Statefull functions to be called on rules -}
 
--- Tentative initial implementatino of statefull colletion of symbols.
 statefullSTupdate :: Entry -> MonadParser ()
 statefullSTupdate entry@(name,info) = do
     st <- get
     case category info of
-        Alias     -> put $ insertST st entry
-        Function  -> put $ insertST ( st { nextScope = succ (nextScope st) } ) entry
+        Alias     -> case findSymbol st name of
+                        Nothing -> put $ insertST st entry
+                        Just _  -> fail "existing alias"  -- OJO
+        Function  -> case findSymbol st name of
+                        Nothing      -> put $ insertST ( st { nextScope = succ (nextScope st) } ) entry
+                        Just entries -> do
+
+                            let actualFunctions  = filter (\e -> category e == Function) entries 
+                                functionsEntries = map getFunctionMD actualFunctions
+                                functionsArgs    = map nArgs functionsEntries
+                                currentArgs      = nArgs ( getFunctionMD info )
+
+                            if currentArgs `notElem` functionsArgs then
+                                put $ insertST ( st { nextScope = succ (nextScope st) } ) entry
+                                else fail "A function with the same name and # of arguments exists " -- OJO
+
         _         -> undefined
