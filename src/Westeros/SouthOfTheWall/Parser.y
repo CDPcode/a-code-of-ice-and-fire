@@ -170,7 +170,7 @@ PROGRAM :: { Ast.Program }
     | HEADER CONTENTS GLOBAL FUNCTIONS MAIN ALIASES                                                 { Ast.Program $1 $2 $3 $4 $5 $6 }
 
 HEADER :: { Ast.Header }
-    : programStart programName  '.'                                                                 { Tk.cleanedString $2 }
+    : programStart programName                                                                      { Tk.cleanedString $2 }
 
 CONTENTS :: { Ast.FunctionNames }
     : beginFuncDec FUNCTION_DECLARATIONS                                                            { $2 }
@@ -216,7 +216,7 @@ PARAMETERS :: { [Ast.Parameter] }
     | PARAMETERS ',' PARAMETER                                                                      { $3 : $1 }
 
 PARAMETER :: { Ast.Parameter }
-    : PARAMETER_TYPE id TYPE                                                                        { Ast.Parameter $1 (Tk.cleanedString $2) $3 }
+    : PARAMETER_TYPE id type TYPE                                                                   { Ast.Parameter $1 (Tk.cleanedString $2) $4 }
 
 PARAMETER_TYPE :: { Ast.ParamType }
     : valueArg                                                                                      { Ast.Value }
@@ -325,10 +325,10 @@ INSTRUCTION :: { Ast.Instruction }
     | break '.'                                                                                     { Ast.Break }
     | returnOpen EXPRLIST returnClose                                                               { Ast.Return (reverse $2) }
     | returnOpen returnClose                                                                        { Ast.Return [] }
-    | IF                                                                                            { Ast.If $1 }
-    | SWITCHCASE                                                                                    { $1 }
-    | FOR                                                                                           { $1 }
-    | WHILE                                                                                         { $1 }
+    | IF '.'                                                                                        { Ast.If $1 }
+    | SWITCHCASE '.'                                                                                { $1 }
+    | FOR '.'                                                                                       { $1 }
+    | WHILE '.'                                                                                     { $1 }
     | DECLARATION                                                                                   { Ast.DeclarationInst $1 }
 
 IF :: { Ast.IfInst }
@@ -413,9 +413,10 @@ EXPRLIST :: { [Ast.Expression] }
 -- Error Function
 
 parseError :: [Tk.Token] -> a
-parseError _ = error "You Dieded."
+parseError [] = error "Parse error at EOF."
+parseError (tk:_) = error $ "Parse error with token " ++ (show tk)
 
 createExpression :: Tk.Token -> Ast.Expr -> Ast.Expression
-createExpression tk expr = Ast.Expression { Ast.getToken = tk, Ast.getExpr = expr }
+createExpression tk expr = Ast.Expression { Ast.getToken = tk, Ast.getExpr = expr, Ast.getType = Ast.AliasT "undefined" }
 
 }
