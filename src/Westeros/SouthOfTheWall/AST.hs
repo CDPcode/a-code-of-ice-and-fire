@@ -3,7 +3,7 @@ module Westeros.SouthOfTheWall.AST where
 import Westeros.SouthOfTheWall.Tokens as Tk 
 
 -- AST 
-data Program = Program Header FunctionNames Global FunctionDeclaration Main Aliases deriving (Show)
+data Program = Program Header FunctionNames Global FunctionDeclarations Main Aliases deriving (Show)
 
 -- data Id = Id Token Int deriving (Show, Eq)
 type Id = String 
@@ -12,15 +12,14 @@ type FunctionNames = [(Id, Int)]
 type Global = [Declaration]
 type Main = [Instruction]
 type Aliases = [AliasDeclaration]
+type FunctionDeclarations = [FunctionDeclaration]
 
 data FunctionDeclaration = FunctionDeclaration Id [Parameter] [Type] [Instruction] deriving (Show)
 
 data Declaration 
-    = VarDeclaration VarDeclaration (Maybe Expression)
-    | ConstDeclaration ConstantDeclaration
+    = VarDeclaration VariableDeclaration (Maybe Expression)
+    | ConstantDeclaration Id Type Expression
     deriving (Show)
-
-data ConstantDeclaration = ConstantDeclaration Id Type Expression deriving (Show)
 
 data Parameter = Parameter ParamType Id Type deriving (Show)
 
@@ -36,7 +35,7 @@ data AliasType
     | WeakAlias
     deriving (Show)
 
-data VarDeclaration 
+data VariableDeclaration 
     = SimpleDeVarDeclaration  Id Type 
     | ArrayVarDeclaration   Id Type [Expr]
     deriving (Show)
@@ -49,8 +48,8 @@ data Type
     | BoolT 
     | StringT
     | ArrayT    Type Int
-    | StructT   [VarDeclaration]
-    | UnionT    [VarDeclaration]
+    | StructT   [VariableDeclaration]
+    | UnionT    [VariableDeclaration]
     | TupleT    [Type]
     | PointerT  Type
     | AliasT    Id

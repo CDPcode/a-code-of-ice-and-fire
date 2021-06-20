@@ -175,22 +175,21 @@ HEADER :: { Ast.Header }
 CONTENTS :: { Ast.FunctionNames }
     : beginFuncDec FUNCTION_DECLARATIONS                                                            { $2 }
 
-
 FUNCTION_DECLARATIONS :: { Ast.FunctionNames }
     : item globalDec FUNCTION_NAMES item main                                                       { reverse $3 }
 
 FUNCTION_NAMES :: { Ast.FunctionNames } 
     : {- empty -}                                                                                   { [] }
-    | FUNCTION_NAMES item id argNumber                                                              { (Tk.cleanedString id, read Tk.cleanedString argNumber :: Int)  : $1 }
+    | FUNCTION_NAMES item id argNumber                                                              { (Tk.cleanedString $3, 0)  : $1 } -- TODO: Fix to include argCnt
 
 GLOBAL :: { [Ast.Declaration] }
-    : globalDec '{' DECLARATIONS '}'                                                                  { $3 }
+    : globalDec '{' DECLARATIONS '}'                                                                { reverse $3 }
 
 MAIN :: { [Ast.Instruction] } 
     : main FUNCTION_BODY                                                                            { $2 }
 
 ALIASES :: { [Ast.AliasDeclaration] }
-    : aliasDec ALIAS_DECLARATIONS                                                                   { $2 }
+    : aliasDec ALIAS_DECLARATIONS                                                                   { reverse $2 }
 
 ALIAS_DECLARATIONS :: { [Ast.AliasDeclaration] } 
     : ALIAS_DECLARATION                                                                             { [$1] }
@@ -210,11 +209,11 @@ FUNCTION_PARAMETERS :: { [Ast.Parameter] }
 
 PARAMETER_LIST :: { [Ast.Parameter] }
     : void                                                                                          { [] }
-    | PARAMETERS                                                                                    { $1 }
+    | PARAMETERS                                                                                    { reverse $1 }
 
 PARAMETERS :: { [Ast.Parameter] } 
     : PARAMETER                                                                                     { [$1] }
-    | PARAMETERS ',' PARAMETER                                                                      { $2 : $1 }
+    | PARAMETERS ',' PARAMETER                                                                      { $3 : $1 }
 
 PARAMETER :: { Ast.Parameter } 
     : PARAMETER_TYPE id TYPE                                                                        { Ast.Parameter $1 (Tk.cleanedString $2) $3 }
@@ -228,14 +227,14 @@ FUNCTION_RETURN :: { [Ast.Type] }
 
 RETURN_TYPES :: { [Ast.Type]} 
     : void                                                                                          { [] }
-    | TYPES                                                                                         { $1 }
+    | TYPES                                                                                         { reverse $1 }
 
 TYPES :: { [Ast.Type] } 
     : TYPE                                                                                          { [$1] }
-    | TYPES ',' TYPE                                                                                { $2 : [$1] }
+    | TYPES ',' TYPE                                                                                { $3 : $1 }
 
 FUNCTION_BODY :: { [Ast.Instruction] } 
-    : '{' INSTRUCTIONS '}'                                                                          { $1 }
+    : '{' INSTRUCTIONS '}'                                                                          { reverse $2 }
 
 -- Types ---
 
@@ -252,7 +251,7 @@ PRIMITIVE_TYPE :: { Ast.Type }
     | atom                                                                                          { Ast.AtomT }
 
 COMPOSITE_TYPE :: { Ast.Type }
-    : beginArray naturalLit TYPE endArray                                                           { Ast.ArrayT $3 $2 }
+    : beginArray naturalLit TYPE endArray                                                           { Ast.ArrayT $3 (read (Tk.cleanedString $2) :: Int) }
     | string                                                                                        { Ast.StringT }
     | pointerType TYPE                                                                              { Ast.PointerT $2 }
     | beginStruct SIMPLE_DECLARATIONS endStruct                                                     { Ast.StructT $2 }
@@ -261,7 +260,7 @@ COMPOSITE_TYPE :: { Ast.Type }
 
 TUPLE_TYPES :: { [Ast.Type] } 
     : {- empty -}                                                                                   { [] }
-    | TYPES                                                                                         { $1 }
+    | TYPES                                                                                         { reverse $1 }
 
 -- Alias Declaration --
 
@@ -276,24 +275,24 @@ DECLARATION :: { Ast.Declaration }
     | SIMPLE_DECLARATION ':==' EXPR '.'                                                             { Ast.VarDeclaration $1 $ Just $3 }
     | CONST_DECLARATION '.'                                                                         { $1 }
 
-SIMPLE_DECLARATIONS :: { [Ast.VarDeclaration] }
+SIMPLE_DECLARATIONS :: { [Ast.VariableDeclaration] }
     : SIMPLE_DECLARATION                                                                            { [$1] }
-    | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION                                                    { $2 : $1}
+    | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION                                                    { $3 : $1 }
 
-SIMPLE_DECLARATION :: { Ast.VarDeclaration }
+SIMPLE_DECLARATION :: { Ast.VariableDeclaration }
     : PRIMITIVE_DECLARATION                                                                         { $1 }
     | COMPOSITE_DECLARATION                                                                         { $1 }
 
-PRIMITIVE_DECLARATION :: { Ast.VarDeclaration }
+PRIMITIVE_DECLARATION :: { Ast.VariableDeclaration }
     : var id type TYPE                                                                              { Ast.SimpleDeVarDeclaration (Tk.cleanedString $2) $4 }
 
-COMPOSITE_DECLARATION :: { Ast.VarDeclaration }
+COMPOSITE_DECLARATION :: { Ast.VariableDeclaration }
     : beginCompTypeId var id endCompTypeId TYPE                                                     { Ast.SimpleDeVarDeclaration (Tk.cleanedString $3) $5 }
     | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz                              { Ast.ArrayVarDeclaration (Tk.cleanedString $3) $5 $7 }
     | beginCompTypeId pointerVar id endCompTypeId TYPE                                              { Ast.SimpleDeVarDeclaration (Tk.cleanedString $3) $5 }
     | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz                       { Ast.SimpleDeVarDeclaration (Tk.cleanedString $3) $5 }
 
-CONST_DECLARATION :: { Ast.ConstantDeclaration }
+CONST_DECLARATION :: { Ast.Declaration }
     : const id type TYPE constValue EXPR                                                            { Ast.ConstantDeclaration (Tk.cleanedString $2) $4 $6 }
     | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                                   { Ast.ConstantDeclaration (Tk.cleanedString $3) $5 $7 }
 
