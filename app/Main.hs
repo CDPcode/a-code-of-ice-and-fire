@@ -33,4 +33,4 @@ testParser = do
         Left errs -> mapM_ print errs
         Right tokens -> do 
             (_,st,_) <- runRWST (preParse tokens) () ST.initialST 
-            mapM_ print (toList $ ST.dict st)
+            print st -- mapM_ print (toList $ ST.dict st)

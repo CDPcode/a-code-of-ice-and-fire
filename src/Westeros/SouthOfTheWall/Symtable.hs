@@ -1,8 +1,11 @@
 module Westeros.SouthOfTheWall.Symtable where
 
-import qualified Data.Map.Strict as M
 import qualified Westeros.SouthOfTheWall.Tokens as Tk
-import Control.Monad.RWS  
+
+import qualified Data.Map.Strict as M
+import Control.Monad.RWS ( MonadState(put, get), RWST )
+
+import Data.List (intercalate)
 
 
 type Symbol = String
@@ -16,16 +19,16 @@ data ParserError
 
 
 data Category -- anything with a name
-    = Alias    
+    = Alias
     | Constant
-    | Field    
+    | Field
     | Function
     | Parameter
     | Type
     | Variable
-   deriving Show 
-  
-data AdditionalInfo 
+   deriving Show
+
+data AdditionalInfo
     = AliasMD (AliasType,Type)                     -- For aliases we save: name and necessary info of the sinonymed type
     | PassType String                     -- For parameters we save: name, type and either it is value or reference passed
     | FunctionMD (String,[String])  -- For functions we save: name , number of arguments, and return type(s). 
@@ -33,11 +36,11 @@ data AdditionalInfo
 
 -- 
 
-data Type 
+data Type
     = Int
-    | Char 
-    | Bool 
-    | Float 
+    | Char
+    | Bool
+    | Float
     | Atom
     | Array Int Type
     | Register [Declaration]
@@ -58,13 +61,21 @@ data AliasType = Strong | Weak deriving (Show,Eq)
 
 --
 
-data SymbolInfo = SymbolInfo 
+data SymbolInfo = SymbolInfo
     { category :: Category
     , scope :: Int
     , tp :: Maybe String                 -- pointer to a table entry (the type)
-    , additional :: Maybe AdditionalInfo 
-    } deriving Show
+    , additional :: Maybe AdditionalInfo
+}
 
+instance Show SymbolInfo where
+    show = prettySymbolInfo 1
+
+prettySymbolInfo :: Int -> SymbolInfo -> String
+prettySymbolInfo n si = preTb "Category: " ++ show (category si) ++ "\n"
+                     ++ preTb "Scope : " ++ show ( scope si )  ++ "\n"
+                     ++ preTb "extra: " ++ show ( additional si ) ++ "\n"
+    where preTb = (replicate n '\t' ++)
 
 type Entry = (Symbol,SymbolInfo)
 
@@ -72,13 +83,21 @@ data PassType = Value | Reference deriving Show
 
 type Dict = M.Map Symbol [SymbolInfo]
 
-data SymbolTable = SymbolTable 
+data SymbolTable = SymbolTable
     { dict :: Dict
     , scopeStack :: [Int]
     , nextScope :: Int    -- indicates the next scope to assign
     -- , additional :: someType 
-    } deriving Show
+    }
 
+instance Show SymbolTable where
+    show st = "* Name info\n\n" ++ displayDict
+              ++ "* Scope stack: " ++ show (scopeStack st)
+              ++ "\n* Next scope: " ++ show (nextScope st)
+        where
+            displayDict  = foldl (\acc (b,c) -> acc ++ b ++ '\n' : splitInfo c) [] $ M.toList (dict st)
+            splitInfo = intercalate bar . map show
+            bar = "\n-------------------\n"
 
 type MonadParser = RWST () [ParserError] SymbolTable IO
 
@@ -87,13 +106,13 @@ type MonadParser = RWST () [ParserError] SymbolTable IO
 
 
 toTypeSymbol :: Tk.Token -> Symbol
-toTypeSymbol token = case Tk.aToken token of 
+toTypeSymbol token = case Tk.aToken token of
     Tk.TknInt          -> "int"
     Tk.TknChar         -> "char"
     Tk.TknFloat        -> "float"
     Tk.TknBool         -> "bool"
     Tk.TknAtom         -> "atom"
-    
+
     Tk.TknPointerType  -> "pointer"
     Tk.TknString       -> "string"
     Tk.TknBeginArray   -> "array"
@@ -106,29 +125,29 @@ toTypeSymbol token = case Tk.aToken token of
     _                  -> error ("Not a valid type token: " ++ show (Tk.aToken token)) -- OJO : enhance error correction
 
 
-getAliasInfo 
+getAliasInfo
     :: Tk.Token  -- Alias name
     -> AliasType -- Alias type
     -> Type      -- Pointed Type
     -> Entry
 getAliasInfo aliasName aliasType pointedType = (symbol, info)
     where
-        symbol = Tk.cleanedString aliasName 
-        info   = SymbolInfo { 
-            category   = Alias, 
-            scope      = pervasiveScope, 
+        symbol = Tk.cleanedString aliasName
+        info   = SymbolInfo {
+            category   = Alias,
+            scope      = pervasiveScope,
             tp         = Nothing,
             additional = Just $ AliasMD (aliasType, pointedType)
         }
 
-getFunctionDeclarationInfo 
+getFunctionDeclarationInfo
     :: Tk.Token -- Id of function
     -> Tk.Token -- Number of arguments
     -> Entry
 getFunctionDeclarationInfo id argNumber = (symbol, info)
-    where  
+    where
         symbol = Tk.cleanedString id
-        info   = SymbolInfo { 
+        info   = SymbolInfo {
             category   = Function,
             scope      = functionScope,
             tp         = Nothing,
@@ -144,7 +163,7 @@ getFunctionInfo
     :: Tk.Token   -- Id
     -> [Tk.Token] -- Return types
     -> Entry
-getFunctionInfo id returnTypes = undefined 
+getFunctionInfo id returnTypes = undefined
 
 getParamInfo
     :: Tk.Token -- Either value or reference
@@ -152,52 +171,52 @@ getParamInfo
     -> Tk.Token -- Type
     -> Entry
 getParamInfo passType id symType = (symbol, info)
-    where 
-        symbol = Tk.cleanedString id 
-        info   = SymbolInfo { 
+    where
+        symbol = Tk.cleanedString id
+        info   = SymbolInfo {
             category   = Parameter,
             scope      = defaultScope, -- adjust Scope at ST insertion
             tp         = Just (toTypeSymbol symType),
-            additional = case Tk.aToken passType of 
+            additional = case Tk.aToken passType of
                             Tk.TknValueArg     -> Just (PassType "value")
                             Tk.TknReferenceArg -> Just (PassType "reference")
-                            _                  -> error "Invalid Variability" 
+                            _                  -> error "Invalid Variability"
                             -- OJO : enhance error management
         }
 
-getPrimitiveSymbolInfo 
+getPrimitiveSymbolInfo
     :: Tk.Token -- Variability
     -> Tk.Token -- Id
     -> Tk.Token -- Type
     -> Entry
 getPrimitiveSymbolInfo variability id symType = (symbol, info)
     where
-        symbol = Tk.cleanedString id 
-        info   = SymbolInfo { 
-            category   = case Tk.aToken variability of 
+        symbol = Tk.cleanedString id
+        info   = SymbolInfo {
+            category   = case Tk.aToken variability of
                             Tk.TknVar   -> Variable
                             Tk.TknConst -> Constant
-                            _           -> error "Invalid Variability", 
+                            _           -> error "Invalid Variability",
                             -- OJO : enhance error management
             scope      = defaultScope,
             tp         = Just (toTypeSymbol symType),
             additional = Nothing
         }
 
-getCompositeSymbolInfo 
+getCompositeSymbolInfo
     :: Tk.Token -- Variability
     -> Tk.Token -- Id
     -> Tk.Token -- Type
     -> Entry
 getCompositeSymbolInfo variability id symType = undefined
     where
-        symbol = Tk.cleanedString id 
-        info   = SymbolInfo { 
-            category   = case Tk.aToken variability of 
+        symbol = Tk.cleanedString id
+        info   = SymbolInfo {
+            category   = case Tk.aToken variability of
                             Tk.TknVar        -> Variable
                             Tk.TknVarPointer -> Variable
                             Tk.TknConst      -> Constant
-                            _                -> error "Invalid Variability", 
+                            _                -> error "Invalid Variability",
                             -- OJO : enhance error management
             scope      = defaultScope, -- adjust scope at ST insertion
             tp         = Just (toTypeSymbol symType),
@@ -209,26 +228,26 @@ getFieldInfo
     -> Tk.Token -- Type
     -> Entry
 getFieldInfo id symType = undefined
-    where  
+    where
         symbol = Tk.cleanedString id
-        info = SymbolInfo { 
+        info = SymbolInfo {
             category   = Field,
             scope      = defaultScope, -- adjust scope at ST insertion
             tp         = Just (toTypeSymbol symType),
             additional = Nothing
-        } 
+        }
 
 getTypeInfo
     :: Tk.Token -- Typename
     -> Entry
 getTypeInfo typename = (symbol, info)
     where
-        symbol = Tk.cleanedString typename 
-        info = SymbolInfo {                
+        symbol = Tk.cleanedString typename
+        info = SymbolInfo {
             category   = Type,
             scope      = pervasiveScope,
             tp         = Nothing ,
-            additional = Nothing 
+            additional = Nothing
         }
 
 -- relevant get-* functions for parser until here
@@ -238,7 +257,7 @@ getTypeInfo typename = (symbol, info)
 
 insertDict :: Dict -> Entry -> Dict
 insertDict dict (k,v) = M.insertWith (++) k [v] dict
-    
+
 
 insertST :: SymbolTable -> Entry -> SymbolTable
 insertST st entry = st { dict = insertDict (dict st) entry }
@@ -250,7 +269,7 @@ findDict :: Dict -> Symbol -> Maybe [SymbolInfo]
 findDict = flip M.lookup
 
 findSymbol :: SymbolTable -> Symbol -> Maybe [SymbolInfo]
-findSymbol st = findDict (dict st) 
+findSymbol st = findDict (dict st)
 
 
 {- Constants -}
@@ -265,10 +284,10 @@ defaultScope   = maxBound :: Int
 functionScope  = 1
 
 
-initialTypes :: [SymbolInfo] 
+initialTypes :: [SymbolInfo]
 initialTypes = map buildDefaultTypeSymbolInfo tps
     where
-        buildDefaultTypeSymbolInfo typeSymbol = SymbolInfo { 
+        buildDefaultTypeSymbolInfo typeSymbol = SymbolInfo {
             category   = Type,
             scope      = pervasiveScope,
             tp         = Just typeSymbol,
@@ -276,14 +295,14 @@ initialTypes = map buildDefaultTypeSymbolInfo tps
         }
 
 -- Symbol table to begin with scanning
-initialST :: SymbolTable 
+initialST :: SymbolTable
 initialST = st { dict = newDictionary }
-    where  
+    where
         newDictionary  = foldl insertDict (dict st) initialEntries
 
         initialEntries = zip tps initialTypes
 
-        st = SymbolTable { 
+        st = SymbolTable {
         dict       = M.empty :: M.Map Symbol [SymbolInfo],
         scopeStack = [],
         nextScope  = 1
@@ -294,9 +313,9 @@ initialST = st { dict = newDictionary }
 
 -- Tentative initial implementatino of statefull colletion of symbols.
 statefullSTupdate :: Entry -> MonadParser ()
-statefullSTupdate entry@(name,info) = do 
-    st <- get 
-    case category info of 
+statefullSTupdate entry@(name,info) = do
+    st <- get
+    case category info of
         Alias     -> put $ insertST st entry
         Function  -> put $ insertST ( st { nextScope = succ (nextScope st) } ) entry
         _         -> undefined
