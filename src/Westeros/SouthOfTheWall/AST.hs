@@ -1,42 +1,45 @@
 module Westeros.SouthOfTheWall.AST where
 
-import Westeros.SouthOfTheWall.Tokens as Tk
-
-type Size = Int 
+import Westeros.SouthOfTheWall.Tokens as Tk 
 
 -- AST 
-data Program = Program Header FunctionNames Global FunctionDec Main Aliases 
+data Program = Program Header FunctionNames Global FunctionDeclaration Main Aliases deriving (Show)
 
+-- data Id = Id Token Int deriving (Show, Eq)
+type Id = String 
 type Header = String
 type FunctionNames = [(Id, Int)]
 type Global = [Declaration]
-type FunctionDec = Id [Argument] [Type] [Ins]
 type Main = [Instruction]
 type Aliases = [AliasDeclaration]
 
-data Definition = Definition Declaration (Maybe Expression)
-
-data Argument = Argument Declaration Bool
-
-data AliasDeclaration = Alias Id Type AliasType
-
-data DecType
-    = Const
-    | Var
-
-data AliasType
-    = Strong 
-    | Weak 
-
-data Id = Id Token Int deriving (Show, Eq)
+data FunctionDeclaration = FunctionDeclaration Id [Parameter] [Type] [Instruction] deriving (Show)
 
 data Declaration 
-    = Simple  Id Type DecType
-    | Array   Id Type DecType [Size]
-    | Struct  Id [Declaration]
-    | Union   Id [Declaration]
-    | Pointer Id Type
-    deriving (Eq, Show)
+    = VarDeclaration VarDeclaration (Maybe Expression)
+    | ConstDeclaration ConstantDeclaration
+    deriving (Show)
+
+data ConstantDeclaration = ConstantDeclaration Id Type Expression deriving (Show)
+
+data Parameter = Parameter ParamType Id Type deriving (Show)
+
+data ParamType 
+    = Ref
+    | Value
+    deriving (Show)
+
+data AliasDeclaration = Alias Id Type AliasType deriving (Show)
+
+data AliasType
+    = StrongAlias
+    | WeakAlias
+    deriving (Show)
+
+data VarDeclaration 
+    = SimpleDeVarDeclaration  Id Type 
+    | ArrayVarDeclaration   Id Type [Expr]
+    deriving (Show)
 
 data Type 
     = IntT 
@@ -46,18 +49,18 @@ data Type
     | BoolT 
     | StringT
     | ArrayT    Type Int
-    | StructT   [(Id, Type)]
-    | UnionT    [(Id, Type)]
+    | StructT   [VarDeclaration]
+    | UnionT    [VarDeclaration]
     | TupleT    [Type]
     | PointerT  Type
-    | AliasT    String
-    deriving (Eq, Show)
+    | AliasT    Id
+    deriving (Show)
 
 data Expression = Expression
        { getExpression :: Expr
        , getType :: Type
        , getToken :: Tk.Token
-       } deriving Show
+       } deriving (Show)
 
 data Expr
     = IntLit    Int
@@ -70,15 +73,16 @@ data Expr
     | NullLit
     | ArrayLit    [Expression]
     | TupleLit    [Expression]
-    | FuncCall    Expression [Expression]
+    | FuncCall    Id [Expression]
     | BinOp       BinOp Expression Expression
     | UnOp        UnOp Expression
-    | AccesField  Expression Expression 
-    | ActiveField Expression Expression
-    | AccesIndex  Expression Expression
+    | AccesField  Expression Id 
+    | ActiveField Expression Id
+    | AccesIndex  Expression [Expression]         
+    | TupleIndex  Expression Int
     | Cast        Expression Type
     | IdExpr      Id
-    deriving (Show, Eq)
+    deriving (Show)
 
 data BinOp 
     = Sum 
@@ -90,40 +94,43 @@ data BinOp
     | Neq
     | Lt
     | Gt
+    | Leq
+    | Geq
     | And
     | Or
-    deriving (Show, Eq)
+    deriving (Show)
 
 data UnOp 
     = Neg 
     | Deref
-    deriving (Show, Eq)
+    deriving (Show)
 
 data Instruction
-  = SimpleAssign Expression Expression
-  | MultAssign   [Expression] Expression
-  | Print        Expression
-  | Read         Expression
-  | Return       [Expression]
-  | Return 
-  | If IfInst
-  | Switch       Expression [Case]
-  | For          Id Expression Expression [Instruction]
-  | While        Expression [Instruction]
-  | DefinitionInst Definition
-  | FuncCallInst Id [Expression]
-  | New          Type
-  | Free         Expression
-  | ExitInst     Expression
-  | EmptyInst 
-  | Continue 
-  | Break
-  deriving (Eq, Show)
+    = SimpleAssign Expression Expression
+    | MultAssign   [Expression] Expression
+    | Print        Expression
+    | Read         Expression
+    | Return       [Expression]
+    | If IfInst
+    | Switch       Expression [Case]
+    | For          Id Expression Expression [Instruction]
+    | While        Expression [Instruction]
+    | DeclarationInst Declaration
+    | FuncCallInst Expression
+    | New          Expression
+    | Free         Expression
+    | ExitInst     String
+    | EmptyInst 
+    | Continue 
+    | Break
+    deriving (Show)
 
 data Case 
     = Case    Expression [Instruction]
     | Default [Instruction]
+    deriving (Show)
 
 data IfInst 
-    = If     Expression [Instruction]
-    | IfElse Expression [Instruction] [Instruction]
+    = IfThen     Expression [Instruction]
+    | IfThenElse Expression [Instruction] [Instruction] 
+    deriving (Show)
