@@ -388,5 +388,6 @@ processArgNumber str = show $ (parseRomanNumeral str) - 1
     parseRomanNumeral ('C':xs) = 100 + parseRomanNumeral xs
     parseRomanNumeral ('D':xs) = 500 + parseRomanNumeral xs
     parseRomanNumeral ('M':xs) = 1000 + parseRomanNumeral xs
+    parseRomanNumeral [] = 0
 
 }
