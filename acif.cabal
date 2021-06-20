@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1c5dbc987335a96e084b65122424f6c7ffe838a21c48c50df3acd313e11c15fa
+-- hash: ef5e522c15acda0b28609354dd845a3c21d572390aaa748c63e69c954b091e24
 
 name:           acif
 version:        0.1.0.0
@@ -28,7 +28,7 @@ source-repository head
 library
   exposed-modules:
       Lib
-      Westeros.SouthOfTheWall.AST
+      Westeros.SouthOfTheWall.Error
       Westeros.SouthOfTheWall.Lexer
       Westeros.SouthOfTheWall.Parser
       Westeros.SouthOfTheWall.Symtable
@@ -39,10 +39,12 @@ library
       src
   build-tools:
       alex
+    , happy
   build-depends:
       array
     , base >=4.7 && <5
     , containers
+    , mtl
   default-language: Haskell2010
 
 executable acif-exe
@@ -57,6 +59,7 @@ executable acif-exe
     , array
     , base >=4.7 && <5
     , containers
+    , mtl
   default-language: Haskell2010
 
 test-suite acif-test
@@ -72,4 +75,5 @@ test-suite acif-test
     , array
     , base >=4.7 && <5
     , containers
+    , mtl
   default-language: Haskell2010
