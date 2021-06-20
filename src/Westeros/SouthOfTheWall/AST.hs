@@ -1,12 +1,12 @@
 module Westeros.SouthOfTheWall.AST where
 
-import Westeros.SouthOfTheWall.Tokens as Tk 
+import Westeros.SouthOfTheWall.Tokens as Tk
 
--- AST 
+-- AST
 data Program = Program Header FunctionNames Global FunctionDeclarations Main Aliases deriving (Show)
 
 -- data Id = Id Token Int deriving (Show, Eq)
-type Id = String 
+type Id = String
 type Header = String
 type FunctionNames = [(Id, Int)]
 type Global = [Declaration]
@@ -16,14 +16,14 @@ type FunctionDeclarations = [FunctionDeclaration]
 
 data FunctionDeclaration = FunctionDeclaration Id [Parameter] [Type] [Instruction] deriving (Show)
 
-data Declaration 
+data Declaration
     = VarDeclaration VariableDeclaration (Maybe Expression)
     | ConstantDeclaration Id Type Expression
     deriving (Show)
 
 data Parameter = Parameter ParamType Id Type deriving (Show)
 
-data ParamType 
+data ParamType
     = Ref
     | Value
     deriving (Show)
@@ -35,17 +35,17 @@ data AliasType
     | WeakAlias
     deriving (Show)
 
-data VariableDeclaration 
-    = SimpleDeVarDeclaration  Id Type 
-    | ArrayVarDeclaration   Id Type [Expr]
+data VariableDeclaration
+    = SimpleDeVarDeclaration  Id Type
+    | ArrayVarDeclaration   Id Type [Expression]
     deriving (Show)
 
-data Type 
-    = IntT 
-    | FloatT 
-    | CharT 
-    | AtomT 
-    | BoolT 
+data Type
+    = IntT
+    | FloatT
+    | CharT
+    | AtomT
+    | BoolT
     | StringT
     | ArrayT    Type Int
     | StructT   [VariableDeclaration]
@@ -56,7 +56,7 @@ data Type
     deriving (Show)
 
 data Expression = Expression
-       { getExpression :: Expr
+       { getExpr :: Expr
        , getType :: Type
        , getToken :: Tk.Token
        } deriving (Show)
@@ -75,16 +75,16 @@ data Expr
     | FuncCall    Id [Expression]
     | BinOp       BinOp Expression Expression
     | UnOp        UnOp Expression
-    | AccesField  Expression Id 
+    | AccesField  Expression Id
     | ActiveField Expression Id
-    | AccesIndex  Expression [Expression]         
+    | AccesIndex  Expression [Expression]
     | TupleIndex  Expression Int
     | Cast        Expression Type
     | IdExpr      Id
     deriving (Show)
 
-data BinOp 
-    = Sum 
+data BinOp
+    = Sum
     | Sub
     | Prod
     | Div
@@ -99,8 +99,8 @@ data BinOp
     | Or
     deriving (Show)
 
-data UnOp 
-    = Neg 
+data UnOp
+    = Neg
     | Deref
     deriving (Show)
 
@@ -119,17 +119,17 @@ data Instruction
     | New          Expression
     | Free         Expression
     | ExitInst     String
-    | EmptyInst 
-    | Continue 
+    | EmptyInst
+    | Continue
     | Break
     deriving (Show)
 
-data Case 
-    = Case    Expression [Instruction]
+data Case
+    = Case    String [Instruction]
     | Default [Instruction]
     deriving (Show)
 
-data IfInst 
+data IfInst
     = IfThen     Expression [Instruction]
-    | IfThenElse Expression [Instruction] [Instruction] 
+    | IfThenElse Expression [Instruction] [Instruction]
     deriving (Show)
