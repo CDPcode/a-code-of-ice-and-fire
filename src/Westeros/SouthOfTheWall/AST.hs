@@ -2,6 +2,9 @@ module Westeros.SouthOfTheWall.AST where
 
 import Westeros.SouthOfTheWall.Tokens as Tk
 
+type Size = Int 
+
+-- AST 
 data Program = Program Header FunctionNames Global FunctionDec Main Aliases 
 
 type Header = String
@@ -15,7 +18,7 @@ data Definition = Definition Declaration (Maybe Expression)
 
 data Argument = Argument Declaration Bool
 
-data AliasDeclaration = Alias { name :: Id, dataType :: Type, aliasType :: AliasType }
+data AliasDeclaration = Alias Id Type AliasType
 
 data DecType
     = Const
@@ -28,11 +31,11 @@ data AliasType
 data Id = Id Token Int deriving (Show, Eq)
 
 data Declaration 
-    = Simple  { name :: Id, dataType :: Type, decType :: DecType }
-    | Array   { name :: Id, dataType :: Type, decType :: DecType, sizes :: [Int] }
-    | Struct  { name :: Id, fields :: [Declaration] }
-    | Union   { name :: Id, fields :: [Declaration] }
-    | Pointer { name :: Id, dataType :: Type }
+    = Simple  Id Type DecType
+    | Array   Id Type DecType [Size]
+    | Struct  Id [Declaration]
+    | Union   Id [Declaration]
+    | Pointer Id Type
     deriving (Eq, Show)
 
 data Type 
@@ -42,12 +45,12 @@ data Type
     | AtomT 
     | BoolT 
     | StringT
-    | ArrayT    { arrayType :: Type, arrrayDim :: Int }
-    | StructT   { structFields :: [(Id, Type)] }
-    | UnionT    { unionOptions :: [(Id, Type)] }
-    | TupleT    { tupleTypes :: [Type] }
-    | PointerT  { pointerType :: Type }
-    | AliasT    { aliasName :: String }
+    | ArrayT    Type Int
+    | StructT   [(Id, Type)]
+    | UnionT    [(Id, Type)]
+    | TupleT    [Type]
+    | PointerT  Type
+    | AliasT    String
     deriving (Eq, Show)
 
 data Expression = Expression
@@ -57,24 +60,24 @@ data Expression = Expression
        } deriving Show
 
 data Expr
-    = IntLit    { val :: Int }
-    | CharLit   { val :: Char }
-    | FloatLit  { val :: Float }
-    | StringLit { val :: String }
-    | AtomLit   { val :: String }
+    = IntLit    Int
+    | CharLit   Char
+    | FloatLit  Float
+    | StringLit String
+    | AtomLit   String
     | TrueLit
     | FalseLit
     | NullLit
-    | ArrayLit    { elems :: [Expression] }
-    | TupleLit    { elems :: [Expression] }
-    | FuncCall    { fname :: Expression, args :: [Expression] }
-    | BinOp       { op :: BinOp, opr1 :: Expression, opr2 :: Expression }
-    | UnOp        { op :: UnOp, opr :: Expression }
-    | AccesField  { obj :: Expression, field :: Expression } 
-    | ActiveField { obj :: Expression, field :: Expression }
-    | AccesIndex  { obj :: Expression, index :: Expression }
-    | Cast        { obj :: Expression, castType ::  Type }
-    | IdExpr      { id :: Id }
+    | ArrayLit    [Expression]
+    | TupleLit    [Expression]
+    | FuncCall    Expression [Expression]
+    | BinOp       BinOp Expression Expression
+    | UnOp        UnOp Expression
+    | AccesField  Expression Expression 
+    | ActiveField Expression Expression
+    | AccesIndex  Expression Expression
+    | Cast        Expression Type
+    | IdExpr      Id
     deriving (Show, Eq)
 
 data BinOp 
@@ -97,30 +100,30 @@ data UnOp
     deriving (Show, Eq)
 
 data Instruction
-  = SimpleAssign { lvalue :: Expression, rvalue :: Expression }
-  | MultAssign   { lvalues :: [Expression], rvalue :: Expression }
-  | Print        { expr :: Expression }
-  | Read         { expr :: Expression }
-  | Return       { values :: [Expression] }
+  = SimpleAssign Expression Expression
+  | MultAssign   [Expression] Expression
+  | Print        Expression
+  | Read         Expression
+  | Return       [Expression]
   | Return 
   | If IfInst
-  | Switch       { cond :: Expression, cases :: [Case] }
-  | For          { it :: Id, lb :: Expression, ub :: Expression, inst :: [Instruction] }
-  | While        { cond :: Expression, instr :: [Instruction] }
-  | Definition Definition
-  | FuncCallInst { fName :: Id, args :: [Expression] }
-  | New          { tp :: Type }
-  | Free         { expr :: Expression }
-  | ExitInst     { expr :: Expression }
+  | Switch       Expression [Case]
+  | For          Id Expression Expression [Instruction]
+  | While        Expression [Instruction]
+  | DefinitionInst Definition
+  | FuncCallInst Id [Expression]
+  | New          Type
+  | Free         Expression
+  | ExitInst     Expression
   | EmptyInst 
   | Continue 
   | Break
   deriving (Eq, Show)
 
 data Case 
-    = Case    { atom :: Expression,  instr :: [Instruction] }
-    | Default { instr :: [Instruction] }
+    = Case    Expression [Instruction]
+    | Default [Instruction]
 
 data IfInst 
-    = If     { cond :: Expression, instr :: [Instruction] }
-    | IfElse { cond :: Expression, true :: [Instruction], false :: [Instruction] }
+    = If     Expression [Instruction]
+    | IfElse Expression [Instruction] [Instruction]
