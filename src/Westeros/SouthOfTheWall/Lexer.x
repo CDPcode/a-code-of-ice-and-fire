@@ -55,7 +55,7 @@ tokens :-
 --          Data Types
 <0>         Lanninteger                                                                                 { makeToken TknInt }
 <0>         Freyt                                                                                       { makeToken TknFloat }
-<0>         Boolton                                                                                     { makeToken TknBoo }
+<0>         Boolton                                                                                     { makeToken TknBool }
 <0>         Starkhar                                                                                    { makeToken TknChar }
 <0>         Barathom                                                                                    { makeToken TknAtom }
 <0>         No(@ws)One                                                                                  { makeToken TknVoid }
@@ -352,6 +352,7 @@ postProcess (Token TknCharLit s _ p) = Token TknCharLit s (processCharLit s) p
 postProcess (Token TknStringLit s _ p) = Token TknStringLit s (processStringLit s) p
 postProcess (Token TknIntLit s _ p) = Token TknIntLit s (processIntLit s) p
 postProcess (Token TknTupleSelect s _ p) = Token TknTupleSelect s (processIntLit s) p
+postProcess (Token TknArgNumber s _ p) = Token TknArgNumber s (processArgNumber s) p
 postProcess tkn = tkn
 
 processCharLit :: String -> String
@@ -369,5 +370,24 @@ processIntLit = filter (\x -> isDigit x || x == '-')
 
 processFloatLit :: String -> String
 processFloatLit = filter (\x -> isDigit x || x == '.' || x == '-')
+
+processArgNumber :: String -> String
+processArgNumber str = show $ (parseRomanNumeral str) - 1
+  where
+    parseRomanNumeral :: String -> Int
+    parseRomanNumeral ('I':'V':xs) = 4 + parseRomanNumeral xs
+    parseRomanNumeral ('I':'X':xs) = 9 + parseRomanNumeral xs
+    parseRomanNumeral ('X':'L':xs) = 40 + parseRomanNumeral xs
+    parseRomanNumeral ('X':'C':xs) = 90 + parseRomanNumeral xs
+    parseRomanNumeral ('C':'D':xs) = 400 + parseRomanNumeral xs
+    parseRomanNumeral ('C':'M':xs) = 900 + parseRomanNumeral xs
+    parseRomanNumeral ('I':xs) = 1 + parseRomanNumeral xs
+    parseRomanNumeral ('V':xs) = 5 + parseRomanNumeral xs
+    parseRomanNumeral ('X':xs) = 10 + parseRomanNumeral xs
+    parseRomanNumeral ('L':xs) = 50 + parseRomanNumeral xs
+    parseRomanNumeral ('C':xs) = 100 + parseRomanNumeral xs
+    parseRomanNumeral ('D':xs) = 500 + parseRomanNumeral xs
+    parseRomanNumeral ('M':xs) = 1000 + parseRomanNumeral xs
+    parseRomanNumeral [] = 0
 
 }
