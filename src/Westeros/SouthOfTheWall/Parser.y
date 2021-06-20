@@ -219,35 +219,37 @@ FUNCTION_RETURN : beginReturnVals RETURN_TYPES endReturnVals                    
 RETURN_TYPES  : void                                                                                {}
               | TYPES                                                                               {}
 
-TYPES : TYPE                                                                                        {}
-      | TYPES ',' TYPE                                                                              {}
+TYPES :: { [ST.Type] }
+     : TYPE                                                                                         { [$1] }
+     | TYPES ',' TYPE                                                                               { $3 : $1 }
 
 FUNCTION_BODY : '{' INSTRUCTIONS '}'                                                                {}
 
 -- Types ---
 
-TYPE :: { Tk.Token }
+TYPE :: { ST.Type }
      : PRIMITIVE_TYPE                                                                               { $1 } 
      | COMPOSITE_TYPE                                                                               { $1 }
-     | id                                                                                           { $1 }
+     | id                                                                                           { ST.Als (Tk.cleanedString $1) }
 
-PRIMITIVE_TYPE :: { Tk.Token }
-     : int                                                                                          { $1 } 
-     | float                                                                                        { $1 } 
-     | char                                                                                         { $1 } 
-     | bool                                                                                         { $1 } 
-     | atom                                                                                         { $1 } 
+PRIMITIVE_TYPE :: { ST.Type }
+     : int                                                                                          { ST.Int } 
+     | float                                                                                        { ST.Float } 
+     | char                                                                                         { ST.Char } 
+     | bool                                                                                         { ST.Bool } 
+     | atom                                                                                         { ST.Atom } 
 
-COMPOSITE_TYPE :: { Tk.Token }
-     : beginArray naturalLit TYPE endArray                                                          { $1 } 
-     | string                                                                                       { $1 } 
-     | pointerType TYPE                                                                             { $1 } 
-     | beginStruct SIMPLE_DECLARATIONS endStruct                                                    { $1 } 
-     | beginUnion SIMPLE_DECLARATIONS endUnion                                                      { $1 } 
-     | beginTuple TUPLE_TYPES endTuple                                                              { $1 } 
+COMPOSITE_TYPE :: { ST.Type }
+     : beginArray naturalLit TYPE endArray                                                          { ST.Array (read (Tk.cleanedString $2) :: Int) $3 } 
+     | string                                                                                       { ST.Str } 
+     | pointerType TYPE                                                                             { ST.Ptr $2 } 
+     | beginStruct SIMPLE_DECLARATIONS endStruct                                                    { ST.Register $2 } 
+     | beginUnion SIMPLE_DECLARATIONS endUnion                                                      { ST.VRegister $2 } 
+     | beginTuple TUPLE_TYPES endTuple                                                              { ST.Tuple $2 } 
 
-TUPLE_TYPES: {- empty -}                                                                            {} 
-           | TYPES                                                                                  {} 
+TUPLE_TYPES :: { [ST.Type] } 
+          : {- empty -}                                                                             { [] } 
+          | TYPES                                                                                   { $1 } 
 
 -- Alias Declaration --
 
@@ -260,18 +262,22 @@ DECLARATION : SIMPLE_DECLARATION '.'                                            
             | SIMPLE_DECLARATION ':==' EXPR '.'                                                     {}
             | CONST_DECLARATION '.'                                                                 {}
 
-SIMPLE_DECLARATIONS : SIMPLE_DECLARATION                                                            {} 
-                    | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION                                    {} 
+SIMPLE_DECLARATIONS :: { [ST.Declaration] }
+     : SIMPLE_DECLARATION                                                                           { [$1] } 
+     | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION                                                   { $3 : $1 } 
 
-SIMPLE_DECLARATION : PRIMITIVE_DECLARATION                                                          {} 
-                   | COMPOSITE_DECLARATION                                                          {} 
+SIMPLE_DECLARATION :: { ST.Declaration } 
+     : PRIMITIVE_DECLARATION                                                                        { $1 }  
+     | COMPOSITE_DECLARATION                                                                        { $1 } 
 
-PRIMITIVE_DECLARATION : var id type TYPE                                                            {} 
+PRIMITIVE_DECLARATION :: { ST.Declaration } 
+     : var id type TYPE                                                                             { (ST.Var, Tk.cleanedString $2, $4) } 
 
-COMPOSITE_DECLARATION : beginCompTypeId var id endCompTypeId TYPE                                   {} 
-                      | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz            {} 
-                      | beginCompTypeId pointerVar id endCompTypeId TYPE                            {} 
-                      | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz     {} 
+COMPOSITE_DECLARATION :: { ST.Declaration } 
+     : beginCompTypeId var id endCompTypeId TYPE                                                    { (ST.Var, Tk.cleanedString $3, $5) } 
+     | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz                             { (ST.Var, Tk.cleanedString $3, $5) } 
+     | beginCompTypeId pointerVar id endCompTypeId TYPE                                             { (ST.PtrVar, Tk.cleanedString $3, $5) } 
+     | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz                      { (ST.PtrVar, Tk.cleanedString $3, $5) } 
 
 CONST_DECLARATION : const id type TYPE constValue EXPR                                              {} 
                   | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                     {} 
@@ -279,9 +285,9 @@ CONST_DECLARATION : const id type TYPE constValue EXPR                          
 ALIAS_DECLARATION :: { () }
      : beginAlias id ALIAS_TYPE TYPE '.'                                                            {% ST.statefullSTupdate (ST.getAliasInfo $2 $3 $4) }
 
-ALIAS_TYPE :: { Tk.Token } 
-     : strongAlias                                                                                  { $1 } 
-     | weakAlias                                                                                    { $1 } 
+ALIAS_TYPE :: { ST.AliasType } 
+     : strongAlias                                                                                  { ST.Strong } 
+     | weakAlias                                                                                    { ST.Weak } 
 
 -- Instructions --
 

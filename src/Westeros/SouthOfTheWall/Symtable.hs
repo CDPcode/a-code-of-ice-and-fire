@@ -26,21 +26,37 @@ data Category -- anything with a name
    deriving Show 
   
 data AdditionalInfo 
-    = AliasMD AliasedTypeInfo                     -- For aliases we save: name and necessary info of the sinonymed type
+    = AliasMD (AliasType,Type)                     -- For aliases we save: name and necessary info of the sinonymed type
     | PassType String                     -- For parameters we save: name, type and either it is value or reference passed
     | FunctionMD (String,[String])  -- For functions we save: name , number of arguments, and return type(s). 
    deriving Show
 
-data AliasedTypeInfo 
-    = Simple String            -- Symple type and it's name
-    | Array Int                -- For arrays we save: name and size
-    | String Int               -- For strings we save: name and size OJO
-    | Pointer String           -- For pointers we save: name a
-    | Struct [(String,String)] -- For structs we save: name and fields name
-    | Union [String]           -- For unions we save: name and fields names
-    | TupleMetaData [String]   -- For tuples we save: name and types names
-   deriving Show
- 
+-- 
+
+data Type 
+    = Int
+    | Char 
+    | Bool 
+    | Float 
+    | Atom
+    | Array Int Type
+    | Register [Declaration]
+    | VRegister [Declaration]
+    | Str
+    | Ptr Type
+    | Tuple [Type]
+    | Als String
+   deriving (Show,Eq)
+
+type Id = String
+
+data Variability = Var | Const | PtrVar deriving (Show,Eq)
+
+type Declaration = (Variability,Id,Type)
+
+data AliasType = Strong | Weak deriving (Show,Eq)
+
+--
 
 data SymbolInfo = SymbolInfo 
     { category :: Category
@@ -89,14 +105,11 @@ toTypeSymbol token = case Tk.aToken token of
 
     _                  -> error ("Not a valid type token: " ++ show (Tk.aToken token)) -- OJO : enhance error correction
 
-isSimpleType:: Tk.Token -> Bool 
-
-isSimpleType   tk = Tk.aToken tk `elem` simpleTypeTokens
 
 getAliasInfo 
-    :: Tk.Token -- Alias name
-    -> Tk.Token -- Alias type
-    -> Tk.Token -- Pointed Type
+    :: Tk.Token  -- Alias name
+    -> AliasType -- Alias type
+    -> Type      -- Pointed Type
     -> Entry
 getAliasInfo aliasName aliasType pointedType = (symbol, info)
     where
@@ -105,30 +118,8 @@ getAliasInfo aliasName aliasType pointedType = (symbol, info)
             category   = Alias, 
             scope      = pervasiveScope, 
             tp         = Nothing,
-            additional = Just $ AliasMD (Simple "perico")  -- OJO
-                         
+            additional = Just $ AliasMD (aliasType, pointedType)
         }
-
-        chooseAliasType at = case Tk.aToken at of 
-                            Tk.TknWeakAlias   -> "weak'"
-                            Tk.TknStrongAlias -> "strong"
-                            _                 -> error "Invalid alias type"
-                            -- OJO : enhance error management
-
-getAliasType
-    :: [Tk.Token]         -- List of tokens that describe the aliased type
-    -> AliasedTypeInfo    
-getAliasType []           = error "Void alias"
-getAliasType (disc:rem)
-    | isSimpleType   disc = Simple (toTypeSymbol disc)
-    | otherwise           = case Tk.aToken disc of 
-        Tk.TknPointerType -> undefined 
-        Tk.TknString      -> undefined 
-        Tk.TknBeginArray  -> undefined 
-        Tk.TknBeginStruct -> undefined 
-        Tk.TknBeginUnion  -> undefined 
-        Tk.TknBeginTuple  -> undefined
-        _                 -> error "Invalid token type"
 
 getFunctionDeclarationInfo 
     :: Tk.Token -- Id of function
@@ -266,8 +257,6 @@ findSymbol st = findDict (dict st)
 
 -- Default type literals
 
-simpleTypeTokens   = [Tk.TknInt, Tk.TknBool, Tk.TknChar, Tk.TknFloat , Tk.TknAtom]
-
 tps = [ "int" , "char" , "float" , "bool" , "atom", "string", "array", "struct", "union", "pointer", "tuple" ]
 
 
@@ -310,6 +299,4 @@ statefullSTupdate entry@(name,info) = do
     case category info of 
         Alias     -> put $ insertST st entry
         Function  -> put $ insertST ( st { nextScope = succ (nextScope st) } ) entry
-        Parameter -> let updatedEntry = (name,info { scope = nextScope st } )
-                     in put $ insertST st updatedEntry 
         _         -> undefined
