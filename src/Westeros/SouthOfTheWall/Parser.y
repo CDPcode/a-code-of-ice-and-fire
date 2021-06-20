@@ -2,6 +2,7 @@
 module Westeros.SouthOfTheWall.Parser (parse) where
 import qualified Westeros.SouthOfTheWall.Tokens as Tk
 import qualified Westeros.SouthOfTheWall.AST as Ast
+import qualified Westeros.SouthOfTheWall.Symtable as ST
 }
 
 %name                 parse
@@ -176,11 +177,21 @@ CONTENTS :: { Ast.FunctionNames }
     : beginFuncDec FUNCTION_DECLARATIONS                                                            { $2 }
 
 FUNCTION_DECLARATIONS :: { Ast.FunctionNames }
-    : item globalDec FUNCTION_NAMES item main                                                       { reverse $3 }
+    : item globalDec FUNCTION_NAMES item main                                                       {% do
+                                                                                                        symT <- get
+                                                                                                        let names = reverse $3
+                                                                                                            ids = [id | (id, _) <- names]
+                                                                                                            symbols = map (fromJust . St.findSymbol symT) names
+                                                                                                            functions = filter (\e-> ST.category e == ST.Function ) symbols
+                                                                                                            incompleted = filter (\e -> not $ ST.discriminant (ST.getFunctionMD e) ) functions
+                                                                                                        in
+                                                                                                        when (len incompleted > 0) (fail "F")
+                                                                                                        return names
+                                                                                                    }
 
 FUNCTION_NAMES :: { Ast.FunctionNames }
     : {- empty -}                                                                                   { [] }
-    | FUNCTION_NAMES item id argNumber                                                              { (Tk.cleanedString $3, 0)  : $1 } -- TODO: Fix to include argCnt
+    | FUNCTION_NAMES item id argNumber                                                              { (Tk.cleanedString $3, read (Tk.cleanedString) :: Int)  : $1 }
 
 GLOBAL :: { [Ast.Declaration] }
     : globalDec '{' DECLARATIONS '}'                                                                { reverse $3 }
@@ -404,6 +415,12 @@ TUPLELIT :: { Ast.Expression }
 EXPRLIST :: { [Ast.Expression] }
     : EXPR                                                                                          { [$1] }
     | EXPRLIST ',' EXPR                                                                             { $3 : $1 }
+
+OPEN_SCOPE :: { () }
+    : {- empty -}                                                                                   {% ST.openScope }
+
+CLOSE_SCOPE :: { () }
+    : {- empty -}                                                                                   {% ST.openScope }
 
 {
 	-- Helper functions
