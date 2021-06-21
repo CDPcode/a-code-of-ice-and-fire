@@ -180,20 +180,20 @@ CONTENTS :: { Ast.FunctionNames }
     : beginFuncDec FUNCTION_DECLARATIONS                                                            { $2 }
 
 FUNCTION_DECLARATIONS :: { Ast.FunctionNames }
-    : item globalDec FUNCTION_NAMES item main                                                       {% do
-                                                                                                        symT <- get
-                                                                                                        let names = $3
-                                                                                                            ids = [name | (name, _) <- names]
-                                                                                                            symbols = concatMap (fromJust . (ST.findSymbol symT)) ids
-                                                                                                            functions = filter (\e-> ST.category e == ST.Function ) symbols
-                                                                                                            incompleted = filter (\e -> not $ ST.discriminant (ST.getFunctionMD e) ) functions
-                                                                                                        when ((length incompleted) > 0) (fail "F")
-                                                                                                        return $ reverse names
-                                                                                                    }
+    : item globalDec FUNCTION_NAMES item main                                                       { reverse $3 }
 
 FUNCTION_NAMES :: { Ast.FunctionNames }
     : {- empty -}                                                                                   { [] }
-    | FUNCTION_NAMES item id argNumber                                                              { (Tk.cleanedString $3, read (Tk.cleanedString $4) :: Int)  : $1 }
+    | FUNCTION_NAMES item id argNumber                                                              {% do
+                                                                                                        let name = Tk.cleanedString $3
+                                                                                                        let params = read (Tk.cleanedString $4) :: Int
+                                                                                                        function <- ST.lookupFunction name params
+                                                                                                        case function of
+                                                                                                            Nothing -> fail $ "error: undefined function " ++ name ++ "with " ++ (show params) ++ " parameters."
+                                                                                                            Just info -> case ST.discriminant $ ST.getFunctionMD info of
+                                                                                                                True -> return ()
+                                                                                                                False -> fail $ "error: undefined function " ++ name ++ "with " ++ (show params) ++ " parameters."
+                                                                                                        return $ (name, params) : $1 }
 
 GLOBAL :: { [Ast.Declaration] }
     : globalDec '{' DECLARATIONS '}'                                                                { reverse $3 }
@@ -554,8 +554,8 @@ checkFunctionCall :: Tk.Token -> Tk.Token -> [Ast.Expression] -> ST.MonadParser 
 checkFunctionCall tkPar tkId exprs = do
     let name = Tk.cleanedString tkId
     let pos = Tk.position tkId
-    symT <- get
-    mInfo <- ST.lookup name
+    let params = length exprs
+    mInfo <- ST.lookupFunction name params
     case mInfo of
         Nothing -> fail $ "Error: undefined function " ++ name ++ " at postition " ++ show pos
         Just info ->
