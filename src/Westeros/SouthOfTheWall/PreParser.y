@@ -210,7 +210,7 @@ FUNCTION :: { () }
 
                                                                                                          -- name not in table
                                                                                                          let msg = "Function "++functionId++" defined, but not declared"
-                                                                                                         when (not $ ST.checkExisting symT functionId) (ST.insertError msg)
+                                                                                                         when (not $ ST.checkExisting symT functionId) (fail msg)
 
                                                                                                          -- match found
                                                                                                          let entries         = fromJust $ ST.findSymbol symT functionId            -- bring all definitions for functionId name
