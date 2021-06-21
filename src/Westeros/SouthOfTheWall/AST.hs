@@ -5,7 +5,7 @@ import Control.Monad        (replicateM_)
 import Westeros.SouthOfTheWall.Tokens as Tk
 
 -- AST
-data Program = Program Header FunctionNames Global FunctionDeclarations Main Aliases deriving (Show)
+data Program = Program Header FunctionNames Global FunctionDeclarations Main Aliases deriving (Show, Eq)
 
 -- data Id = Id Token Int deriving (Show, Eq)
 type Id = String
@@ -16,31 +16,31 @@ type Main = [Instruction]
 type Aliases = [AliasDeclaration]
 type FunctionDeclarations = [FunctionDeclaration]
 
-data FunctionDeclaration = FunctionDeclaration Id [Parameter] [Type] [Instruction] deriving (Show)
+data FunctionDeclaration = FunctionDeclaration Id [Parameter] [Type] [Instruction] deriving (Show, Eq)
 
 data Declaration
     = VarDeclaration VariableDeclaration (Maybe Expression)
     | ConstantDeclaration Id Type Expression
-    deriving (Show)
+    deriving (Show, Eq)
 
-data Parameter = Parameter ParamType Id Type deriving (Show)
+data Parameter = Parameter ParamType Id Type deriving (Show, Eq)
 
 data ParamType
     = Ref
     | Value
-    deriving (Show)
+    deriving (Show, Eq)
 
-data AliasDeclaration = Alias Id Type AliasType deriving (Show)
+data AliasDeclaration = AliasDec Id Type AliasType deriving (Show, Eq)
 
 data AliasType
     = StrongAlias
     | WeakAlias
-    deriving (Show)
+    deriving (Show, Eq)
 
 data VariableDeclaration
-    = SimpleDeVarDeclaration  Id Type
+    = SimpleVarDeclaration  Id Type
     | ArrayVarDeclaration   Id Type [Expression]
-    deriving (Show)
+    deriving (Show, Eq)
 
 data Type
     = IntT
@@ -55,13 +55,13 @@ data Type
     | TupleT    [Type]
     | PointerT  Type
     | AliasT    Id
-    deriving (Show)
+    deriving (Show, Eq)
 
 data Expression = Expression
        { getExpr :: Expr
        , getType :: Type
        , getToken :: Tk.Token
-       } deriving (Show)
+       } deriving (Show, Eq)
 
 data Expr
     = IntLit    Int
@@ -83,7 +83,7 @@ data Expr
     | TupleIndex  Expression Int
     | Cast        Expression Type
     | IdExpr      Id
-    deriving (Show)
+    deriving (Show, Eq)
 
 data BinOp
     = Sum
@@ -99,12 +99,12 @@ data BinOp
     | Geq
     | And
     | Or
-    deriving (Show)
+    deriving (Show, Eq)
 
 data UnOp
     = Neg
     | Deref
-    deriving (Show)
+    deriving (Show, Eq)
 
 data Instruction
     = SimpleAssign      Expression Expression
@@ -124,17 +124,17 @@ data Instruction
     | EmptyInst
     | Continue
     | Break
-    deriving (Show)
+    deriving (Show, Eq)
 
 data Case
     = Case    String [Instruction]
     | Default [Instruction]
-    deriving (Show)
+    deriving (Show, Eq)
 
 data IfInst
     = IfThen     Expression [Instruction]
     | IfThenElse Expression [Instruction] [Instruction]
-    deriving (Show)
+    deriving (Show, Eq)
 
 
 -- Pretty print AST
@@ -257,12 +257,12 @@ prettyPrintInstruction n (ExitInst prog) = do
 prettyPrintInstruction n inst = putStrIdent n $ show inst
 
 prettyPrintAlias :: Int -> AliasDeclaration -> IO ()
-prettyPrintAlias n (Alias id tp aliasType) = do
+prettyPrintAlias n (AliasDec id tp aliasType) = do
     putStrIdent n $ show aliasType ++ " " ++ id
     prettyPrintType (n+1) tp
 
 prettyPrintVarDec :: Int -> VariableDeclaration -> IO ()
-prettyPrintVarDec n (SimpleDeVarDeclaration id tp) = do
+prettyPrintVarDec n (SimpleVarDeclaration id tp) = do
     putStrIdent n $ "var " ++ id ++ " of type"
     prettyPrintType (n+1) tp
 prettyPrintVarDec n (ArrayVarDeclaration id tp exprs) = do

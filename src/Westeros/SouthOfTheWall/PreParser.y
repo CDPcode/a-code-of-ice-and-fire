@@ -4,6 +4,7 @@ module Westeros.SouthOfTheWall.PreParser (preParse) where
 import qualified Westeros.SouthOfTheWall.Symtable as ST
 import qualified Westeros.SouthOfTheWall.Tokens as Tk
 import qualified Westeros.SouthOfTheWall.Error as Err
+import qualified Westeros.SouthOfTheWall.AST as Ast
 
 import Control.Monad.RWS
 import Data.List (find)
@@ -235,32 +236,32 @@ FUNCTION :: { () }
 
 
 
-FUNCTION_PARAMETERS :: { [ST.Parameter] }
+FUNCTION_PARAMETERS :: { [Ast.Parameter] }
      : beginFuncParams PARAMETER_LIST endFuncParams                                                 { reverse $2 }
 
-PARAMETER_LIST :: { [ST.Parameter] }
+PARAMETER_LIST :: { [Ast.Parameter] }
      : void                                                                                         { [] }
      | PARAMETERS                                                                                   { $1 }
 
-PARAMETERS :: { [ST.Parameter] }
+PARAMETERS :: { [Ast.Parameter] }
           : PARAMETER                                                                               { [$1] }
           | PARAMETERS ',' PARAMETER                                                                { $3 : $1 }
 
-PARAMETER :: { ST.Parameter }
-     : PARAMETER_TYPE id type TYPE                                                                  { ($1, Tk.cleanedString $2, $4) }
+PARAMETER :: { Ast.Parameter }
+     : PARAMETER_TYPE id type TYPE                                                                  { Ast.Parameter $1 (Tk.cleanedString $2) $4 }
 
-PARAMETER_TYPE :: { ST.PassType }
-     : valueArg                                                                                     { ST.Value }
-     | refArg                                                                                       { ST.Reference }
+PARAMETER_TYPE :: { Ast.ParamType }
+     : valueArg                                                                                     { Ast.Value }
+     | refArg                                                                                       { Ast.Ref }
 
-FUNCTION_RETURN :: { [ST.Type] }
+FUNCTION_RETURN :: { [Ast.Type] }
      : beginReturnVals RETURN_TYPES endReturnVals                                                   { reverse $2 }
 
-RETURN_TYPES  :: { [ST.Type] }
+RETURN_TYPES  :: { [Ast.Type] }
           : void                                                                                    { [] }
           | TYPES                                                                                   { $1 }
 
-TYPES :: { [ST.Type] }
+TYPES :: { [Ast.Type] }
      : TYPE                                                                                         { [$1] }
      | TYPES ',' TYPE                                                                               { $3 : $1 }
 
@@ -268,29 +269,29 @@ FUNCTION_BODY : '{' INSTRUCTIONS '}'                                            
 
 -- Types ---
 
-TYPE :: { ST.Type }
+TYPE :: { Ast.Type }
      : PRIMITIVE_TYPE                                                                               { $1 }
      | COMPOSITE_TYPE                                                                               { $1 }
-     | id                                                                                           { ST.Als (Tk.cleanedString $1) }
+     | id                                                                                           { Ast.AliasT (Tk.cleanedString $1) }
 
-PRIMITIVE_TYPE :: { ST.Type }
-     : int                                                                                          { ST.Int }
-     | float                                                                                        { ST.Float }
-     | char                                                                                         { ST.Char }
-     | bool                                                                                         { ST.Bool }
-     | atom                                                                                         { ST.Atom }
+PRIMITIVE_TYPE :: { Ast.Type }
+     : int                                                                                          { Ast.IntT }
+     | float                                                                                        { Ast.FloatT }
+     | char                                                                                         { Ast.CharT }
+     | bool                                                                                         { Ast.BoolT }
+     | atom                                                                                         { Ast.AtomT }
 
-COMPOSITE_TYPE :: { ST.Type }
-     : beginArray naturalLit TYPE endArray                                                          { ST.Array (read (Tk.cleanedString $2) :: Int) $3 }
-     | string                                                                                       { ST.Str }
-     | pointerType TYPE                                                                             { ST.Ptr $2 }
-     | beginStruct SIMPLE_DECLARATIONS endStruct                                                    { ST.Register (reverse $2) }
-     | beginUnion SIMPLE_DECLARATIONS endUnion                                                      { ST.VRegister (reverse $2) }
-     | beginTuple TUPLE_TYPES endTuple                                                              { ST.Tuple (reverse $2) }
+COMPOSITE_TYPE :: { Ast.Type }
+     : beginArray naturalLit TYPE endArray                                                          { Ast.ArrayT $3 (read (Tk.cleanedString $2) :: Int) }
+     | string                                                                                       { Ast.StringT }
+     | pointerType TYPE                                                                             { Ast.PointerT $2 }
+     | beginStruct SIMPLE_DECLARATIONS endStruct                                                    { Ast.StructT $ reverse $2 }
+     | beginUnion SIMPLE_DECLARATIONS endUnion                                                      { Ast.UnionT $ reverse $2 }
+     | beginTuple TUPLE_TYPES endTuple                                                              { Ast.TupleT $2 }
 
-TUPLE_TYPES :: { [ST.Type] }
+TUPLE_TYPES :: { [Ast.Type] }
           : {- empty -}                                                                             { [] }
-          | TYPES                                                                                   { $1 }
+          | TYPES                                                                                   { reverse $1 }
 
 -- Alias Declaration --
 
@@ -298,27 +299,27 @@ DECLARATIONS : {- empty -}                                                      
              | DECLARATIONS DECLARATION                                                             {}
              | DECLARATIONS comment                                                                 {}
 
-DECLARATION : SIMPLE_DECLARATION '.'                                                                {}
+DECLARATION : SIMPLE_DECLARATION '.'                                                                { }
             | SIMPLE_DECLARATION ':=' EXPR '.'                                                      {}
             | SIMPLE_DECLARATION ':==' EXPR '.'                                                     {}
             | CONST_DECLARATION '.'                                                                 {}
 
-SIMPLE_DECLARATIONS :: { [ST.Declaration] }
+SIMPLE_DECLARATIONS :: { [Ast.VariableDeclaration] }
      : SIMPLE_DECLARATION                                                                           { [$1] }
      | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION                                                   { $3 : $1 }
 
-SIMPLE_DECLARATION :: { ST.Declaration }
+SIMPLE_DECLARATION :: { Ast.VariableDeclaration }
      : PRIMITIVE_DECLARATION                                                                        { $1 }
      | COMPOSITE_DECLARATION                                                                        { $1 }
 
-PRIMITIVE_DECLARATION :: { ST.Declaration }
-     : var id type TYPE                                                                             { (ST.Var, Tk.cleanedString $2, $4) }
+PRIMITIVE_DECLARATION :: { Ast.VariableDeclaration }
+     : var id type TYPE                                                                             { Ast.SimpleVarDeclaration (Tk.cleanedString $2) $4 }
 
-COMPOSITE_DECLARATION :: { ST.Declaration }
-     : beginCompTypeId var id endCompTypeId TYPE                                                    { (ST.Var, Tk.cleanedString $3, $5) }
-     | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz                             { (ST.Var, Tk.cleanedString $3, $5) }
-     | beginCompTypeId pointerVar id endCompTypeId TYPE                                             { (ST.PtrVar, Tk.cleanedString $3, $5) }
-     | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz                      { (ST.PtrVar, Tk.cleanedString $3, $5) }
+COMPOSITE_DECLARATION :: { Ast.VariableDeclaration }
+     : beginCompTypeId var id endCompTypeId TYPE                                                    { Ast.SimpleVarDeclaration (Tk.cleanedString $3) $5 }
+     | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz                             { Ast.ArrayVarDeclaration (Tk.cleanedString $3) $5 $7 }
+     | beginCompTypeId pointerVar id endCompTypeId TYPE                                             { Ast.SimpleVarDeclaration (Tk.cleanedString $3) $5 }
+     | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz                      { Ast.SimpleVarDeclaration (Tk.cleanedString $3) $5 }
 
 CONST_DECLARATION : const id type TYPE constValue EXPR                                              {}
                   | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                     {}
@@ -326,9 +327,9 @@ CONST_DECLARATION : const id type TYPE constValue EXPR                          
 ALIAS_DECLARATION :: { () }
      : beginAlias id ALIAS_TYPE TYPE '.'                                                            {% ST.statefullSTupdate (ST.getAliasInfo $2 $3 $4) }
 
-ALIAS_TYPE :: { ST.AliasType }
-     : strongAlias                                                                                  { ST.Strong }
-     | weakAlias                                                                                    { ST.Weak }
+ALIAS_TYPE :: { Ast.AliasType }
+     : strongAlias                                                                                  { Ast.StrongAlias }
+     | weakAlias                                                                                    { Ast.WeakAlias }
 
 -- Instructions --
 
@@ -374,57 +375,65 @@ WHILE : while EXPR whileDec INSTRUCTIONS endWhile                               
 
 -- Expresions --
 
-EXPR : EXPR '+' EXPR                                                                                {}
-     | EXPR '-' EXPR                                                                                {}
-     | EXPR '*' EXPR                                                                                {}
-     | EXPR '/' EXPR                                                                                {}
-     | EXPR '%' EXPR                                                                                {}
-     | EXPR '=' EXPR                                                                                {}
-     | EXPR '!=' EXPR                                                                               {}
-     | EXPR '<' EXPR                                                                                {}
-     | EXPR '>' EXPR                                                                                {}
-     | EXPR '<=' EXPR                                                                               {}
-     | EXPR '>=' EXPR                                                                               {}
-     | EXPR and EXPR                                                                                {}
-     | EXPR or EXPR                                                                                 {}
-     | EXPR '~'                                                                                     {}
-     | deref EXPR                                                                                   {}
-     | '[' EXPRLIST ']' EXPR                                                                        {}
-     | id '<-' EXPR                                                                                 {}
-     | EXPR '->' id                                                                                 {}
-     | EXPR '?' id                                                                                  {}
-     | '[(' naturalLit ']' EXPR                                                                     {}
-     | EXPR cast TYPE                                                                               {}
-     | '(' EXPR ')'                                                                                 {}
-     | ARRAYLIT                                                                                     {}
-     | TUPLELIT                                                                                     {}
-     | FUNCTIONCALL                                                                                 {}
-     | intLit                                                                                       {}
-     | floatLit                                                                                     {}
-     | charLit                                                                                      {}
-     | atomLit                                                                                      {}
-     | stringLit                                                                                    {}
-     | true                                                                                         {}
-     | false                                                                                        {}
-     | id                                                                                           {}
-     | null                                                                                         {}
+EXPR :: { Ast.Expression }
+    : EXPR '+' EXPR                                                                                 { createExpression $2 $ Ast.BinOp Ast.Sum $1 $3 }
+    | EXPR '-' EXPR                                                                                 { createExpression $2 $ Ast.BinOp Ast.Sub $1 $3 }
+    | EXPR '*' EXPR                                                                                 { createExpression $2 $ Ast.BinOp Ast.Prod $1 $3 }
+    | EXPR '/' EXPR                                                                                 { createExpression $2 $ Ast.BinOp Ast.Div $1 $3 }
+    | EXPR '%' EXPR                                                                                 { createExpression $2 $ Ast.BinOp Ast.Mod $1 $3 }
+    | EXPR '=' EXPR                                                                                 { createExpression $2 $ Ast.BinOp Ast.Eq $1 $3 }
+    | EXPR '!=' EXPR                                                                                { createExpression $2 $ Ast.BinOp Ast.Neq $1 $3 }
+    | EXPR '<' EXPR                                                                                 { createExpression $2 $ Ast.BinOp Ast.Lt $1 $3 }
+    | EXPR '>' EXPR                                                                                 { createExpression $2 $ Ast.BinOp Ast.Gt $1 $3 }
+    | EXPR '<=' EXPR                                                                                { createExpression $2 $ Ast.BinOp Ast.Leq $1 $3 }
+    | EXPR '>=' EXPR                                                                                { createExpression $2 $ Ast.BinOp Ast.Geq $1 $3 }
+    | EXPR and EXPR                                                                                 { createExpression $2 $ Ast.BinOp Ast.And $1 $3 }
+    | EXPR or EXPR                                                                                  { createExpression $2 $ Ast.BinOp Ast.Or $1 $3 }
+    | EXPR '~'                                                                                      { createExpression $2 $ Ast.UnOp Ast.Neg $1 }
+    | deref EXPR                                                                                    { createExpression $1 $ Ast.UnOp Ast.Deref $2 }
+    | '[' EXPRLIST ']' EXPR                                                                         { createExpression $3 $ Ast.AccesIndex $4 (reverse $2) }
+    | id '<-' EXPR                                                                                  { createExpression $2 $ Ast.AccesField $3 (Tk.cleanedString $1) }
+    | EXPR '->' id                                                                                  { createExpression $2 $ Ast.AccesField $1 (Tk.cleanedString $3) }
+    | EXPR '?' id                                                                                   { createExpression $2 $ Ast.ActiveField $1 (Tk.cleanedString $3) }
+    | '[(' naturalLit ']' EXPR                                                                      { createExpression $3 $ Ast.TupleIndex $4 ((read $ Tk.cleanedString $2) :: Int) }
+    | EXPR cast TYPE                                                                                { createExpression $2 $ Ast.Cast $1 $3 }
+    | '(' EXPR ')'                                                                                  { $2 }
+    | ARRAYLIT                                                                                      { $1 }
+    | TUPLELIT                                                                                      { $1 }
+    | FUNCTIONCALL                                                                                  { $1 }
+    | intLit                                                                                        { createExpression $1 $ Ast.IntLit ((read $ Tk.cleanedString $1) :: Int) }
+    | floatLit                                                                                      { createExpression $1 $ Ast.FloatLit ((read $ Tk.cleanedString $1) :: Float) }
+    | charLit                                                                                       { createExpression $1 $ Ast.CharLit $ head $ Tk.cleanedString $1 }
+    | atomLit                                                                                       { createExpression $1 $ Ast.AtomLit $ Tk.cleanedString $1 }
+    | stringLit                                                                                     { createExpression $1 $ Ast.StringLit $ Tk.cleanedString $1 }
+    | true                                                                                          { createExpression $1 $ Ast.TrueLit }
+    | false                                                                                         { createExpression $1 $ Ast.FalseLit }
+    | id                                                                                            { createExpression $1 $ Ast.IdExpr $ Tk.cleanedString $1 }
+    | null                                                                                          { createExpression $1 $ Ast.NullLit }
 
-FUNCTIONCALL : id '((' procCallArgs EXPRLIST '))'                                                   {}
-             | id '((' procCallArgs void '))'                                                       {}
-             | id '(('  '))'                                                                        {}
+FUNCTIONCALL :: { Ast.Expression }
+    : id '((' procCallArgs EXPRLIST '))'                                                            { createExpression $2 $ Ast.FuncCall (Tk.cleanedString $1) (reverse $4) }
+    | id '((' procCallArgs void '))'                                                                { createExpression $2 $ Ast.FuncCall (Tk.cleanedString $1) [] }
+    | id '(('  '))'                                                                                 { createExpression $2 $ Ast.FuncCall (Tk.cleanedString $1) [] }
 
-ARRAYLIT : '{{' EXPRLIST '}}'                                                                       {}
-         | '{{' '}}'                                                                                {}
+ARRAYLIT :: { Ast.Expression }
+    : '{{' EXPRLIST '}}'                                                                            { createExpression $1 $ Ast.ArrayLit $ reverse $2 }
+    | '{{' '}}'                                                                                     { createExpression $1 $ Ast.ArrayLit [] }
 
-TUPLELIT : '[[' EXPRLIST ']]'                                                                       {}
-         | '[[' ']]'                                                                                {}
+TUPLELIT :: { Ast.Expression }
+    : '[[' EXPRLIST ']]'                                                                            { createExpression $1 $ Ast.TupleLit $ reverse $2 }
+    | '[[' ']]'                                                                                     { createExpression $1 $ Ast.TupleLit [] }
 
-EXPRLIST : EXPR                                                                                     {}
-         | EXPRLIST ',' EXPR                                                                        {}
+EXPRLIST :: { [Ast.Expression] }
+    : EXPR                                                                                          { [$1] }
+    | EXPRLIST ',' EXPR                                                                             { $3 : $1 }
+
 
 {
 
 parseError :: [Tk.Token] -> ST.MonadParser a
 parseError tks = fail (Err.displayErrorContext tks)
 
+createExpression :: Tk.Token -> Ast.Expr -> Ast.Expression
+createExpression tk expr = Ast.Expression { Ast.getToken = tk, Ast.getExpr = expr, Ast.getType = Ast.AliasT "undefined" }
 }

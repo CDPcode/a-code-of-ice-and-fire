@@ -3,11 +3,14 @@ module Westeros.SouthOfTheWall.Parser (parse) where
 import qualified Westeros.SouthOfTheWall.Tokens as Tk
 import qualified Westeros.SouthOfTheWall.AST as Ast
 import qualified Westeros.SouthOfTheWall.Symtable as ST
+import Data.Maybe (fromJust)
+import Control.Monad.RWS ( MonadState(put, get), RWST, when )
 }
 
 %name                 parse
 %tokentype            { Tk.Token }
 %error                { parseError }
+%monad                { ST.MonadParser }
 -- TODO: %monad expr to properly handle errors
 
 -- Token aliases definitions
@@ -179,19 +182,18 @@ CONTENTS :: { Ast.FunctionNames }
 FUNCTION_DECLARATIONS :: { Ast.FunctionNames }
     : item globalDec FUNCTION_NAMES item main                                                       {% do
                                                                                                         symT <- get
-                                                                                                        let names = reverse $3
-                                                                                                            ids = [id | (id, _) <- names]
-                                                                                                            symbols = map (fromJust . St.findSymbol symT) names
+                                                                                                        let names = $3 
+                                                                                                            ids = [name | (name, _) <- names]
+                                                                                                            symbols = concatMap (fromJust . (ST.findSymbol symT)) ids
                                                                                                             functions = filter (\e-> ST.category e == ST.Function ) symbols
                                                                                                             incompleted = filter (\e -> not $ ST.discriminant (ST.getFunctionMD e) ) functions
-                                                                                                        in
-                                                                                                        when (len incompleted > 0) (fail "F")
-                                                                                                        return names
+                                                                                                        when ((length incompleted) > 0) (fail "F")
+                                                                                                        return $ reverse names
                                                                                                     }
 
 FUNCTION_NAMES :: { Ast.FunctionNames }
     : {- empty -}                                                                                   { [] }
-    | FUNCTION_NAMES item id argNumber                                                              { (Tk.cleanedString $3, read (Tk.cleanedString) :: Int)  : $1 }
+    | FUNCTION_NAMES item id argNumber                                                              { (Tk.cleanedString $3, read (Tk.cleanedString $4) :: Int)  : $1 }
 
 GLOBAL :: { [Ast.Declaration] }
     : globalDec '{' DECLARATIONS '}'                                                                { reverse $3 }
@@ -293,20 +295,20 @@ SIMPLE_DECLARATION :: { Ast.VariableDeclaration }
     | COMPOSITE_DECLARATION                                                                         { $1 }
 
 PRIMITIVE_DECLARATION :: { Ast.VariableDeclaration }
-    : var id type TYPE                                                                              { Ast.SimpleDeVarDeclaration (Tk.cleanedString $2) $4 }
+    : var id type TYPE                                                                              { Ast.SimpleVarDeclaration (Tk.cleanedString $2) $4 }
 
 COMPOSITE_DECLARATION :: { Ast.VariableDeclaration }
-    : beginCompTypeId var id endCompTypeId TYPE                                                     { Ast.SimpleDeVarDeclaration (Tk.cleanedString $3) $5 }
+    : beginCompTypeId var id endCompTypeId TYPE                                                     { Ast.SimpleVarDeclaration (Tk.cleanedString $3) $5 }
     | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz                              { Ast.ArrayVarDeclaration (Tk.cleanedString $3) $5 $7 }
-    | beginCompTypeId pointerVar id endCompTypeId TYPE                                              { Ast.SimpleDeVarDeclaration (Tk.cleanedString $3) $5 }
-    | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz                       { Ast.SimpleDeVarDeclaration (Tk.cleanedString $3) $5 }
+    | beginCompTypeId pointerVar id endCompTypeId TYPE                                              { Ast.SimpleVarDeclaration (Tk.cleanedString $3) $5 }
+    | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz                       { Ast.SimpleVarDeclaration (Tk.cleanedString $3) $5 }
 
 CONST_DECLARATION :: { Ast.Declaration }
     : const id type TYPE constValue EXPR                                                            { Ast.ConstantDeclaration (Tk.cleanedString $2) $4 $6 }
     | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                                   { Ast.ConstantDeclaration (Tk.cleanedString $3) $5 $7 }
 
 ALIAS_DECLARATION :: { Ast.AliasDeclaration }
-    : beginAlias id ALIAS_TYPE TYPE '.'                                                             { Ast.Alias (Tk.cleanedString $2) $4 $3}
+    : beginAlias id ALIAS_TYPE TYPE '.'                                                             { Ast.AliasDec (Tk.cleanedString $2) $4 $3}
 
 ALIAS_TYPE :: { Ast.AliasType }
     : strongAlias                                                                                   { Ast.StrongAlias }

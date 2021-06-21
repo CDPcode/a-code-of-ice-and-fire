@@ -1,14 +1,13 @@
 module Westeros.SouthOfTheWall.Symtable where
 
 import qualified Westeros.SouthOfTheWall.Tokens as Tk
-import qualified Westeros.SouthOfTheWall.AST as Ast
+import Westeros.SouthOfTheWall.AST as Ast
 
 import qualified Data.Map.Strict as M
 import Control.Monad.RWS ( MonadState(put, get), RWST, when )
 
 import Data.List (intercalate, find)
 import Data.Maybe (fromJust)
-
 
 type Symbol = String
 
@@ -18,7 +17,6 @@ data ParserError
     | InvalidVariability   -- given var/const does not fit meta-context for what is being defined
     | InvalidPrimitiveType -- given type for a primitive declaration is composite
     | InvalidCompositeType -- given type for a composite decalration is primitive
-
 
 data Category -- anything with a name
     = Alias
@@ -32,7 +30,7 @@ data Category -- anything with a name
 
 data AdditionalInfo
     = AliasMD AliasType Type               -- For aliases we save: name and necessary info of the sinonymed type
-    | FunctionMD FunctionInfo -- For functions we save: name , number of arguments, and return type(s).
+    | FunctionMD FunctionInfo              -- For functions we save: name , number of arguments, and return type(s).
     | PassType String                      -- For parameters we save: name, type and either it is value or reference passed
    deriving (Show,Eq)
 
@@ -194,38 +192,17 @@ checkExisting st sym = case findSymbol st sym of
 
 -- Default type literals
 
-tps = [ "int" , "char" , "float" , "bool" , "atom", "string", "array", "struct", "union", "pointer", "tuple" ]
-
-
 pervasiveScope = 0
 defaultScope   = maxBound :: Int
 functionScope  = 1
 
-
-initialTypes :: [SymbolInfo]
-initialTypes = map buildDefaultTypeSymbolInfo tps
-    where
-        buildDefaultTypeSymbolInfo typeSymbol = SymbolInfo {
-            category   = Type,
-            scope      = pervasiveScope,
-            tp         = Just typeSymbol,
-            additional = Nothing
-        }
-
 -- Symbol table to begin with scanning
 initialST :: SymbolTable
-initialST = st { dict = newDictionary }
-    where
-        newDictionary  = foldl insertDict (dict st) initialEntries
-
-        initialEntries = zip tps initialTypes
-
-        st = SymbolTable {
+initialST = SymbolTable {
         dict       = M.empty :: M.Map Symbol [SymbolInfo],
         scopeStack = [0],
         nextScope  = 1
     }
-
 
 {- Statefull functions to be called on rules -}
 
