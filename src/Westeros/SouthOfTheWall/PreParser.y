@@ -219,12 +219,12 @@ FUNCTION :: { () }
                                                                                                              check fEntry = (not $ ST.discriminant (ST.getFunctionMD fEntry)) && ST.nArgs (ST.getFunctionMD fEntry) == length $2
                                                                                                              matching     = find check actualFunctions
 
-                                                                                                             -- choose the function entry that matches de requirements:
+                                                                                                             -- choose the function entry that matches the requirements:
                                                                                                              --    + is a Function that hasn't been validated (.i.e: discriminant is false)
                                                                                                              --    + is a Function with the same number of arguments
 
                                                                                                          case matching of
-                                                                                                              Nothing -> ST.insertError ("Not a function \"" ++ functionId ++ "\" declared, or defined but matching number of arguments")
+                                                                                                              Nothing -> ST.insertError ("No function \"" ++ functionId ++ "\" with "++ show (length $2) ++ " arguments was declared")
                                                                                                               Just e  -> do
 
                                                                                                                    let newAdditional = (ST.getFunctionMD e) { ST.discriminant = True, ST.fParameters = $2 , ST.fReturn = $3 }
@@ -432,8 +432,11 @@ EXPRLIST :: { [Ast.Expression] }
 
 {
 
-parseError :: [Tk.Token] -> ST.MonadParser a
-parseError tks = fail (Err.displayErrorContext tks)
+parseError [] = error "Parse error at EOF."
+parseError (tk:_) = error $ "error: parse error with: \"" ++ Tk.cleanedString tk 
+                             ++ "\" at position " ++ show (Tk.position tk) 
+                             ++ "related to token: " ++ show (Tk.aToken tk)
+
 
 createExpression :: Tk.Token -> Ast.Expr -> Ast.Expression
 createExpression tk expr = Ast.Expression { Ast.getToken = tk, Ast.getExpr = expr, Ast.getType = Ast.AliasT "undefined" }
