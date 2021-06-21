@@ -209,7 +209,8 @@ FUNCTION :: { () }
                                                                                                          let functionId = (Tk.cleanedString $1)
 
                                                                                                          -- name not in table
-                                                                                                         when (not $ ST.checkExisting symT functionId) (fail "F")
+                                                                                                         let msg = "Function "++functionId++" defined, but not declared"
+                                                                                                         when (not $ ST.checkExisting symT functionId) (fail msg)
 
                                                                                                          -- match found
                                                                                                          let entries         = fromJust $ ST.findSymbol symT functionId            -- bring all definitions for functionId name
