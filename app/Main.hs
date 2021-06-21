@@ -35,14 +35,14 @@ testPreParser = do
     when (null errors) (mapM_ print errors)
     (_, preSymbolTable, _) <- runRWST (preParse tokens) () ST.initialST
     print preSymbolTable
-    
+
 testParser :: IO ()
 testParser = do
     str <- getContents
     let(errors, tokens) = scanTokens str
     when (null errors) (mapM_ print errors)
     (_, preSymbolTable, _) <- runRWST (preParse tokens) () ST.initialST
-    (ast, finalSt, _) <- runRWST (parse tokens) () preSymbolTable
+    (ast, finalSt, _) <- runRWST (parse tokens) () preSymbolTable{ST.scopeStack=[1,0]}
     prettyPrintProgram ast
     print finalSt
 

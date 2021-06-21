@@ -229,7 +229,21 @@ PARAMETERS :: { [Ast.Parameter] }
     | PARAMETERS ',' PARAMETER                                                                      { $3 : $1 }
 
 PARAMETER :: { Ast.Parameter }
-    : PARAMETER_TYPE id type TYPE                                                                   { Ast.Parameter $1 (Tk.cleanedString $2) $4 }
+    : PARAMETER_TYPE id type TYPE                                                                   {% do
+                                                                                                        sc <- ST.currentScope
+                                                                                                        let name = Tk.cleanedString $2
+                                                                                                        let entry = createParamEntry name sc $4 $1
+                                                                                                        symT <- get
+                                                                                                        mInfo <- ST.lookup name
+                                                                                                        case mInfo of
+                                                                                                            Nothing -> put $ ST.insertST symT entry
+                                                                                                            Just info ->
+                                                                                                                if ST.scope info /= sc && ST.category info /= ST.Function && ST.category info /= ST.Alias
+                                                                                                                    then put $ ST.insertST symT entry
+                                                                                                                    else fail $ "Error: redeclared parameter " ++ name ++ " at position " ++ show (Tk.position $2)
+
+                                                                                                        return $ Ast.Parameter $1 (Tk.cleanedString $2) $4
+                                                                                                    }
 
 PARAMETER_TYPE :: { Ast.ParamType }
     : valueArg                                                                                      { Ast.Value }
@@ -295,30 +309,17 @@ SIMPLE_DECLARATION :: { Ast.VariableDeclaration }
     | COMPOSITE_DECLARATION                                                                         { $1 }
 
 PRIMITIVE_DECLARATION :: { Ast.VariableDeclaration }
-    : var id type TYPE                                                                              {% do
-                                                                                                        sc <- ST.currentScope
-                                                                                                        let name = Tk.cleanedString $2
-                                                                                                        let entry = createVarEntry name sc $4
-                                                                                                        symT <- get
-                                                                                                        mInfo <- ST.lookup name
-                                                                                                        case mInfo of
-                                                                                                            Nothing -> put $ ST.insertST symT entry
-                                                                                                            Just info ->
-                                                                                                                if ST.scope info /= sc
-                                                                                                                    then put $ ST.insertST symT entry
-                                                                                                                    else fail $ "Error: redeclared variable " ++ name ++ " at position " ++ show (Tk.position $2)
-                                                                                                        return $ Ast.SimpleVarDeclaration name $4
-                                                                                                    }
+    : var id type TYPE                                                                              {% maybeInsertVar $2 $4 Nothing }
 
 COMPOSITE_DECLARATION :: { Ast.VariableDeclaration }
-    : beginCompTypeId var id endCompTypeId TYPE                                                     { Ast.SimpleVarDeclaration (Tk.cleanedString $3) $5 }
-    | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz                              { Ast.ArrayVarDeclaration (Tk.cleanedString $3) $5 $7 }
-    | beginCompTypeId pointerVar id endCompTypeId TYPE                                              { Ast.SimpleVarDeclaration (Tk.cleanedString $3) $5 }
-    | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz                       { Ast.SimpleVarDeclaration (Tk.cleanedString $3) $5 }
+    : beginCompTypeId var id endCompTypeId TYPE                                                     {% maybeInsertVar $3 $5 Nothing }
+    | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz                              {% maybeInsertVar $3 $5 (Just $7) }
+    | beginCompTypeId pointerVar id endCompTypeId TYPE                                              {% maybeInsertVar $3 $5 Nothing }
+    | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz                       {% maybeInsertVar $3 $5 (Just $7) }
 
 CONST_DECLARATION :: { Ast.Declaration }
-    : const id type TYPE constValue EXPR                                                            { Ast.ConstantDeclaration (Tk.cleanedString $2) $4 $6 }
-    | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                                   { Ast.ConstantDeclaration (Tk.cleanedString $3) $5 $7 }
+    : const id type TYPE constValue EXPR                                                            {% maybeInsertConst $2 $4 $6 }
+    | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                                   {% maybeInsertConst $3 $5 $7 }
 
 ALIAS_DECLARATION :: { Ast.AliasDeclaration }
     : beginAlias id ALIAS_TYPE TYPE '.'                                                             { Ast.AliasDec (Tk.cleanedString $2) $4 $3}
@@ -374,7 +375,23 @@ CASE :: { Ast.Case }
     | case nothing '.' CODE_BLOCK                                                                   { Ast.Default (reverse $4) }
 
 FOR :: { Ast.Instruction }
-    : for OPEN_SCOPE id type int '.' forLB EXPR forUB EXPR '.' INSTRUCTIONS endFor CLOSE_SCOPE      { Ast.For (Tk.cleanedString $3) $8 $10 (reverse $12) }
+    : OPEN_SCOPE FOR_DEC INSTRUCTIONS endFor CLOSE_SCOPE                                            { let (id, lb, ub) = $2 in Ast.For id lb ub (reverse $3) }
+
+FOR_DEC :: { (Ast.Id, Ast.Expression, Ast.Expression) }
+    : for id type int '.' forLB EXPR forUB EXPR '.'                                                {% do
+                                                                                                        sc <- ST.currentScope
+                                                                                                        let name = Tk.cleanedString $2
+                                                                                                        let entry = createConstEntry name sc Ast.IntT
+                                                                                                        symT <- get
+                                                                                                        mInfo <- ST.lookup name
+                                                                                                        case mInfo of
+                                                                                                            Nothing -> put $ ST.insertST symT entry
+                                                                                                            Just info ->
+                                                                                                                if ST.scope info /= sc && ST.category info /= ST.Function && ST.category info /= ST.Alias
+                                                                                                                    then put $ ST.insertST symT entry
+                                                                                                                    else fail $ "Error: redeclared name " ++ name ++ " at position " ++ show (Tk.position $2)
+                                                                                                        return (name, $7, $9)
+                                                                                                    }
 
 WHILE :: { Ast.Instruction }
     : while EXPR whileDec CODE_BLOCK endWhile                                                       { Ast.While $2 (reverse $4) }
@@ -426,14 +443,15 @@ EXPR :: { Ast.Expression }
                                                                                                                 case ST.category info of
                                                                                                                     ST.Constant -> return ()
                                                                                                                     ST.Variable -> return ()
+                                                                                                                    ST.Parameter -> return ()
                                                                                                                     c -> fail $ "Error: expected variable, found " ++ show c ++ " " ++ name ++ " at position " ++ show pos
                                                                                                         return $ createExpression $1 $ Ast.IdExpr $ Tk.cleanedString $1
                                                                                                     }
 
 FUNCTIONCALL :: { Ast.Expression }
-    : id '((' procCallArgs EXPRLIST '))'                                                            { createExpression $2 $ Ast.FuncCall (Tk.cleanedString $1) (reverse $4) }
-    | id '((' procCallArgs void '))'                                                                { createExpression $2 $ Ast.FuncCall (Tk.cleanedString $1) [] }
-    | id '(('  '))'                                                                                 { createExpression $2 $ Ast.FuncCall (Tk.cleanedString $1) [] }
+    : id '((' procCallArgs EXPRLIST '))'                                                            {% checkFunctionCall $2 $1 (reverse $4) }
+    | id '((' procCallArgs void '))'                                                                {% checkFunctionCall $2 $1 [] }
+    | id '(('  '))'                                                                                 {% checkFunctionCall $2 $1 [] }
 
 ARRAYLIT :: { Ast.Expression }
     : '{{' EXPRLIST '}}'                                                                            { createExpression $1 $ Ast.ArrayLit $ reverse $2 }
@@ -475,4 +493,74 @@ createVarEntry name scope tp = (name, info)
         , ST.additional = Nothing
         }
 
+createParamEntry :: ST.Symbol -> Int -> Ast.Type -> Ast.ParamType -> ST.Entry
+createParamEntry name scope tp ptp = (name, info)
+  where
+    info = ST.SymbolInfo
+        { ST.category = ST.Parameter
+        , ST.scope = scope
+        , ST.tp = Just tp
+        , ST.additional = Just $ ST.PassType ptp
+        }
+
+createConstEntry :: ST.Symbol -> Int -> Ast.Type -> ST.Entry
+createConstEntry sym scope tp = (sym, info)
+  where
+    info = ST.SymbolInfo
+        { ST.category = ST.Constant
+        , ST.scope = scope
+        , ST.tp = Just tp
+        , ST.additional = Nothing
+        }
+
+
+-- TODO: Stop ignoring size expressions
+maybeInsertVar :: Tk.Token -> Ast.Type -> Maybe [Ast.Expression] -> ST.MonadParser Ast.VariableDeclaration
+maybeInsertVar tk tp mSizes = do
+    sc <- ST.currentScope
+    let name = Tk.cleanedString tk
+    let pos = Tk.position tk
+    let entry = createVarEntry name sc tp
+    symT <- get
+    mInfo <- ST.lookup name
+    case mInfo of
+        Nothing -> put $ ST.insertST symT entry
+        Just info ->
+            if ST.scope info /= sc && ST.category info /= ST.Function && ST.category info /= ST.Alias
+                then put $ ST.insertST symT entry
+                else fail $ "Error: redeclared variable " ++ name ++ " at position " ++ show pos
+    case mSizes of
+        Nothing -> return $ Ast.SimpleVarDeclaration name tp
+        Just sz -> return $ Ast.ArrayVarDeclaration name tp sz
+
+maybeInsertConst :: Tk.Token -> Ast.Type -> Ast.Expression -> ST.MonadParser Ast.Declaration
+maybeInsertConst tk tp expr = do
+    sc <- ST.currentScope
+    let name = Tk.cleanedString tk
+    let pos = Tk.position tk
+    let entry = createConstEntry name sc tp
+    symT <- get
+    mInfo <- ST.lookup name
+    case mInfo of
+        Nothing -> put $ ST.insertST symT entry
+        Just info ->
+            if ST.scope info /= sc && ST.category info /= ST.Function && ST.category info /= ST.Alias
+                then put $ ST.insertST symT entry
+                else fail $ "Error: redeclared constant " ++ name ++ " at position " ++ show pos
+    return $ Ast.ConstantDeclaration name tp expr
+
+
+checkFunctionCall :: Tk.Token -> Tk.Token -> [Ast.Expression] -> ST.MonadParser Ast.Expression
+checkFunctionCall tkPar tkId exprs = do
+    let name = Tk.cleanedString tkId
+    let pos = Tk.position tkId
+    symT <- get
+    mInfo <- ST.lookup name
+    case mInfo of
+        Nothing -> fail $ "Error: undefined function " ++ name ++ " at postition " ++ show pos
+        Just info ->
+            case ST.category info of
+                ST.Function -> return ()
+                c -> fail $ "Error: expected function, found " ++ show c ++ " " ++ name ++ " at position " ++ show pos
+    return $ createExpression tkPar $ Ast.FuncCall name exprs
 }

@@ -31,7 +31,7 @@ data Category -- anything with a name
 data AdditionalInfo
     = AliasMD AliasType Type               -- For aliases we save: name and necessary info of the sinonymed type
     | FunctionMD FunctionInfo              -- For functions we save: name , number of arguments, and return type(s).
-    | PassType String                      -- For parameters we save: name, type and either it is value or reference passed
+    | PassType ParamType                   -- For parameters we save: name, type and either it is value or reference passed
    deriving (Show,Eq)
 
 getFunctionMD :: SymbolInfo -> FunctionInfo
