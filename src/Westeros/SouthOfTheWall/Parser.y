@@ -364,7 +364,7 @@ IF :: { Ast.IfInst }
     | if EXPR then CODE_BLOCK else CODE_BLOCK endif                                                 { Ast.IfThenElse $2 (reverse $4) (reverse $6) }
 
 SWITCHCASE :: { Ast.Instruction }
-    : switch EXPR switchDec CASES endSwitch                                                         { Ast.Switch $2 (reverse $4) }
+    : switch EXPR switchDec '.' CASES endSwitch                                                     { Ast.Switch $2 (reverse $5) }
 
 CASES :: { [Ast.Case] }
     : CASE                                                                                          { [$1] }
@@ -478,7 +478,9 @@ CLOSE_SCOPE :: { () }
 
 parseError :: [Tk.Token] -> a
 parseError [] = error "Parse error at EOF."
-parseError (tk:_) = error $ "Parse error with token " ++ (show tk)
+parseError (tk:_) = error $ "error: parse error with: \"" ++ Tk.cleanedString tk 
+                             ++ "\" at position " ++ show (Tk.position tk) 
+                             ++ "related to token: " ++ show (Tk.aToken tk)
 
 createExpression :: Tk.Token -> Ast.Expr -> Ast.Expression
 createExpression tk expr = Ast.Expression { Ast.getToken = tk, Ast.getExpr = expr, Ast.getType = Ast.AliasT "undefined" }

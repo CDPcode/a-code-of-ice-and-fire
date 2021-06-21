@@ -353,7 +353,7 @@ INSTRUCTION : EXPR ':=' EXPR '.'                                                
             | returnOpen EXPRLIST returnClose                                                       {}
             | returnOpen returnClose                                                                {}
             | IF '.'                                                                                {} -- ##
-            | SWITCHCASE                                                                            {}
+            | SWITCHCASE  '.'                                                                       {}
             | FOR '.'                                                                               {} -- ##
             | WHILE                                                                                 {}
             | DECLARATION                                                                           {}
@@ -362,7 +362,7 @@ INSTRUCTION : EXPR ':=' EXPR '.'                                                
 IF : if EXPR then INSTRUCTIONS endif                                                                {}
    | if EXPR then INSTRUCTIONS else INSTRUCTIONS endif                                              {}
 
-SWITCHCASE : switch EXPR switchDec CASES endSwitch                                                  {}
+SWITCHCASE : switch EXPR switchDec '.' CASES endSwitch                                              {}
 
 CASES : CASE                                                                                        {}
       | CASES CASE                                                                                  {}

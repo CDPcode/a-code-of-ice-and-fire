@@ -4,7 +4,7 @@ import qualified Westeros.SouthOfTheWall.Tokens as Tk (Token (..))
 
 
 displayErrorContext :: [Tk.Token] -> String
-displayErrorContext [] = "You died"
-displayErrorContext (x:xs) = "Problem with: \"" ++ Tk.cleanedString x 
-                             ++ "\" \nat " ++ show (Tk.position x) 
-                             ++ "\nrelated to token: " ++ show (Tk.aToken x) 
+displayErrorContext [] = "error: Parse error at EOF."
+displayErrorContext (x:xs) = "error: parse error with: \"" ++ Tk.cleanedString x 
+                             ++ "\" at position " ++ show (Tk.position x) 
+                             ++ "related to token: " ++ show (Tk.aToken x) 
