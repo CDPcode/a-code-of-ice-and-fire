@@ -182,7 +182,7 @@ CONTENTS :: { Ast.FunctionNames }
 FUNCTION_DECLARATIONS :: { Ast.FunctionNames }
     : item globalDec FUNCTION_NAMES item main                                                       {% do
                                                                                                         symT <- get
-                                                                                                        let names = $3 
+                                                                                                        let names = $3
                                                                                                             ids = [name | (name, _) <- names]
                                                                                                             symbols = concatMap (fromJust . (ST.findSymbol symT)) ids
                                                                                                             functions = filter (\e-> ST.category e == ST.Function ) symbols
@@ -215,7 +215,7 @@ FUNCTIONS :: { [Ast.FunctionDeclaration] }
     | FUNCTIONS FUNCTION                                                                            { $2 : $1 }
 
 FUNCTION :: { Ast.FunctionDeclaration }
-    : id FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY                                          { Ast.FunctionDeclaration (Tk.cleanedString $1) $2 $3 $4 }
+    : id OPEN_SCOPE FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY CLOSE_SCOPE                   { Ast.FunctionDeclaration (Tk.cleanedString $1) $3 $4 $5 }
 
 FUNCTION_PARAMETERS :: { [Ast.Parameter] }
     : beginFuncParams PARAMETER_LIST endFuncParams                                                  { $2 }
@@ -295,7 +295,20 @@ SIMPLE_DECLARATION :: { Ast.VariableDeclaration }
     | COMPOSITE_DECLARATION                                                                         { $1 }
 
 PRIMITIVE_DECLARATION :: { Ast.VariableDeclaration }
-    : var id type TYPE                                                                              { Ast.SimpleVarDeclaration (Tk.cleanedString $2) $4 }
+    : var id type TYPE                                                                              {% do
+                                                                                                        sc <- ST.currentScope
+                                                                                                        let name = Tk.cleanedString $2
+                                                                                                        let entry = createVarEntry name sc $4
+                                                                                                        symT <- get
+                                                                                                        mInfo <- ST.lookup name
+                                                                                                        case mInfo of
+                                                                                                            Nothing -> put $ ST.insertST symT entry
+                                                                                                            Just info ->
+                                                                                                                if ST.scope info /= sc
+                                                                                                                    then put $ ST.insertST symT entry
+                                                                                                                    else fail $ "Error: redeclared variable " ++ name ++ " at position " ++ show (Tk.position $2)
+                                                                                                        return $ Ast.SimpleVarDeclaration name $4
+                                                                                                    }
 
 COMPOSITE_DECLARATION :: { Ast.VariableDeclaration }
     : beginCompTypeId var id endCompTypeId TYPE                                                     { Ast.SimpleVarDeclaration (Tk.cleanedString $3) $5 }
@@ -315,6 +328,9 @@ ALIAS_TYPE :: { Ast.AliasType }
     | weakAlias                                                                                     { Ast.WeakAlias }
 
 -- Instructions --
+
+CODE_BLOCK :: { [Ast.Instruction] }
+    : OPEN_SCOPE INSTRUCTIONS CLOSE_SCOPE                                                           { $2 }
 
 INSTRUCTIONS :: { [Ast.Instruction] }
     : {- empty -}                                                                                   { [] }
@@ -343,8 +359,8 @@ INSTRUCTION :: { Ast.Instruction }
     | DECLARATION                                                                                   { Ast.DeclarationInst $1 }
 
 IF :: { Ast.IfInst }
-    : if EXPR then INSTRUCTIONS endif                                                               { Ast.IfThen $2 (reverse $4) }
-    | if EXPR then INSTRUCTIONS else INSTRUCTIONS endif                                             { Ast.IfThenElse $2 (reverse $4) (reverse $6) }
+    : if EXPR then CODE_BLOCK endif                                                                 { Ast.IfThen $2 (reverse $4) }
+    | if EXPR then CODE_BLOCK else CODE_BLOCK endif                                                 { Ast.IfThenElse $2 (reverse $4) (reverse $6) }
 
 SWITCHCASE :: { Ast.Instruction }
     : switch EXPR switchDec CASES endSwitch                                                         { Ast.Switch $2 (reverse $4) }
@@ -354,14 +370,14 @@ CASES :: { [Ast.Case] }
     | CASES CASE                                                                                    { $2 : $1 }
 
 CASE :: { Ast.Case }
-    : case atomLit '.' INSTRUCTIONS                                                                 { Ast.Case (Tk.cleanedString $2) (reverse $4) }
-    | case nothing '.' INSTRUCTIONS                                                                 { Ast.Default (reverse $4) }
+    : case atomLit '.' CODE_BLOCK                                                                   { Ast.Case (Tk.cleanedString $2) (reverse $4) }
+    | case nothing '.' CODE_BLOCK                                                                   { Ast.Default (reverse $4) }
 
 FOR :: { Ast.Instruction }
-    : for id type int '.' forLB EXPR forUB EXPR '.' INSTRUCTIONS endFor                             { Ast.For (Tk.cleanedString $1) $7 $9 (reverse $11) }
+    : for OPEN_SCOPE id type int '.' forLB EXPR forUB EXPR '.' INSTRUCTIONS endFor CLOSE_SCOPE      { Ast.For (Tk.cleanedString $3) $8 $10 (reverse $12) }
 
 WHILE :: { Ast.Instruction }
-    : while EXPR whileDec INSTRUCTIONS endWhile                                                     { Ast.While $2 (reverse $4) }
+    : while EXPR whileDec CODE_BLOCK endWhile                                                       { Ast.While $2 (reverse $4) }
 
 -- Expresions --
 
@@ -398,8 +414,21 @@ EXPR :: { Ast.Expression }
     | stringLit                                                                                     { createExpression $1 $ Ast.StringLit $ Tk.cleanedString $1 }
     | true                                                                                          { createExpression $1 $ Ast.TrueLit }
     | false                                                                                         { createExpression $1 $ Ast.FalseLit }
-    | id                                                                                            { createExpression $1 $ Ast.IdExpr $ Tk.cleanedString $1 }
     | null                                                                                          { createExpression $1 $ Ast.NullLit }
+    | id                                                                                            {% do
+                                                                                                        let name = Tk.cleanedString $1
+                                                                                                        let pos = Tk.position $1
+                                                                                                        symT <- get
+                                                                                                        mInfo <- ST.lookup name
+                                                                                                        case mInfo of
+                                                                                                            Nothing -> fail $ "Error: undefined variable " ++ name ++ " at postition " ++ show pos
+                                                                                                            Just info ->
+                                                                                                                case ST.category info of
+                                                                                                                    ST.Constant -> return ()
+                                                                                                                    ST.Variable -> return ()
+                                                                                                                    c -> fail $ "Error: expected variable, found " ++ show c ++ " " ++ name ++ " at position " ++ show pos
+                                                                                                        return $ createExpression $1 $ Ast.IdExpr $ Tk.cleanedString $1
+                                                                                                    }
 
 FUNCTIONCALL :: { Ast.Expression }
     : id '((' procCallArgs EXPRLIST '))'                                                            { createExpression $2 $ Ast.FuncCall (Tk.cleanedString $1) (reverse $4) }
@@ -435,5 +464,15 @@ parseError (tk:_) = error $ "Parse error with token " ++ (show tk)
 
 createExpression :: Tk.Token -> Ast.Expr -> Ast.Expression
 createExpression tk expr = Ast.Expression { Ast.getToken = tk, Ast.getExpr = expr, Ast.getType = Ast.AliasT "undefined" }
+
+createVarEntry :: ST.Symbol -> Int -> Ast.Type -> ST.Entry
+createVarEntry name scope tp = (name, info)
+  where
+    info = ST.SymbolInfo
+        { ST.category = ST.Variable
+        , ST.scope = scope
+        , ST.tp = Just tp
+        , ST.additional = Nothing
+        }
 
 }
