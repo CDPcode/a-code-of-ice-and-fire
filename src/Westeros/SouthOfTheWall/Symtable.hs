@@ -11,12 +11,6 @@ import Data.Maybe (fromJust)
 
 type Symbol = String
 
--- Just a listing of known posisble errors. NOT a thing to use rn.
-data ParserError
-    = InvalidToken         -- given token does not fit context of grammar rule
-    | InvalidVariability   -- given var/const does not fit meta-context for what is being defined
-    | InvalidPrimitiveType -- given type for a primitive declaration is composite
-    | InvalidCompositeType -- given type for a composite decalration is primitive
 
 data Category -- anything with a name
     = Alias
