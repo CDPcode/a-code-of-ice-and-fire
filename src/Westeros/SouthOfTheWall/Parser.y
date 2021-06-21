@@ -3,21 +3,15 @@ module Westeros.SouthOfTheWall.Parser (parse) where
 import qualified Westeros.SouthOfTheWall.Tokens as Tk
 import qualified Westeros.SouthOfTheWall.AST as Ast
 import qualified Westeros.SouthOfTheWall.Symtable as ST
-<<<<<<< HEAD
 import Data.Maybe (fromJust)
 import Control.Monad.RWS ( MonadState(put, get), RWST, when )
-=======
->>>>>>> develop
 }
 
 %name                 parse
 %tokentype            { Tk.Token }
 %error                { parseError }
 %monad                { ST.MonadParser }
-<<<<<<< HEAD
 -- TODO: %monad expr to properly handle errors
-=======
->>>>>>> develop
 
 -- Token aliases definitions
 %token
