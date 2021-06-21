@@ -258,6 +258,18 @@ lookup sym = do
         Nothing -> return Nothing
         Just bucket -> return $ findBest bucket stack
 
+lookupFunction :: Symbol -> Int -> MonadParser (Maybe SymbolInfo)
+lookupFunction sym params = do
+    symT <- get
+    let mBucket = findSymbol symT sym
+    case mBucket of
+        Nothing -> return Nothing
+        Just bucket -> return $ findFunction params bucket 
+
+findFunction :: Int -> [SymbolInfo] -> Maybe SymbolInfo
+findFunction params [] = Nothing
+findFunction params bucket = find (\e -> nArgs (getFunctionMD e) == params) bucket 
+
 currentScope :: MonadParser Int
 currentScope = do
     SymbolTable { scopeStack = (s:_)} <- get
