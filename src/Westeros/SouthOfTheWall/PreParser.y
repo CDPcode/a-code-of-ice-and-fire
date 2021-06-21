@@ -210,7 +210,7 @@ FUNCTION :: { () }
 
                                                                                                          -- name not in table
                                                                                                          let msg = "Function "++functionId++" defined, but not declared"
-                                                                                                         when (not $ ST.checkExisting symT functionId) (fail msg)
+                                                                                                         when (not $ ST.checkExisting symT functionId) (ST.insertError msg)
 
                                                                                                          -- match found
                                                                                                          let entries         = fromJust $ ST.findSymbol symT functionId            -- bring all definitions for functionId name
@@ -224,12 +224,12 @@ FUNCTION :: { () }
                                                                                                              --    + is a Function with the same number of arguments
 
                                                                                                          case matching of
-                                                                                                              Nothing -> fail ("Not a function \"" ++ functionId ++ "\" declared, or defined but matching number of arguments")
+                                                                                                              Nothing -> ST.insertError ("Not a function \"" ++ functionId ++ "\" declared, or defined but matching number of arguments")
                                                                                                               Just e  -> do
 
                                                                                                                    let newAdditional = (ST.getFunctionMD e) { ST.discriminant = True, ST.fParameters = $2 , ST.fReturn = $3 }
                                                                                                                        newSymT = ST.searchAndReplaceSymbol symT (functionId,e) (e { ST.additional = Just (ST.FunctionMD newAdditional) })
-                                                                                                                   
+
                                                                                                                    put newSymT
                                                                                                     }
 
