@@ -14,7 +14,7 @@ data Position = Position {
         row :: Int,
         col :: Int
     }
-    deriving Show
+    deriving (Show, Eq)
 
 data Token = Token 
     { aToken :: AbstractToken
@@ -22,7 +22,7 @@ data Token = Token
     , cleanedString :: String
     , position :: Position
     }
-    deriving Show
+    deriving (Show, Eq)
 
 data AbstractToken = 
     -- Program Start
