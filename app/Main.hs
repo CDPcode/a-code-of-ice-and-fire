@@ -8,8 +8,7 @@ import Westeros.SouthOfTheWall.PreParser    (preParse)
 import qualified Westeros.SouthOfTheWall.Symtable as ST
 import qualified Westeros.SouthOfTheWall.Tokens as Tk
 
-import Control.Monad.RWS ( RWST(runRWST) )
-import Data.Map
+import Control.Monad.RWS ( RWST(runRWST), when )
 import System.Environment (getArgs)
 
 main :: IO ()
@@ -24,25 +23,26 @@ main = do
 testLexer :: IO ()
 testLexer = do
     str <- getContents
-    case scanTokens str of
-        Left errs -> mapM_ print errs
-        Right tokens -> mapM_ print tokens
+    let(errors, tokens) = scanTokens str
+    case errors of
+        [] -> mapM_ print tokens
+        _  -> mapM_ print errors
 
 testPreParser :: IO ()
 testPreParser = do
     str <- getContents
-    case scanTokens str of
-        Left errs -> mapM_ print errs
-        Right tokens -> do
-            (_,st,_) <- runRWST (preParse tokens) () ST.initialST
-            print st
-
+    let(errors, tokens) = scanTokens str
+    when (null errors) (mapM_ print errors)
+    (_, preSymbolTable, _) <- runRWST (preParse tokens) () ST.initialST
+    print preSymbolTable
+    
 testParser :: IO ()
 testParser = do
     str <- getContents
-    case scanTokens str of
-        Left errs -> mapM_ print errs
-        Right tokens -> do
-            mapM_ print tokens
-            prettyPrintProgram $ parse tokens
+    let(errors, tokens) = scanTokens str
+    when (null errors) (mapM_ print errors)
+    (_, preSymbolTable, _) <- runRWST (preParse tokens) () ST.initialST
+    (ast, finalSt, _) <- runRWST (parse tokens) () preSymbolTable
+    prettyPrintProgram ast
+    print finalSt
 

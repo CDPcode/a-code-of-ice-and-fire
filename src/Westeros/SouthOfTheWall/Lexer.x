@@ -338,20 +338,16 @@ addStringToState :: String -> Alex ()
 addStringToState str = Alex $ \s@AlexState{alex_ust=ust}
     -> Right (s{ alex_ust = ust{ lexerString = str ++ lexerString ust } }, ())
 
-scanTokens :: String -> Either [Error] [Token]
+scanTokens :: String -> ([Error], [Token])
 scanTokens str =
     case runAlex str alexMonadScan of
-        Left err -> Left [Error $ "Alex error: " ++ show err]
-        Right ust ->
-            case lexerErrors ust of
-                [] -> Right $ reverse $ map postProcess $ lexerTokens ust
-                _ -> Left $ reverse $ lexerErrors ust
+        Left  err -> ([Error $ "Alex error: " ++ show err], [])
+        Right ust -> (reverse $ lexerErrors ust, reverse $ map postProcess $ lexerTokens ust)
 
 postProcess :: Token -> Token
 postProcess (Token TknCharLit s _ p) = Token TknCharLit s (processCharLit s) p
 postProcess (Token TknStringLit s _ p) = Token TknStringLit s (processStringLit s) p
 postProcess (Token TknIntLit s _ p) = Token TknIntLit s (processIntLit s) p
-postProcess (Token TknFloatLit s _ p) = Token TknFloatLit s (processFloatLit s) p
 postProcess (Token TknTupleSelect s _ p) = Token TknTupleSelect s (processIntLit s) p
 postProcess (Token TknArgNumber s _ p) = Token TknArgNumber s (processArgNumber s) p
 postProcess tkn = tkn

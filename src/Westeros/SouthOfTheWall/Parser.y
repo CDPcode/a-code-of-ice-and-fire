@@ -2,12 +2,13 @@
 module Westeros.SouthOfTheWall.Parser (parse) where
 import qualified Westeros.SouthOfTheWall.Tokens as Tk
 import qualified Westeros.SouthOfTheWall.AST as Ast
+import qualified Westeros.SouthOfTheWall.Symtable as ST
 }
 
 %name                 parse
 %tokentype            { Tk.Token }
 %error                { parseError }
--- TODO: %monad expr to properly handle errors
+%monad                { ST.MonadParser }
 
 -- Token aliases definitions
 %token
