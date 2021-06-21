@@ -207,7 +207,7 @@ statefullSTupdate entry@(name,info) = do
         Alias     -> case findSymbol st name of
                         Nothing -> put $ insertST st entry
                         Just _  -> let errMsg = "The name \""++name++"\" is an existing symbol"
-                                   in fail errMsg
+                                   in insertError errMsg
         Function  -> case findSymbol st name of
                         Nothing      -> put $ insertST ( st { nextScope = succ (nextScope st) } ) entry
                         Just entries -> do
@@ -220,7 +220,7 @@ statefullSTupdate entry@(name,info) = do
                             if currentArgs `notElem` functionsArgs then
                                 put $ insertST ( st { nextScope = succ (nextScope st) } ) entry
                                 else let errMsg = "A function with the same name \""++name++"\" and # of arguments was already declared"
-                                     in fail errMsg
+                                     in insertError errMsg
         _         -> fail "Unexpected behaviour: Only Alias and Function categories are relevant in pre-parser"
 
 openScope :: MonadParser ()

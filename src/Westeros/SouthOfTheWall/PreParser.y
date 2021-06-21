@@ -208,29 +208,33 @@ FUNCTION :: { () }
 
                                                                                                          let functionId = (Tk.cleanedString $1)
 
-                                                                                                         -- name not in table
-                                                                                                         let msg = "Function "++functionId++" defined, but not declared"
-                                                                                                         when (not $ ST.checkExisting symT functionId) (fail msg)
+                                                                                                         if (ST.checkExisting symT functionId) then do
 
-                                                                                                         -- match found
-                                                                                                         let entries         = fromJust $ ST.findSymbol symT functionId            -- bring all definitions for functionId name
-                                                                                                             actualFunctions = filter (\e-> ST.category e == ST.Function ) entries -- filter those defined as functions
+                                                                                                              -- match found
+                                                                                                              let entries         = fromJust $ ST.findSymbol symT functionId            -- bring all definitions for functionId name
+                                                                                                                  actualFunctions = filter (\e-> ST.category e == ST.Function ) entries -- filter those defined as functions
 
-                                                                                                             check fEntry = (not $ ST.discriminant (ST.getFunctionMD fEntry)) && ST.nArgs (ST.getFunctionMD fEntry) == length $2
-                                                                                                             matching     = find check actualFunctions
+                                                                                                                  check fEntry = (not $ ST.discriminant (ST.getFunctionMD fEntry)) && ST.nArgs (ST.getFunctionMD fEntry) == length $2
+                                                                                                                  matching     = find check actualFunctions
 
-                                                                                                             -- choose the function entry that matches the requirements:
-                                                                                                             --    + is a Function that hasn't been validated (.i.e: discriminant is false)
-                                                                                                             --    + is a Function with the same number of arguments
+                                                                                                              -- choose the function entry that matches the requirements:
+                                                                                                              --    + is a Function that hasn't been validated (.i.e: discriminant is false)
+                                                                                                              --    + is a Function with the same number of arguments
 
-                                                                                                         case matching of
-                                                                                                              Nothing -> ST.insertError ("No function \"" ++ functionId ++ "\" with "++ show (length $2) ++ " arguments was declared")
-                                                                                                              Just e  -> do
+                                                                                                              case matching of
+                                                                                                                   Nothing -> ST.insertError ("No function \"" ++ functionId ++ "\" with "++ show (length $2) ++ " arguments was declared")
+                                                                                                                   Just e  -> do
 
-                                                                                                                   let newAdditional = (ST.getFunctionMD e) { ST.discriminant = True, ST.fParameters = $2 , ST.fReturn = $3 }
-                                                                                                                       newSymT = ST.searchAndReplaceSymbol symT (functionId,e) (e { ST.additional = Just (ST.FunctionMD newAdditional) })
+                                                                                                                        let newAdditional = (ST.getFunctionMD e) { ST.discriminant = True, ST.fParameters = $2 , ST.fReturn = $3 }
+                                                                                                                            newSymT = ST.searchAndReplaceSymbol symT (functionId,e) (e { ST.additional = Just (ST.FunctionMD newAdditional) })
 
-                                                                                                                   put newSymT
+                                                                                                                        put newSymT
+                                                                                                         else  do
+
+                                                                                                              let msg = "Function "++functionId++" defined, but not declared"
+                                                                                                              -- name not in table
+
+                                                                                                              ST.insertError msg
                                                                                                     }
 
 
