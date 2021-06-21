@@ -348,6 +348,7 @@ postProcess :: Token -> Token
 postProcess (Token TknCharLit s _ p) = Token TknCharLit s (processCharLit s) p
 postProcess (Token TknStringLit s _ p) = Token TknStringLit s (processStringLit s) p
 postProcess (Token TknIntLit s _ p) = Token TknIntLit s (processIntLit s) p
+postProcess (Token TknFloatLit s _ p) = Token TknFloatLit s (processFloatLit s) p
 postProcess (Token TknTupleSelect s _ p) = Token TknTupleSelect s (processIntLit s) p
 postProcess (Token TknArgNumber s _ p) = Token TknArgNumber s (processArgNumber s) p
 postProcess tkn = tkn
