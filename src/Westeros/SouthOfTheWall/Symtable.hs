@@ -4,7 +4,7 @@ import qualified Westeros.SouthOfTheWall.Tokens as Tk
 import Westeros.SouthOfTheWall.AST as Ast
 
 import qualified Data.Map.Strict as M
-import Control.Monad.RWS ( MonadState(put, get), RWST, when )
+import Control.Monad.RWS ( MonadState(put, get), MonadWriter(tell), RWST, when )
 
 import Data.List (intercalate, find)
 import Data.Maybe (fromJust)
@@ -86,7 +86,7 @@ instance Show SymbolTable where
             splitInfo = intercalate bar . map show
             bar = "\n-------------------\n"
 
-type MonadParser = RWST () [ParserError] SymbolTable IO
+type MonadParser = RWST () [String] SymbolTable IO
 
 
 {- ST creation functions -}
@@ -264,14 +264,16 @@ lookupFunction sym params = do
     let mBucket = findSymbol symT sym
     case mBucket of
         Nothing -> return Nothing
-        Just bucket -> return $ findFunction params bucket 
+        Just bucket -> return $ findFunction params bucket
 
 findFunction :: Int -> [SymbolInfo] -> Maybe SymbolInfo
 findFunction params [] = Nothing
-findFunction params bucket = find (\e -> nArgs (getFunctionMD e) == params) bucket 
+findFunction params bucket = find (\e -> nArgs (getFunctionMD e) == params) bucket
 
 currentScope :: MonadParser Int
 currentScope = do
     SymbolTable { scopeStack = (s:_)} <- get
     return s
 
+insertError :: String -> MonadParser ()
+insertError msg = tell [msg]

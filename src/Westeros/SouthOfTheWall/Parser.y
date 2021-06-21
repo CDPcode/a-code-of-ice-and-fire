@@ -189,10 +189,10 @@ FUNCTION_NAMES :: { Ast.FunctionNames }
                                                                                                         let params = read (Tk.cleanedString $4) :: Int
                                                                                                         function <- ST.lookupFunction name params
                                                                                                         case function of
-                                                                                                            Nothing -> fail $ "error: undefined function " ++ name ++ "with " ++ (show params) ++ " parameters."
+                                                                                                            Nothing -> ST.insertError $ "error: undefined function " ++ name ++ "with " ++ (show params) ++ " parameters."
                                                                                                             Just info -> case ST.discriminant $ ST.getFunctionMD info of
                                                                                                                 True -> return ()
-                                                                                                                False -> fail $ "error: undefined function " ++ name ++ "with " ++ (show params) ++ " parameters."
+                                                                                                                False -> ST.insertError $ "error: undefined function " ++ name ++ "with " ++ (show params) ++ " parameters."
                                                                                                         return $ (name, params) : $1 }
 
 GLOBAL :: { [Ast.Declaration] }
@@ -240,7 +240,7 @@ PARAMETER :: { Ast.Parameter }
                                                                                                             Just info ->
                                                                                                                 if ST.scope info /= sc && ST.category info /= ST.Function && ST.category info /= ST.Alias
                                                                                                                     then put $ ST.insertST symT entry
-                                                                                                                    else fail $ "Error: redeclared parameter " ++ name ++ " at position " ++ show (Tk.position $2)
+                                                                                                                    else ST.insertError $ "Error: redeclared parameter " ++ name ++ " at position " ++ show (Tk.position $2)
 
                                                                                                         return $ Ast.Parameter $1 (Tk.cleanedString $2) $4
                                                                                                     }
@@ -389,7 +389,7 @@ FOR_DEC :: { (Ast.Id, Ast.Expression, Ast.Expression) }
                                                                                                             Just info ->
                                                                                                                 if ST.scope info /= sc && ST.category info /= ST.Function && ST.category info /= ST.Alias
                                                                                                                     then put $ ST.insertST symT entry
-                                                                                                                    else fail $ "Error: redeclared name " ++ name ++ " at position " ++ show (Tk.position $2)
+                                                                                                                    else ST.insertError $ "Error: redeclared name " ++ name ++ " at position " ++ show (Tk.position $2)
                                                                                                         return (name, $7, $9)
                                                                                                     }
 
@@ -438,13 +438,13 @@ EXPR :: { Ast.Expression }
                                                                                                         symT <- get
                                                                                                         mInfo <- ST.lookup name
                                                                                                         case mInfo of
-                                                                                                            Nothing -> fail $ "Error: undefined variable " ++ name ++ " at postition " ++ show pos
+                                                                                                            Nothing -> ST.insertError $ "Error: undefined variable " ++ name ++ " at postition " ++ show pos
                                                                                                             Just info ->
                                                                                                                 case ST.category info of
                                                                                                                     ST.Constant -> return ()
                                                                                                                     ST.Variable -> return ()
                                                                                                                     ST.Parameter -> return ()
-                                                                                                                    c -> fail $ "Error: expected variable, found " ++ show c ++ " " ++ name ++ " at position " ++ show pos
+                                                                                                                    c -> ST.insertError $ "Error: expected variable, found " ++ show c ++ " " ++ name ++ " at position " ++ show pos
                                                                                                         return $ createExpression $1 $ Ast.IdExpr $ Tk.cleanedString $1
                                                                                                     }
 
@@ -469,7 +469,7 @@ OPEN_SCOPE :: { () }
     : {- empty -}                                                                                   {% ST.openScope }
 
 CLOSE_SCOPE :: { () }
-    : {- empty -}                                                                                   {% ST.openScope }
+    : {- empty -}                                                                                   {% ST.closeScope }
 
 {
 	-- Helper functions
@@ -528,7 +528,7 @@ maybeInsertVar tk tp mSizes = do
         Just info ->
             if ST.scope info /= sc && ST.category info /= ST.Function && ST.category info /= ST.Alias
                 then put $ ST.insertST symT entry
-                else fail $ "Error: redeclared variable " ++ name ++ " at position " ++ show pos
+                else ST.insertError $ "Error: redeclared variable " ++ name ++ " at position " ++ show pos
     case mSizes of
         Nothing -> return $ Ast.SimpleVarDeclaration name tp
         Just sz -> return $ Ast.ArrayVarDeclaration name tp sz
@@ -546,7 +546,7 @@ maybeInsertConst tk tp expr = do
         Just info ->
             if ST.scope info /= sc && ST.category info /= ST.Function && ST.category info /= ST.Alias
                 then put $ ST.insertST symT entry
-                else fail $ "Error: redeclared constant " ++ name ++ " at position " ++ show pos
+                else ST.insertError $ "Error: redeclared constant " ++ name ++ " at position " ++ show pos
     return $ Ast.ConstantDeclaration name tp expr
 
 
@@ -557,10 +557,10 @@ checkFunctionCall tkPar tkId exprs = do
     let params = length exprs
     mInfo <- ST.lookupFunction name params
     case mInfo of
-        Nothing -> fail $ "Error: undefined function " ++ name ++ " at postition " ++ show pos
+        Nothing -> ST.insertError $ "Error: undefined function " ++ name ++ " at postition " ++ show pos
         Just info ->
             case ST.category info of
                 ST.Function -> return ()
-                c -> fail $ "Error: expected function, found " ++ show c ++ " " ++ name ++ " at position " ++ show pos
+                c -> ST.insertError $ "Error: expected function, found " ++ show c ++ " " ++ name ++ " at position " ++ show pos
     return $ createExpression tkPar $ Ast.FuncCall name exprs
 }
