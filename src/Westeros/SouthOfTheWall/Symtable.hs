@@ -257,3 +257,9 @@ lookup sym = do
     case mBucket of
         Nothing -> return Nothing
         Just bucket -> return $ findBest bucket stack
+
+currentScope :: MonadParser Int
+currentScope = do
+    SymbolTable { scopeStack = (s:_)} <- get
+    return s
+
