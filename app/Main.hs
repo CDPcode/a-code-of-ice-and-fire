@@ -4,6 +4,7 @@ import Westeros.SouthOfTheWall.AST          (prettyPrintProgram)
 import Westeros.SouthOfTheWall.Lexer        (scanTokens)
 import Westeros.SouthOfTheWall.Parser       (parse)
 import Westeros.SouthOfTheWall.PreParser    (preParse)
+import Westeros.SouthOfTheWall.PrettyPrint
 
 import qualified Westeros.SouthOfTheWall.Symtable as ST
 import qualified Westeros.SouthOfTheWall.Tokens as Tk

@@ -186,7 +186,29 @@ FUNCTION_DECLARATIONS : item globalDec FUNCTION_NAMES item main                 
 
 FUNCTION_NAMES :: { () }
      : {- empty -}                                                                                  { () }
-     | FUNCTION_NAMES item id argNumber                                                             {% ST.statefullSTupdate (ST.getFunctionDeclarationInfo $3 $4)}
+     | FUNCTION_NAMES item id argNumber                                                             {% do -- ST.statefullSTupdate (ST.getFunctionDeclarationInfo $3 $4)
+                                                                                                        symT <- get
+
+                                                                                                        let name  = Tk.cleanedString $3
+                                                                                                            entry = createFunctionDeclarationEntry $3 $4
+
+                                                                                                        case ST.findSymbol symT name of
+                                                                                                             Nothing      -> put $ ST.insertST ( symT { ST.nextScope = succ (ST.nextScope symT) } ) entry
+                                                                                                             Just entries -> do
+
+                                                                                                               let actualFunctions  = filter (\e -> ST.category e == ST.Function) entries
+                                                                                                                   functionsEntries = map ST.getFunctionMD actualFunctions
+                                                                                                                   functionsArgs    = map ST.nArgs functionsEntries
+                                                                                                                   currentArgs      = ST.nArgs ( ST.getFunctionMD (snd entry) )
+                                                                                     
+                                                                                                               if currentArgs `notElem` functionsArgs then
+                                                                                                                  put $ ST.insertST ( symT { ST.nextScope = succ (ST.nextScope symT) } ) entry
+                                                                                                               else let errMsg = "A function with the same name \""++name++"\" and # of arguments was already declared"
+                                                                                                                    in ST.insertError errMsg
+
+                                                                                                     
+                                                                                                    }
+     
 
 GLOBAL : globalDec '{' DECLARATIONS '}'                                                             {}
 
@@ -330,7 +352,18 @@ CONST_DECLARATION : const id type TYPE constValue EXPR                          
                   | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                     {}
 
 ALIAS_DECLARATION :: { () }
-     : beginAlias id ALIAS_TYPE TYPE '.'                                                            {% ST.statefullSTupdate (ST.getAliasInfo $2 $3 $4) }
+     : beginAlias id ALIAS_TYPE TYPE '.'                                                            {% do 
+
+                                                                                                    symT <- get 
+
+                                                                                                    let name = Tk.cleanedString $2
+
+                                                                                                    case ST.findSymbol symT name of
+                                                                                                         Nothing -> put $ ST.insertST symT (createAliasEntry name $3 $4)
+                                                                                                         Just _  -> let errMsg = "The name \""++name++"\" is an existing symbol"
+                                                                                                                    in ST.insertError errMsg
+ 
+                                                                                                    }
 
 ALIAS_TYPE :: { Ast.AliasType }
      : strongAlias                                                                                  { Ast.StrongAlias }
@@ -441,7 +474,34 @@ parseError (tk:_) = error $ "error: parse error with: \"" ++ Tk.cleanedString tk
                              ++ "\" at position " ++ show (Tk.position tk) 
                              ++ "related to token: " ++ show (Tk.aToken tk)
 
-
 createExpression :: Tk.Token -> Ast.Expr -> Ast.Expression
 createExpression tk expr = Ast.Expression { Ast.getToken = tk, Ast.getExpr = expr, Ast.getType = Ast.AliasT "undefined" }
+
+createAliasEntry :: String -> Ast.AliasType -> Ast.Type -> ST.Entry
+createAliasEntry name aliasType pointedType = (name,info)
+     where
+          info = ST.SymbolInfo { 
+               ST.category   = ST.Alias,
+               ST.scope      = ST.pervasiveScope,
+               ST.tp         = Nothing,
+               ST.additional = Just $ ST.AliasMD aliasType pointedType
+          }
+
+createFunctionDeclarationEntry :: Tk.Token -> Tk.Token -> ST.Entry
+createFunctionDeclarationEntry id argNumber = (symbol, info)
+    where
+        symbol = Tk.cleanedString id
+        info   = ST.SymbolInfo {
+            ST.category   = ST.Function,
+            ST.scope      = ST.functionScope,
+            ST.tp         = Nothing,
+            ST.additional = Just $ ST.FunctionMD (ST.FunctionInfo {
+                ST.nArgs = read $ Tk.cleanedString argNumber :: Int,
+                ST.fParameters =  [],
+                ST.fReturn = [],
+                ST.discriminant = False
+            })
+        }
+
+
 }
