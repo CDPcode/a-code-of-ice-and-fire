@@ -199,7 +199,7 @@ data AbstractToken =
 {- Instances -}
 
 instance Show Position where
-    show position = "row :" ++ show (row position) ++ 
+    show position = "row: " ++ show (row position) ++ 
                     " column: " ++ show (col position )
 
 instance Show Token where
