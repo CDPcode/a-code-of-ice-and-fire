@@ -14,7 +14,7 @@ data Position = Position {
         row :: Int,
         col :: Int
     }
-    deriving (Show, Eq)
+    deriving Eq
 
 data Token = Token 
     { aToken :: AbstractToken
@@ -22,7 +22,9 @@ data Token = Token
     , cleanedString :: String
     , position :: Position
     }
-    deriving (Show, Eq)
+    deriving Eq
+
+
 
 data AbstractToken = 
     -- Program Start
@@ -192,3 +194,15 @@ data AbstractToken =
     -- Comments
     | TknComment
    deriving (Show,Eq)
+
+
+{- Instances -}
+
+instance Show Position where
+    show position = "row :" ++ show (row position) ++ 
+                    " column: " ++ show (col position )
+
+instance Show Token where
+    show token = "-Token " ++ show (aToken token) ++ 
+                 " with contents " ++ show (cleanedString token) ++ 
+                 " at " ++ show (position token)

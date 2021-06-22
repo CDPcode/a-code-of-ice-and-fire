@@ -3,7 +3,11 @@ module Westeros.SouthOfTheWall.PrettyPrint where
 import qualified Data.Map as M (toList) 
 
 import Westeros.SouthOfTheWall.Symtable ( SymbolTable(dict, scopeStack, nextScope), SymbolInfo(category, scope, additional) )
+import Westeros.SouthOfTheWall.Tokens (Token(..), Position(..))
 import Data.List (intercalate)
+
+
+{- Pretty printing for ST -}
 
 instance Show SymbolInfo where
     show = prettySymbolInfo 1
@@ -22,4 +26,4 @@ instance Show SymbolTable where
         where
             displayDict  = foldl (\acc (b,c) -> acc ++ b ++ '\n' : splitInfo c) [] $ M.toList (dict st)
             splitInfo = intercalate bar . map show
-            bar = "\n-------------------\n"
+            bar = "\t\n-------------------\n"
