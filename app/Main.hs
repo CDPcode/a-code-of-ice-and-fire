@@ -4,7 +4,7 @@ import Westeros.SouthOfTheWall.AST          (prettyPrintProgram)
 import Westeros.SouthOfTheWall.Lexer        (scanTokens)
 import Westeros.SouthOfTheWall.Parser       (parse)
 import Westeros.SouthOfTheWall.PreParser    (preParse)
-import Westeros.SouthOfTheWall.PrettyPrint (prettyToken)
+import Westeros.SouthOfTheWall.PrettyPrint (prettyToken, prettyST)
 
 import qualified Westeros.SouthOfTheWall.Symtable as ST
 
@@ -35,7 +35,7 @@ testPreParser = do
     unless (null errors) (mapM_ print errors)
     (_, preSymbolTable, errs) <- runRWST (preParse tokens) () ST.initialST
     if null errs
-        then print preSymbolTable
+        then prettyST preSymbolTable -- print preSymbolTable
         else mapM_ putStrLn errs
 
 testParser :: IO ()
@@ -50,7 +50,7 @@ testParser = do
             if null errs'
                 then do
                     prettyPrintProgram ast
-                    print finalSt
+                    prettyST finalSt
             else mapM_ putStrLn errs'
         else mapM_ putStrLn errs
 

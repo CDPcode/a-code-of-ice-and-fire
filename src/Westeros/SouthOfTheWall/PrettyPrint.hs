@@ -3,7 +3,7 @@
 module Westeros.SouthOfTheWall.PrettyPrint where
 
 import Data.Function ((&))
-import Data.List (intercalate)
+import Data.List (intercalate, intersperse)
 import Data.Text (pack)
 import Rainbow
     ( fore,
@@ -31,7 +31,6 @@ prettyToken :: Token -> IO ()
 prettyToken tk = BS.putStrLn (BS.concat tkBs)
     where tkBs = chunksToByteStrings toByteStringsColors256 (tokenChunks tk)
 
-
 tokenChunks :: Token -> [Chunk]
 tokenChunks token = [ chunk "-Token "
                     , chunkFromStr (show $ aToken token) & fore green
@@ -46,30 +45,29 @@ tokenChunks token = [ chunk "-Token "
 
 {- Pretty printing for ST -}
 
-instance Show SymbolInfo where
-    show = prettySymbolInfo
+prettyST :: SymbolTable -> IO ()
+prettyST symT = BS.putStrLn (BS.concat tkBs)
+    where tkBs = chunksToByteStrings toByteStringsColors256 (symTableChunk symT)
 
-prettySymbolInfo :: SymbolInfo -> String
-prettySymbolInfo si = "\tCategory: " ++ show (category si) ++ "\n"
-                     ++ "\tScope : " ++ show ( scope si )  ++ "\n"
+symTableChunk :: SymbolTable -> [Chunk]
+symTableChunk symT = chunk "* Name info\n" 
+                     : concatMap foo asList 
+                     ++ [ chunkFromStr ("\n* Scope stack :" ++ show (scopeStack symT)
+                          ++ "\n* Next Scope " ++ show (nextScope symT) )
+                        ]
+    where 
+        asList = M.toList (dict symT)
+        foo (a,b) = (chunkFromStr ('\n':a) & fore green) : preProcess b :: [Chunk]
+            where  -- OJO
+                preProcess = intercalate [chunkFromStr bar] . map symbolInfoChunk 
+                bar = "\n\t-------------------"
+
 
 symbolInfoChunk :: SymbolInfo -> [Chunk]
-symbolInfoChunk si = [ chunk "\tCategory: " 
+symbolInfoChunk si = [ chunk "\n\tCategory: " 
                      , chunkFromStr (show (category si)) & fore blue
-                     , chunk "\n\tScope: "
-                     , chunkFromStr (show (scope si) ) & fore red 
+                     , chunkFromStr $ "\n\tScope: " ++ show (scope si)
                      ]
-
-instance Show SymbolTable where
-    show st = "* Name info\n" ++ displayDict
-              ++ "* Scope stack: " ++ show (scopeStack st)
-              ++ "\n* Next scope: " ++ show (nextScope st)
-        where
-            displayDict  = foldl (\acc (b,c) -> acc ++ b ++ '\n' : splitInfo c) [] $ M.toList (dict st)
-            splitInfo = intercalate bar . map show
-            bar = "\t\n-------------------\n"
-
-const = 252
 
 {-
 :set -XOverloadedStrings
