@@ -24,6 +24,9 @@ dependencies:
 - array # cccsar
 - containers
 - mtl
+- rainbow 
+- bytestring
+- text
 
 library:
   source-dirs: src
