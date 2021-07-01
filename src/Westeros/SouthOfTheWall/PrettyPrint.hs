@@ -15,21 +15,34 @@ import Rainbow
       chunk,
       Chunk )
 
-import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Lazy.Char8 as BS
 import qualified Data.Map as M (toList) 
 
 import Westeros.SouthOfTheWall.Symtable ( SymbolTable(dict, scopeStack, nextScope), SymbolInfo(category, scope, additional) )
 import Westeros.SouthOfTheWall.Tokens (Token(..), Position(..))
 
 
+-- ^ Interface for pretty things
+class Pretty a where
+    pretty :: a -> IO ()
+
+-- ^ Get a lazy bytestring from a chunk generator 
+--      Chunk generator == output of colored formatted text
+chunksToLazyBS :: (a -> [Chunk]) -> a -> BS.ByteString
+chunksToLazyBS chunker source = printable
+    where 
+        printable = BS.concat $ map BS.fromStrict strict           
+        strict    = chunksToByteStrings toByteStringsColors256 (chunker source)
+
+-- ^ Eases producing chunks from things other than text
 chunkFromStr :: String -> Chunk 
 chunkFromStr = chunk . pack
 
+
 {- Pretty printing for Tokens -}
 
-prettyToken :: Token -> IO ()
-prettyToken tk = BS.putStrLn (BS.concat tkBs)
-    where tkBs = chunksToByteStrings toByteStringsColors256 (tokenChunks tk)
+instance Pretty Token where
+    pretty = BS.putStrLn . chunksToLazyBS tokenChunks 
 
 tokenChunks :: Token -> [Chunk]
 tokenChunks token = [ chunk "-Token "
@@ -45,9 +58,9 @@ tokenChunks token = [ chunk "-Token "
 
 {- Pretty printing for ST -}
 
-prettyST :: SymbolTable -> IO ()
-prettyST symT = BS.putStrLn (BS.concat tkBs)
-    where tkBs = chunksToByteStrings toByteStringsColors256 (symTableChunk symT)
+instance Pretty SymbolTable where
+    pretty = BS.putStrLn . chunksToLazyBS symTableChunk 
+
 
 symTableChunk :: SymbolTable -> [Chunk]
 symTableChunk symT = chunk "* Name info\n" 
@@ -68,6 +81,7 @@ symbolInfoChunk si = [ chunk "\n\tCategory: "
                      , chunkFromStr (show (category si)) & fore blue
                      , chunkFromStr $ "\n\tScope: " ++ show (scope si)
                      ]
+
 
 {-
 :set -XOverloadedStrings
