@@ -30,6 +30,7 @@ class Pretty a where
 
 -- ^ Get a lazy bytestring from a chunk generator 
 --      Chunk generator == output of colored formatted text
+-- OJO: possible bottleneck
 chunksToLazyBS :: (a -> [Chunk]) -> a -> BS.ByteString
 chunksToLazyBS chunker source = printable
     where 
@@ -73,7 +74,7 @@ symTableChunk symT = chunk "* Name info\n"
     where 
         asList = M.toList (dict symT)
         foo (a,b) = (chunkFromStr ('\n':a) & fore green) : preProcess b :: [Chunk]
-            where  -- OJO
+            where  -- OJO: possible bottleneck
                 preProcess = intercalate [chunkFromStr bar] . map symbolInfoChunk 
                 bar = "\n\t-------------------"
 
@@ -100,11 +101,24 @@ instance Pretty ParserError where
     pretty (FRepeatedDefinitions fName) = undefined
     -- ^ ST.insertError ("Function \"" ++ functionId ++ "\" was already defined") -- FRepeatedDefinitions _
 
+    
+    pretty (UndefinedFunction name parameters) = undefined
+    -- ^ "error: undefined function " ++ name ++ "with " ++ (show params) ++ " parameters."
+    pretty (RedeclaredParemeter parName position) = undefined
+    -- ^Error: redeclared parameter " ++ name ++ " at position " ++ show (Tk.position $2)
+    pretty (RedeclaredName name position) = undefined
+    -- "Error: redeclared name " ++ name ++ " at position " ++ show (Tk.position $2)
+    pretty (UndefinedVar name position) = undefined
+    -- "Error: undefined variable " ++ name ++ " at postition " ++ show pos
+    pretty (InvalidVar category unexpectedSym position) = undefined
+    -- "Error: expected variable, found " ++ show c ++ " " ++ name ++ " at position " ++ show pos
+    pretty (RedeclaredVar name position) = undefined
+    -- "Error: redeclared variable " ++ name ++ " at position " ++ show pos
+    pretty (RedeclaredConstant name position) = undefined
+    -- "Error: redeclared constant " ++ name ++ " at position " ++ show pos
+    pretty (ExpectedFunction category name position) = undefined
+    -- "Error: expected function, found " ++ show c ++ " " ++ name ++ " at position " ++ show pos
     -- ^ Parser related
-    pretty DeclaredAndNotDefined = undefined
-    pretty InvalidNargsCalls = undefined
-    pretty SameScopeRedefinition = undefined
-    pretty UndefinedIdentifier  = undefined
 
 {-
 :set -XOverloadedStrings
