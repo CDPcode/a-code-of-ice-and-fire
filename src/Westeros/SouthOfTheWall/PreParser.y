@@ -183,7 +183,7 @@ HEADER : programStart programName                                               
 CONTENTS : beginFuncDec FUNCTION_DECLARATIONS                                                       {}
 
 FUNCTION_DECLARATIONS : item globalDec FUNCTION_NAMES item main                                     {}
-
+ 
 FUNCTION_NAMES :: { () }
      : {- empty -}                                                                                  { () }
      | FUNCTION_NAMES item id argNumber                                                             {% do -- ST.statefullSTupdate (ST.getFunctionDeclarationInfo $3 $4)
@@ -204,7 +204,8 @@ FUNCTION_NAMES :: { () }
                                                                                                                if currentArgs `notElem` functionsArgs then
                                                                                                                   put $ ST.insertST ( symT { ST.nextScope = succ (ST.nextScope symT) } ) entry
                                                                                                                else let errMsg = "A function with the same name \""++name++"\" and # of arguments was already declared"
-                                                                                                                    in ST.insertError errMsg
+                                                                                                               -- FRepeatedDeclarations 
+                                                                                                                    in ST.insertError errMsg 
 
                                                                                                      
                                                                                                     }
@@ -233,30 +234,33 @@ FUNCTION :: { () }
                                                                                                          if (ST.checkExisting symT functionId) then do
 
                                                                                                               -- match found
-                                                                                                              let entries         = fromJust $ ST.findSymbol symT functionId            -- bring all definitions for functionId name
-                                                                                                                  actualFunctions = filter (\e-> ST.category e == ST.Function ) entries -- filter those defined as functions
+                                                                                                              let entries         = fromJust $ ST.findSymbol symT functionId            
+                                                                                                                  actualFunctions = filter (\e-> ST.category e == ST.Function) entries 
+                                                                                                                  -- ^ Bring all definitions for functionId name
+                                                                                                                  -- ^ Filter those defined as functions
 
-                                                                                                                  check fEntry = (not $ ST.discriminant (ST.getFunctionMD fEntry)) && ST.nArgs (ST.getFunctionMD fEntry) == length $2
-                                                                                                                  matching     = find check actualFunctions
+                                                                                                                  notAlreadyDefined fEntry = not $ ST.discriminant (ST.getFunctionMD fEntry)
+                                                                                                                  sameNArgs fEntry         = ST.nArgs (ST.getFunctionMD fEntry) == length $2
+                                                                                                                  -- ^ Choose the function entry that matches the requirements:
+                                                                                                                  --    + is a Function that hasn't been validated (.i.e: discriminant is false)
+                                                                                                                  --    + is a Function with the same number of arguments
 
-                                                                                                              -- choose the function entry that matches the requirements:
-                                                                                                              --    + is a Function that hasn't been validated (.i.e: discriminant is false)
-                                                                                                              --    + is a Function with the same number of arguments
+                                                                                                              case (filter notAlreadyDefined actualFunctions) of 
+                                                                                                                   [] -> ST.insertError ("Function \"" ++ functionId ++ "\" was already defined") -- FRepeatedDefinitions 
+                                                                                                                   xs -> case find sameNArgs xs of
+                                                                                                                        Nothing -> ST.insertError ("No function \"" ++ functionId ++ "\" with "++ show (length $2) ++ " arguments was declared") -- InvalidNArgsDef 
+                                                                                                                        Just e  -> do
+                                                                                                                                                      
+                                                                                                                             let newAdditional = (ST.getFunctionMD e) { ST.discriminant = True, ST.fParameters = $2 , ST.fReturn = $3 }
+                                                                                                                                 newSymT = ST.searchAndReplaceSymbol symT (functionId,e) $ (e { ST.additional = Just (ST.FunctionMD newAdditional) })
 
-                                                                                                              case matching of
-                                                                                                                   Nothing -> ST.insertError ("No function \"" ++ functionId ++ "\" with "++ show (length $2) ++ " arguments was declared")
-                                                                                                                   Just e  -> do
-
-                                                                                                                        let newAdditional = (ST.getFunctionMD e) { ST.discriminant = True, ST.fParameters = $2 , ST.fReturn = $3 }
-                                                                                                                            newSymT = ST.searchAndReplaceSymbol symT (functionId,e) (e { ST.additional = Just (ST.FunctionMD newAdditional) })
-
-                                                                                                                        put newSymT
+                                                                                                                             put newSymT
                                                                                                          else  do
 
                                                                                                               let msg = "Function "++functionId++" defined, but not declared"
                                                                                                               -- name not in table
-
-                                                                                                              ST.insertError msg
+                                                                                                              -- FDefinitionWithoutDeclaration  
+                                                                                                              ST.insertError msg 
                                                                                                     }
 
 
@@ -361,7 +365,8 @@ ALIAS_DECLARATION :: { () }
                                                                                                     case ST.findSymbol symT name of
                                                                                                          Nothing -> put $ ST.insertST symT (createAliasEntry name $3 $4)
                                                                                                          Just _  -> let errMsg = "The name \""++name++"\" is an existing symbol"
-                                                                                                                    in ST.insertError errMsg
+                                                                                                         -- AliasFunctionNameConflict  
+                                                                                                                    in ST.insertError errMsg 
  
                                                                                                     }
 
@@ -502,6 +507,5 @@ createFunctionDeclarationEntry id argNumber = (symbol, info)
                 ST.discriminant = False
             })
         }
-
 
 }

@@ -20,6 +20,8 @@ import qualified Data.Map as M (toList)
 
 import Westeros.SouthOfTheWall.Symtable ( SymbolTable(dict, scopeStack, nextScope), SymbolInfo(category, scope, additional) )
 import Westeros.SouthOfTheWall.Tokens (Token(..), Position(..))
+import Westeros.SouthOfTheWall.Error (ParserError(..))
+
 
 
 -- ^ Interface for pretty things
@@ -82,6 +84,27 @@ symbolInfoChunk si = [ chunk "\n\tCategory: "
                      , chunkFromStr $ "\n\tScope: " ++ show (scope si)
                      ]
 
+
+{- Pretty printing for errors -}
+
+instance Pretty ParserError where
+    -- ^ PreParser related
+    pretty (FRepeatedDeclarations fName) = undefined
+    -- ^ "A function with the same name \""++name++"\" and # of arguments was already declared"
+    pretty (InvalidNArgsDef fName nArgs) = undefined
+    -- ^ ("No function \"" ++ functionId ++ "\" with "++ show (length $2) ++ " arguments was declared") -- InvalidNArgsDef _ _
+    pretty (FDefinitionWithoutDeclaration fName) = undefined
+    -- ^ "Function "++functionId++" defined, but not declared"
+    pretty (RepeatedAliasName aName) = undefined
+    -- ^ "The name \""++name++"\" is an existing symbol"
+    pretty (FRepeatedDefinitions fName) = undefined
+    -- ^ ST.insertError ("Function \"" ++ functionId ++ "\" was already defined") -- FRepeatedDefinitions _
+
+    -- ^ Parser related
+    pretty DeclaredAndNotDefined = undefined
+    pretty InvalidNargsCalls = undefined
+    pretty SameScopeRedefinition = undefined
+    pretty UndefinedIdentifier  = undefined
 
 {-
 :set -XOverloadedStrings
