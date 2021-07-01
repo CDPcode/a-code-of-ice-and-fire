@@ -1,10 +1,14 @@
 {
 module Westeros.SouthOfTheWall.Parser (parse) where
-import qualified Westeros.SouthOfTheWall.Tokens as Tk
+
 import qualified Westeros.SouthOfTheWall.AST as Ast
+import qualified Westeros.SouthOfTheWall.Error as Err
+import qualified Westeros.SouthOfTheWall.Tokens as Tk
 import qualified Westeros.SouthOfTheWall.Symtable as ST
+
 import Data.Maybe (fromJust)
 import Control.Monad.RWS ( MonadState(put, get), RWST, when )
+
 }
 
 %name                 parse
@@ -187,12 +191,14 @@ FUNCTION_NAMES :: { Ast.FunctionNames }
     | FUNCTION_NAMES item id argNumber                                                              {% do
                                                                                                         let name = Tk.cleanedString $3
                                                                                                         let params = read (Tk.cleanedString $4) :: Int
+                                                                                                        let pos = Tk.position $3
+                                                                                                        
                                                                                                         function <- ST.lookupFunction name params
                                                                                                         case function of
-                                                                                                            Nothing -> ST.insertError $ "error: undefined function " ++ name ++ "with " ++ (show params) ++ " parameters."
+                                                                                                            Nothing -> ST.insertError $ Err.PE (Err.UndefinedFunction name pos) 
                                                                                                             Just info -> case ST.discriminant $ ST.getFunctionMD info of
                                                                                                                 True -> return ()
-                                                                                                                False -> ST.insertError $ "error: undefined function " ++ name ++ "with " ++ (show params) ++ " parameters."
+                                                                                                                False -> ST.insertError $ Err.PE (Err.UndefinedFunction name pos)
                                                                                                         return $ (name, params) : $1 }
 
 GLOBAL :: { [Ast.Declaration] }
@@ -233,6 +239,7 @@ PARAMETER :: { Ast.Parameter }
                                                                                                         sc <- ST.currentScope
                                                                                                         let name = Tk.cleanedString $2
                                                                                                         let entry = createParamEntry name sc $4 $1
+                                                                                                        let pos = Tk.position $2
                                                                                                         symT <- get
                                                                                                         mInfo <- ST.lookup name
                                                                                                         case mInfo of
@@ -240,7 +247,7 @@ PARAMETER :: { Ast.Parameter }
                                                                                                             Just info ->
                                                                                                                 if ST.scope info /= sc && ST.category info /= ST.Function && ST.category info /= ST.Alias
                                                                                                                     then put $ ST.insertST symT entry
-                                                                                                                    else ST.insertError $ "Error: redeclared parameter " ++ name ++ " at position " ++ show (Tk.position $2)
+                                                                                                                    else ST.insertError $ Err.PE (Err.RedeclaredParameter name pos)
 
                                                                                                         return $ Ast.Parameter $1 (Tk.cleanedString $2) $4
                                                                                                     }
@@ -380,16 +387,21 @@ FOR :: { Ast.Instruction }
 FOR_DEC :: { (Ast.Id, Ast.Expression, Ast.Expression) }
     : for id type int '.' forLB EXPR forUB EXPR '.'                                                {% do
                                                                                                         sc <- ST.currentScope
-                                                                                                        let name = Tk.cleanedString $2
-                                                                                                        let entry = createConstEntry name sc Ast.IntT
-                                                                                                        symT <- get
+
+                                                                                                        let name  = Tk.cleanedString $2
+                                                                                                            entry = createConstEntry name sc Ast.IntT
+                                                                                                            pos   = Tk.position $2
+
+                                                                                                        symT  <- get
                                                                                                         mInfo <- ST.lookup name
+
                                                                                                         case mInfo of
                                                                                                             Nothing -> put $ ST.insertST symT entry
                                                                                                             Just info ->
                                                                                                                 if ST.scope info /= sc && ST.category info /= ST.Function && ST.category info /= ST.Alias
                                                                                                                     then put $ ST.insertST symT entry
-                                                                                                                    else ST.insertError $ "Error: redeclared name " ++ name ++ " at position " ++ show (Tk.position $2)
+                                                                                                                    else ST.insertError $ Err.PE (Err.RedeclaredName name pos)
+
                                                                                                         return (name, $7, $9)
                                                                                                     }
 
@@ -434,17 +446,19 @@ EXPR :: { Ast.Expression }
     | null                                                                                          { createExpression $1 $ Ast.NullLit }
     | id                                                                                            {% do
                                                                                                         let name = Tk.cleanedString $1
-                                                                                                        let pos = Tk.position $1
+                                                                                                            pos  = Tk.position $1
+                                                                                                            
                                                                                                         symT <- get
                                                                                                         mInfo <- ST.lookup name
+
                                                                                                         case mInfo of
-                                                                                                            Nothing -> ST.insertError $ "Error: undefined variable " ++ name ++ " at postition " ++ show pos
+                                                                                                            Nothing -> ST.insertError $ Err.PE (Err.UndefinedVar name pos)
                                                                                                             Just info ->
                                                                                                                 case ST.category info of
-                                                                                                                    ST.Constant -> return ()
-                                                                                                                    ST.Variable -> return ()
+                                                                                                                    ST.Constant  -> return ()
+                                                                                                                    ST.Variable  -> return ()
                                                                                                                     ST.Parameter -> return ()
-                                                                                                                    c -> ST.insertError $ "Error: expected variable, found " ++ show c ++ " " ++ name ++ " at position " ++ show pos
+                                                                                                                    c -> ST.insertError $ Err.PE (Err.InvalidVar (show c) name pos)
                                                                                                         return $ createExpression $1 $ Ast.IdExpr $ Tk.cleanedString $1
                                                                                                     }
 
@@ -521,16 +535,18 @@ maybeInsertVar :: Tk.Token -> Ast.Type -> Maybe [Ast.Expression] -> ST.MonadPars
 maybeInsertVar tk tp mSizes = do
     sc <- ST.currentScope
     let name = Tk.cleanedString tk
-    let pos = Tk.position tk
-    let entry = createVarEntry name sc tp
-    symT <- get
+        pos = Tk.position tk
+        entry = createVarEntry name sc tp
+
+    symT  <- get
     mInfo <- ST.lookup name
+
     case mInfo of
         Nothing -> put $ ST.insertST symT entry
         Just info ->
             if ST.scope info /= sc && ST.category info /= ST.Function && ST.category info /= ST.Alias
                 then put $ ST.insertST symT entry
-                else ST.insertError $ "Error: redeclared variable " ++ name ++ " at position " ++ show pos
+                else ST.insertError $ Err.PE (Err.RedeclaredVar name pos)
     case mSizes of
         Nothing -> return $ Ast.SimpleVarDeclaration name tp
         Just sz -> return $ Ast.ArrayVarDeclaration name tp sz
@@ -538,31 +554,35 @@ maybeInsertVar tk tp mSizes = do
 maybeInsertConst :: Tk.Token -> Ast.Type -> Ast.Expression -> ST.MonadParser Ast.Declaration
 maybeInsertConst tk tp expr = do
     sc <- ST.currentScope
-    let name = Tk.cleanedString tk
-    let pos = Tk.position tk
-    let entry = createConstEntry name sc tp
-    symT <- get
+    let name  = Tk.cleanedString tk
+        pos   = Tk.position tk
+        entry = createConstEntry name sc tp
+
+    symT  <- get
     mInfo <- ST.lookup name
+
     case mInfo of
         Nothing -> put $ ST.insertST symT entry
         Just info ->
             if ST.scope info /= sc && ST.category info /= ST.Function && ST.category info /= ST.Alias
                 then put $ ST.insertST symT entry
-                else ST.insertError $ "Error: redeclared constant " ++ name ++ " at position " ++ show pos
+                else ST.insertError $ Err.PE (Err.RedeclaredConstant name pos)
     return $ Ast.ConstantDeclaration name tp expr
 
 
 checkFunctionCall :: Tk.Token -> Tk.Token -> [Ast.Expression] -> ST.MonadParser Ast.Expression
 checkFunctionCall tkPar tkId exprs = do
-    let name = Tk.cleanedString tkId
-    let pos = Tk.position tkId
-    let params = length exprs
+    let name   = Tk.cleanedString tkId
+        pos    = Tk.position tkId
+        params = length exprs
+
     mInfo <- ST.lookupFunction name params
+
     case mInfo of
-        Nothing -> ST.insertError $ "Error: undefined function " ++ name ++ " at postition " ++ show pos
+        Nothing -> ST.insertError $ Err.PE (Err.UndefinedFunction name pos)
         Just info ->
             case ST.category info of
                 ST.Function -> return ()
-                c -> ST.insertError $ "Error: expected function, found " ++ show c ++ " " ++ name ++ " at position " ++ show pos
+                c -> ST.insertError $ Err.PE (Err.ExpectedFunction (show c) name pos) 
     return $ createExpression tkPar $ Ast.FuncCall name exprs
 }

@@ -1,5 +1,7 @@
 module Westeros.SouthOfTheWall.Symtable where
 
+import qualified Westeros.SouthOfTheWall.Error as Err
+
 import qualified Westeros.SouthOfTheWall.Tokens as Tk
 import qualified Westeros.SouthOfTheWall.AST as Ast ( ParamType, AliasType, Type, Parameter )
 import qualified Data.Map.Strict as M
@@ -17,7 +19,7 @@ data PassType = Value | Reference deriving (Show,Eq)
 
 type Dict = M.Map Symbol [SymbolInfo]
 
-type MonadParser = RWST () [String] SymbolTable IO
+type MonadParser = RWST () [Err.Error] SymbolTable IO
 
 data Category 
     = Alias
@@ -148,7 +150,7 @@ currentScope = do
     SymbolTable { scopeStack = (s:_)} <- get
     return s
 
-insertError :: String -> MonadParser ()
+insertError :: Err.Error -> MonadParser ()
 insertError msg = tell [msg]
 
 

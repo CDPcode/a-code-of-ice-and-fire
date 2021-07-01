@@ -31,12 +31,12 @@ testLexer = do
 testPreParser :: IO ()
 testPreParser = do
     str <- getContents
-    let(errors, tokens) = scanTokens str
+    let (errors, tokens) = scanTokens str
     unless (null errors) (mapM_ print errors)
     (_, preSymbolTable, errs) <- runRWST (preParse tokens) () ST.initialST
     if null errs
-        then pretty preSymbolTable -- print preSymbolTable
-        else mapM_ putStrLn errs
+        then pretty preSymbolTable
+        else mapM_ pretty errs
 
 testParser :: IO ()
 testParser = do
@@ -51,6 +51,6 @@ testParser = do
                 then do
                     prettyPrintProgram ast
                     pretty finalSt
-            else mapM_ putStrLn errs'
-        else mapM_ putStrLn errs
+            else mapM_ pretty errs'
+        else mapM_ pretty errs
 

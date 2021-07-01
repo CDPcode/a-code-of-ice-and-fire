@@ -1,10 +1,10 @@
 {
 module Westeros.SouthOfTheWall.PreParser (preParse) where
 
+import qualified Westeros.SouthOfTheWall.AST as Ast
+import qualified Westeros.SouthOfTheWall.Error as Err
 import qualified Westeros.SouthOfTheWall.Symtable as ST
 import qualified Westeros.SouthOfTheWall.Tokens as Tk
-import qualified Westeros.SouthOfTheWall.Error as Err
-import qualified Westeros.SouthOfTheWall.AST as Ast
 
 import Control.Monad.RWS
 import Data.List (find)
@@ -203,9 +203,7 @@ FUNCTION_NAMES :: { () }
                                                                                      
                                                                                                                if currentArgs `notElem` functionsArgs then
                                                                                                                   put $ ST.insertST ( symT { ST.nextScope = succ (ST.nextScope symT) } ) entry
-                                                                                                               else let errMsg = "A function with the same name \""++name++"\" and # of arguments was already declared"
-                                                                                                               -- FRepeatedDeclarations 
-                                                                                                                    in ST.insertError errMsg 
+                                                                                                               else ST.insertError $ Err.PE (Err.FRepeatedDeclarations name (Tk.position $3)) 
 
                                                                                                      
                                                                                                     }
@@ -246,21 +244,16 @@ FUNCTION :: { () }
                                                                                                                   --    + is a Function with the same number of arguments
 
                                                                                                               case (filter notAlreadyDefined actualFunctions) of 
-                                                                                                                   [] -> ST.insertError ("Function \"" ++ functionId ++ "\" was already defined") -- FRepeatedDefinitions 
+                                                                                                                   [] -> ST.insertError $ Err.PE (Err.FRepeatedDefinitions functionId (Tk.position $1)) 
                                                                                                                    xs -> case find sameNArgs xs of
-                                                                                                                        Nothing -> ST.insertError ("No function \"" ++ functionId ++ "\" with "++ show (length $2) ++ " arguments was declared") -- InvalidNArgsDef 
+                                                                                                                        Nothing -> ST.insertError $ Err.PE (Err.InvalidNArgsDef functionId (length $2) (Tk.position $1) )
                                                                                                                         Just e  -> do
                                                                                                                                                       
                                                                                                                              let newAdditional = (ST.getFunctionMD e) { ST.discriminant = True, ST.fParameters = $2 , ST.fReturn = $3 }
                                                                                                                                  newSymT = ST.searchAndReplaceSymbol symT (functionId,e) $ (e { ST.additional = Just (ST.FunctionMD newAdditional) })
 
                                                                                                                              put newSymT
-                                                                                                         else  do
-
-                                                                                                              let msg = "Function "++functionId++" defined, but not declared"
-                                                                                                              -- name not in table
-                                                                                                              -- FDefinitionWithoutDeclaration  
-                                                                                                              ST.insertError msg 
+                                                                                                         else ST.insertError $ Err.PE (Err.FDefinitionWithoutDeclaration functionId (Tk.position $1))
                                                                                                     }
 
 
@@ -364,9 +357,7 @@ ALIAS_DECLARATION :: { () }
 
                                                                                                     case ST.findSymbol symT name of
                                                                                                          Nothing -> put $ ST.insertST symT (createAliasEntry name $3 $4)
-                                                                                                         Just _  -> let errMsg = "The name \""++name++"\" is an existing symbol"
-                                                                                                         -- AliasFunctionNameConflict  
-                                                                                                                    in ST.insertError errMsg 
+                                                                                                         Just _  -> ST.insertError $ Err.PE (Err.RepeatedAliasName name (Tk.position $2))
  
                                                                                                     }
 

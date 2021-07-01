@@ -8,15 +8,15 @@ data Error
 
 -- ^ Sorted in occurrence order
 data ParserError
-    = FRepeatedDeclarations String
-    | InvalidNArgsDef String Int
-    | FDefinitionWithoutDeclaration String
-    | RepeatedAliasName String 
-    | FRepeatedDefinitions String     
+    = FRepeatedDeclarations String Tk.Position
+    | FRepeatedDefinitions String Tk.Position
+    | InvalidNArgsDef String Int Tk.Position
+    | FDefinitionWithoutDeclaration String Tk.Position
+    | RepeatedAliasName String Tk.Position
     -- ^ Preparser related
 
-    | UndefinedFunction String String
-    | RedeclaredParemeter String Tk.Position
+    | UndefinedFunction String Tk.Position
+    | RedeclaredParameter String Tk.Position
     | RedeclaredName String Tk.Position
     | UndefinedVar String Tk.Position
     | InvalidVar String String Tk.Position

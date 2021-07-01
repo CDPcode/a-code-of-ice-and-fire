@@ -8,6 +8,8 @@ import Data.Text (pack)
 import Rainbow
     ( fore,
       blue,
+      brightBlue,
+      brightRed,
       green,
       red,
       chunksToByteStrings,
@@ -20,7 +22,7 @@ import qualified Data.Map as M (toList)
 
 import Westeros.SouthOfTheWall.Symtable ( SymbolTable(dict, scopeStack, nextScope), SymbolInfo(category, scope, additional) )
 import Westeros.SouthOfTheWall.Tokens (Token(..), Position(..))
-import Westeros.SouthOfTheWall.Error (ParserError(..))
+import Westeros.SouthOfTheWall.Error 
 
 
 
@@ -50,13 +52,8 @@ instance Pretty Token where
 tokenChunks :: Token -> [Chunk]
 tokenChunks token = [ chunk "-Token "
                     , chunkFromStr (show $ aToken token) & fore green
-                    , chunkFromStr $ "\n\tContents " 
-                        ++ show (cleanedString  token) 
-                        ++ "\n\tAt row: "
-                    , chunkFromStr (show $ row $ position token) & fore red
-                    , chunk " column: "
-                    , chunkFromStr (show $ col $ position token) & fore red
-                    ]
+                    , chunkFromStr $ "\n\tContents " ++ show (cleanedString  token) 
+                    ] ++ positionChunks (position token)
 
 
 {- Pretty printing for ST -}
@@ -85,40 +82,105 @@ symbolInfoChunk si = [ chunk "\n\tCategory: "
                      , chunkFromStr $ "\n\tScope: " ++ show (scope si)
                      ]
 
+{- Pretty printing for generic errors -}
 
-{- Pretty printing for errors -}
+instance Pretty Error where
+    pretty (PE parserError) = pretty parserError
+    pretty (TE typeError)   = pretty typeError
+    
+
+{- Pretty printing for parse errors -}
 
 instance Pretty ParserError where
-    -- ^ PreParser related
-    pretty (FRepeatedDeclarations fName) = undefined
-    -- ^ "A function with the same name \""++name++"\" and # of arguments was already declared"
-    pretty (InvalidNArgsDef fName nArgs) = undefined
-    -- ^ ("No function \"" ++ functionId ++ "\" with "++ show (length $2) ++ " arguments was declared") -- InvalidNArgsDef _ _
-    pretty (FDefinitionWithoutDeclaration fName) = undefined
-    -- ^ "Function "++functionId++" defined, but not declared"
-    pretty (RepeatedAliasName aName) = undefined
-    -- ^ "The name \""++name++"\" is an existing symbol"
-    pretty (FRepeatedDefinitions fName) = undefined
-    -- ^ ST.insertError ("Function \"" ++ functionId ++ "\" was already defined") -- FRepeatedDefinitions _
+    pretty pe =  BS.putStrLn . chunksToLazyBS 
+                    ( (parseErrorHead :) . errorChunks ) $ pe
 
-    
-    pretty (UndefinedFunction name parameters) = undefined
-    -- ^ "error: undefined function " ++ name ++ "with " ++ (show params) ++ " parameters."
-    pretty (RedeclaredParemeter parName position) = undefined
-    -- ^Error: redeclared parameter " ++ name ++ " at position " ++ show (Tk.position $2)
-    pretty (RedeclaredName name position) = undefined
-    -- "Error: redeclared name " ++ name ++ " at position " ++ show (Tk.position $2)
-    pretty (UndefinedVar name position) = undefined
-    -- "Error: undefined variable " ++ name ++ " at postition " ++ show pos
-    pretty (InvalidVar category unexpectedSym position) = undefined
-    -- "Error: expected variable, found " ++ show c ++ " " ++ name ++ " at position " ++ show pos
-    pretty (RedeclaredVar name position) = undefined
-    -- "Error: redeclared variable " ++ name ++ " at position " ++ show pos
-    pretty (RedeclaredConstant name position) = undefined
-    -- "Error: redeclared constant " ++ name ++ " at position " ++ show pos
-    pretty (ExpectedFunction category name position) = undefined
-    -- "Error: expected function, found " ++ show c ++ " " ++ name ++ " at position " ++ show pos
-    -- ^ Parser related
+
+errorChunks :: ParserError -> [Chunk]
+errorChunks (FRepeatedDeclarations fName pos) = 
+    [ chunk "Redeclared function "
+    , chunkFromStr fName & fore brightBlue
+    , chunk "."
+    ] ++ positionChunks pos
+errorChunks (FRepeatedDefinitions fName pos) = 
+    [ chunk "Redefined function "
+    , chunkFromStr fName 
+    , chunk "."
+    ] ++ positionChunks pos
+errorChunks (InvalidNArgsDef fName nArgs pos) = 
+    [ chunk "Undeclared function "
+    , chunkFromStr fName & fore brightBlue
+    , chunkFromStr (" with " ++ show nArgs ++ " parameters.") 
+    ] ++ positionChunks pos
+errorChunks (FDefinitionWithoutDeclaration fName pos) = 
+    [ chunk "Function "
+    , chunkFromStr fName & fore brightBlue 
+    , chunk " defined, but not declared."
+    ] ++ positionChunks pos
+errorChunks (RepeatedAliasName aName pos) =
+    [ chunk "Redeclared symbol "
+    , chunkFromStr aName & fore brightBlue 
+    , chunk "."
+    ] ++ positionChunks pos
+
+errorChunks (UndefinedFunction fName pos) = 
+    [ chunk "Undefined function "
+    , chunkFromStr fName & fore brightBlue 
+    , chunk "."
+    ]  ++ positionChunks pos
+errorChunks (RedeclaredParameter parName pos) = 
+    [ chunk "Redeclared parameter "
+    , chunkFromStr parName & fore brightBlue 
+    , chunk "."
+    ] ++ positionChunks pos
+errorChunks (RedeclaredName name pos) = 
+    [ chunk "Redeclared name: "
+    , chunkFromStr name & fore brightBlue 
+    , chunk "."
+    ] ++ positionChunks pos
+errorChunks (UndefinedVar name pos) = 
+    [ chunk "Undefined variable: "
+    , chunkFromStr name & fore brightBlue 
+    , chunk "."
+    ] ++ positionChunks pos
+errorChunks (InvalidVar category unexpectedSym pos) = 
+    [ chunkFromStr ("Expected variable, found " ++ show category ++ " ") 
+    , chunkFromStr unexpectedSym & fore brightBlue 
+    , chunk "."
+    ] ++ positionChunks pos
+errorChunks (RedeclaredVar name pos) = 
+    [ chunk "Redeclared variable: "
+    , chunkFromStr name & fore brightBlue 
+    , chunk "."
+    ] ++ positionChunks pos
+errorChunks (RedeclaredConstant name pos) = 
+    [ chunk "Redeclared constant: "
+    , chunkFromStr name & fore brightBlue
+    , chunk "."
+    ] ++ positionChunks pos
+errorChunks (ExpectedFunction category name pos) = 
+    [ chunkFromStr ("Expected function, foound " ++ category ++ " ")
+    , chunkFromStr name & fore brightBlue 
+    , chunk "."
+    ]
+
+parseErrorHead :: Chunk
+parseErrorHead = chunk "Parser Error: " & fore red
+
+positionChunks :: Position -> [Chunk]
+positionChunks Position{ row = r , col = c } =
+    [ chunk "\n"
+    , chunk "--> " & fore brightBlue
+    , chunkFromStr (show r) & fore brightRed 
+    , chunk ":"
+    , chunkFromStr (show c) & fore brightRed 
+    ]
+                                        
+
+{- Pretty printing for type errors -}
+
+instance Pretty TypeError where
+    pretty te = undefined
 
 {-
 :set -XOverloadedStrings
