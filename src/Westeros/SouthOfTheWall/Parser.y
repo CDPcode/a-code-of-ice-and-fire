@@ -486,15 +486,16 @@ CLOSE_SCOPE :: { () }
     : {- empty -}                                                                                   {% ST.closeScope }
 
 {
-	-- Helper functions
--- TODO:
--- Error Function
-
-parseError :: [Tk.Token] -> a
-parseError [] = error "Parse error at EOF."
-parseError (tk:_) = error $ "error: parse error with: \"" ++ Tk.cleanedString tk 
+parseError :: [Tk.Token] -> ST.MonadParser a -- OJO
+parseError []     = do ST.insertError $ Err.PE Err.SyntaxErrEOF
+                       fail "Parse error at EOF."
+parseError (tk:_) = do ST.insertError $ Err.PE (Err.SyntaxErr tk)
+                       fail $ "error: parse error with: \"" ++ Tk.cleanedString tk 
                              ++ "\" at position " ++ show (Tk.position tk) 
                              ++ "related to token: " ++ show (Tk.aToken tk)
+
+
+-- ST.insertError $ Err.PE (Err.RedeclaredVar name pos)
 
 createExpression :: Tk.Token -> Ast.Expr -> Ast.Expression
 createExpression tk expr = Ast.Expression { Ast.getToken = tk, Ast.getExpr = expr, Ast.getType = Ast.AliasT "undefined" }

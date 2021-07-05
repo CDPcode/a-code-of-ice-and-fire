@@ -1,6 +1,6 @@
 module Westeros.SouthOfTheWall.Error where
 
-import qualified Westeros.SouthOfTheWall.Tokens as Tk (Position(..))
+import qualified Westeros.SouthOfTheWall.Tokens as Tk (Position(..),Token(..))
 
 data Error 
     = PE ParserError 
@@ -24,7 +24,12 @@ data ParserError
     | RedeclaredConstant String Tk.Position
     | ExpectedFunction String String Tk.Position
     -- ^ Parser related
+
+    | SyntaxErr Tk.Token
+    | SyntaxErrEOF
+    -- ^ parseError :: [Tk.Token] -> a/syntax related
     deriving Show
 
 data TypeError 
-    = Nothing
+    = VoidForNow
+    deriving (Show, Eq)

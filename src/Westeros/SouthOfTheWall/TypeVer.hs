@@ -1,7 +1,86 @@
 module Westeros.SouthOfTheWall.TypeVer where
 
+import qualified Westeros.SouthOfTheWall.AST as AST
+import qualified Westeros.SouthOfTheWall.Error as Err (TypeError(..))
+
+-- Sketch
 
 {-
+data Type
+    = IntT
+    | FloatT
+    | CharT
+    | AtomT
+    | BoolT
+    | StringT
+    | ArrayT    Type Int
+    | StructT   [VariableDeclaration]
+    | UnionT    [VariableDeclaration]
+    | TupleT    [Type]
+    | PointerT  Type
+    | AliasT    Id
+    deriving (Show, Eq)
+
+data VariableDeclaration
+    = SimpleVarDeclaration  Id Type
+    | ArrayVarDeclaration   Id Type [Expression] <- this will have types and we can match them
+    deriving (Show, Eq)
+
+-}
+
+-- This interface will provide type check consistency for their instances.
+--
+-- The propper way to use it is to implement exhaustive instances for everything in
+-- the language susceptible of having a type and then performing type queries when
+-- necessary.
+class Typeable a where 
+    typeQuery :: a -> AST.Type
+
+instance Typeable AST.Expression where
+    typeQuery xd = undefined
+
+{-
+data Expr
+    = IntLit    Int
+    | CharLit   Char
+    | FloatLit  Float
+    | StringLit String
+    | AtomLit   String
+    | TrueLit
+    | FalseLit
+    | NullLit
+    | ArrayLit    [Expression]
+    | TupleLit    [Expression]
+    | FuncCall    Id [Expression]
+    | BinOp       BinOp Expression Expression
+    | UnOp        UnOp Expression
+    | AccesField  Expression Id
+    | ActiveField Expression Id
+    | AccesIndex  Expression [Expression]
+    | TupleIndex  Expression Int
+    | Cast        Expression Type
+    | IdExpr      Id
+    deriving (Show, Eq)
+
+
+-}
+
+{-
+AST.Expression
+AST.Declaration 
+AST.VariableDeclaration 
+
+-}
+
+{-
+
+widu
+    a way to associate a type to anything succeptible of having one
+        Is this whithin the AST or apart from it ?
+            |- if it is do I need a new type for types (the one that will perform the typever)
+        No, you can just use an interface that describe the characteristic of having a type and then
+        implement as instances those part of the three you want to typecheck
+
 Tipos -> Literales -> Expresiones -> Instrucciones -> Funciones
 ------------------------------------------------------------- EXPRESSIONS
 
@@ -66,7 +145,7 @@ EXPRLIST :: { [Ast.Expression] }
 ------------------------------------------------------------- DECLARATION
 
 Parser.y:304
-DECLARATION :: { Ast.Declaration }
+DECLARATION :: { Ast.Declaration } -- # 
     : SIMPLE_DECLARATION '.'                                                 
     | SIMPLE_DECLARATION ':=' EXPR '.'                                       
     | SIMPLE_DECLARATION ':==' EXPR '.'                                      
@@ -76,20 +155,20 @@ SIMPLE_DECLARATIONS :: { [Ast.VariableDeclaration] }
     : SIMPLE_DECLARATION                                                     
     | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION                             
 
-SIMPLE_DECLARATION :: { Ast.VariableDeclaration }
+SIMPLE_DECLARATION :: { Ast.VariableDeclaration } -- #
     : PRIMITIVE_DECLARATION                                                  
     | COMPOSITE_DECLARATION                                                  
 
-PRIMITIVE_DECLARATION :: { Ast.VariableDeclaration }
+PRIMITIVE_DECLARATION :: { Ast.VariableDeclaration } -- #
     : var id type TYPE                                                       
 
-COMPOSITE_DECLARATION :: { Ast.VariableDeclaration }
+COMPOSITE_DECLARATION :: { Ast.VariableDeclaration } -- #
     : beginCompTypeId var id endCompTypeId TYPE                              
     | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz       
     | beginCompTypeId pointerVar id endCompTypeId TYPE                       
     | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz
 
-CONST_DECLARATION :: { Ast.Declaration }
+CONST_DECLARATION :: { Ast.Declaration } -- #
     : const id type TYPE constValue EXPR                                     
     | beginCompTypeId const id endCompTypeId TYPE constValue EXPR            
 
@@ -141,10 +220,10 @@ TUPLE_TYPES :: { [Ast.Type] }
 
 Parser.y:348
 INSTRUCTION :: { Ast.Instruction }
-    : EXPR ':=' EXPR '.'                                                         
-    | EXPRLIST ':==' EXPR '.'                                                    
-    | void ':=' EXPR '.'                                                         
-    | void ':==' EXPR '.'                                                        
+    : EXPR ':=' EXPR '.'                    -- #                                     
+    | EXPRLIST ':==' EXPR '.'               -- #                                  
+    | void ':=' EXPR '.'                    -- # |                                   
+    | void ':==' EXPR '.'                   -- # |                                  
     | pass '.'                                                                   
     | beginExit programName endExit '.'                                          
     | read EXPR '.'                                                              
@@ -155,34 +234,34 @@ INSTRUCTION :: { Ast.Instruction }
     | break '.'                                                                  
     | returnOpen EXPRLIST returnClose                                            
     | returnOpen returnClose                                                     
-    | IF '.'                                                                     
-    | SWITCHCASE '.'                                                             
-    | FOR '.'                                                                    
-    | WHILE '.'                                                                  
-    | DECLARATION                                                                
+    | IF '.'                                -- #
+    | SWITCHCASE '.'                        -- #                                  
+    | FOR '.'                               -- #                                     
+    | WHILE '.'                             -- #                                     
+    | DECLARATION                           -- #                                     
 
-IF :: { Ast.IfInst }
+IF :: { Ast.IfInst }                        -- #
     : if EXPR then CODE_BLOCK endif                                              
     | if EXPR then CODE_BLOCK else CODE_BLOCK endif                              
 
-SWITCHCASE :: { Ast.Instruction }
+SWITCHCASE :: { Ast.Instruction }           -- #
     : switch EXPR switchDec '.' CASES endSwitch                                  
 
-CASES :: { [Ast.Case] }
+CASES :: { [Ast.Case] }                     -- #
     : CASE                                                                       
     | CASES CASE                                                                 
 
-CASE :: { Ast.Case }
+CASE :: { Ast.Case }                        -- #
     : case atomLit '.' CODE_BLOCK                                                
     | case nothing '.' CODE_BLOCK                                                
 
-FOR :: { Ast.Instruction }
+FOR :: { Ast.Instruction }                  -- #
     : OPEN_SCOPE FOR_DEC INSTRUCTIONS endFor CLOSE_SCOPE                         
 
-FOR_DEC :: { (Ast.Id, Ast.Expression, Ast.Expression) }
+FOR_DEC :: { (Ast.Id, Ast.Expression, Ast.Expression) } -- #
     : for id type int '.' forLB EXPR forUB EXPR '.'                              
                                                                                  
-WHILE :: { Ast.Instruction }
+WHILE :: { Ast.Instruction }                -- #
     : while EXPR whileDec CODE_BLOCK endWhile                                    
                                                                                  
 ------------------------------------------------------------- FUNCTIONS
@@ -224,12 +303,10 @@ RETURN_TYPES :: { [Ast.Type]}
     | TYPES                                                                      
 
 Parser.y:465
-FUNCTIONCALL :: { Ast.Expression }
+FUNCTIONCALL :: { Ast.Expression } -- #
     : id '((' procCallArgs EXPRLIST '))'
     | id '((' procCallArgs void '))'    
     | id '(('  '))'                     
-
-
 
 Compound:  .. later
 

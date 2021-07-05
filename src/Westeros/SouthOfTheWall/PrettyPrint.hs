@@ -21,7 +21,7 @@ import qualified Data.ByteString.Lazy.Char8 as BS
 import qualified Data.Map as M (toList) 
 
 import Westeros.SouthOfTheWall.Symtable ( SymbolTable(dict, scopeStack, nextScope), SymbolInfo(category, scope, additional) )
-import Westeros.SouthOfTheWall.Tokens (Token(..), Position(..))
+import qualified Westeros.SouthOfTheWall.Tokens as Tk (Token(..), Position(..)) 
 import Westeros.SouthOfTheWall.Error 
 
 
@@ -46,14 +46,14 @@ chunkFromStr = chunk . pack
 
 {- Pretty printing for Tokens -}
 
-instance Pretty Token where
+instance Pretty Tk.Token where
     pretty = BS.putStrLn . chunksToLazyBS tokenChunks 
 
-tokenChunks :: Token -> [Chunk]
+tokenChunks :: Tk.Token -> [Chunk]
 tokenChunks token = [ chunk "-Token "
-                    , chunkFromStr (show $ aToken token) & fore green
-                    , chunkFromStr $ "\n\tContents " ++ show (cleanedString  token) 
-                    ] ++ positionChunks (position token)
+                    , chunkFromStr (show $ Tk.aToken token) & fore green
+                    , chunkFromStr $ "\n\tContents " ++ show (Tk.cleanedString  token) 
+                    ] ++ positionChunks (Tk.position token)
 
 
 {- Pretty printing for ST -}
@@ -163,12 +163,18 @@ errorChunks (ExpectedFunction category name pos) =
     , chunkFromStr name & fore brightBlue 
     , chunk "."
     ]
+errorChunks (SyntaxErr tk) =
+    [ chunk "Syntax error related to: "
+    , chunkFromStr (show (Tk.aToken tk)) & fore brightBlue 
+    ] ++ positionChunks (Tk.position tk)
+errorChunks SyntaxErrEOF = 
+    [ chunk "Syntax error at End Of File"]
 
 parseErrorHead :: Chunk
 parseErrorHead = chunk "Parser Error: " & fore red
 
-positionChunks :: Position -> [Chunk]
-positionChunks Position{ row = r , col = c } =
+positionChunks :: Tk.Position -> [Chunk]
+positionChunks Tk.Position{ Tk.row = r , Tk.col = c } =
     [ chunk "\n"
     , chunk "--> " & fore brightBlue
     , chunkFromStr (show r) & fore brightRed 

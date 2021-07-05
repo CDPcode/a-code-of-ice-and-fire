@@ -3,6 +3,7 @@ module Westeros.SouthOfTheWall.AST where
 import Control.Monad        (replicateM_)
 
 import Westeros.SouthOfTheWall.Tokens as Tk
+import Westeros.SouthOfTheWall.Error as Err (TypeError(..))
 
 -- AST
 data Program = Program Header FunctionNames Global FunctionDeclarations Main Aliases deriving (Show, Eq)
@@ -55,7 +56,8 @@ data Type
     | TupleT    [Type]
     | PointerT  Type
     | AliasT    Id
-    deriving (Show, Eq)
+    | TypeErr   Err.TypeError  -- OJO
+    deriving (Show, Eq) 
 
 data Expression = Expression
        { getExpr :: Expr
