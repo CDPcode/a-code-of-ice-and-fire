@@ -1,10 +1,10 @@
 {
 module Westeros.SouthOfTheWall.PreParser (preParse) where
 
+import qualified Westeros.SouthOfTheWall.AST as Ast
+import qualified Westeros.SouthOfTheWall.Error as Err
 import qualified Westeros.SouthOfTheWall.Symtable as ST
 import qualified Westeros.SouthOfTheWall.Tokens as Tk
-import qualified Westeros.SouthOfTheWall.Error as Err
-import qualified Westeros.SouthOfTheWall.AST as Ast
 
 import Control.Monad.RWS
 import Data.List (find)
@@ -183,10 +183,31 @@ HEADER : programStart programName                                               
 CONTENTS : beginFuncDec FUNCTION_DECLARATIONS                                                       {}
 
 FUNCTION_DECLARATIONS : item globalDec FUNCTION_NAMES item main                                     {}
-
+ 
 FUNCTION_NAMES :: { () }
      : {- empty -}                                                                                  { () }
-     | FUNCTION_NAMES item id argNumber                                                             {% ST.statefullSTupdate (ST.getFunctionDeclarationInfo $3 $4)}
+     | FUNCTION_NAMES item id argNumber                                                             {% do -- ST.statefullSTupdate (ST.getFunctionDeclarationInfo $3 $4)
+                                                                                                        symT <- get
+
+                                                                                                        let name  = Tk.cleanedString $3
+                                                                                                            entry = createFunctionDeclarationEntry $3 $4
+
+                                                                                                        case ST.findSymbol symT name of
+                                                                                                             Nothing      -> put $ ST.insertST ( symT { ST.nextScope = succ (ST.nextScope symT) } ) entry
+                                                                                                             Just entries -> do
+
+                                                                                                               let actualFunctions  = filter (\e -> ST.category e == ST.Function) entries
+                                                                                                                   functionsEntries = map ST.getFunctionMD actualFunctions
+                                                                                                                   functionsArgs    = map ST.nArgs functionsEntries
+                                                                                                                   currentArgs      = ST.nArgs ( ST.getFunctionMD (snd entry) )
+                                                                                     
+                                                                                                               if currentArgs `notElem` functionsArgs then
+                                                                                                                  put $ ST.insertST ( symT { ST.nextScope = succ (ST.nextScope symT) } ) entry
+                                                                                                               else ST.insertError $ Err.PE (Err.FRepeatedDeclarations name (Tk.position $3)) 
+
+                                                                                                     
+                                                                                                    }
+     
 
 GLOBAL : globalDec '{' DECLARATIONS '}'                                                             {}
 
@@ -211,30 +232,28 @@ FUNCTION :: { () }
                                                                                                          if (ST.checkExisting symT functionId) then do
 
                                                                                                               -- match found
-                                                                                                              let entries         = fromJust $ ST.findSymbol symT functionId            -- bring all definitions for functionId name
-                                                                                                                  actualFunctions = filter (\e-> ST.category e == ST.Function ) entries -- filter those defined as functions
+                                                                                                              let entries         = fromJust $ ST.findSymbol symT functionId            
+                                                                                                                  actualFunctions = filter (\e-> ST.category e == ST.Function) entries 
+                                                                                                                  -- ^ Bring all definitions for functionId name
+                                                                                                                  -- ^ Filter those defined as functions
 
-                                                                                                                  check fEntry = (not $ ST.discriminant (ST.getFunctionMD fEntry)) && ST.nArgs (ST.getFunctionMD fEntry) == length $2
-                                                                                                                  matching     = find check actualFunctions
+                                                                                                                  notAlreadyDefined fEntry = not $ ST.discriminant (ST.getFunctionMD fEntry)
+                                                                                                                  sameNArgs fEntry         = ST.nArgs (ST.getFunctionMD fEntry) == length $2
+                                                                                                                  -- ^ Choose the function entry that matches the requirements:
+                                                                                                                  --    + is a Function that hasn't been validated (.i.e: discriminant is false)
+                                                                                                                  --    + is a Function with the same number of arguments
 
-                                                                                                              -- choose the function entry that matches the requirements:
-                                                                                                              --    + is a Function that hasn't been validated (.i.e: discriminant is false)
-                                                                                                              --    + is a Function with the same number of arguments
+                                                                                                              case (filter notAlreadyDefined actualFunctions) of 
+                                                                                                                   [] -> ST.insertError $ Err.PE (Err.FRepeatedDefinitions functionId (Tk.position $1)) 
+                                                                                                                   xs -> case find sameNArgs xs of
+                                                                                                                        Nothing -> ST.insertError $ Err.PE (Err.InvalidNArgsDef functionId (length $2) (Tk.position $1) )
+                                                                                                                        Just e  -> do
+                                                                                                                                                      
+                                                                                                                             let newAdditional = (ST.getFunctionMD e) { ST.discriminant = True, ST.fParameters = $2 , ST.fReturn = $3 }
+                                                                                                                                 newSymT = ST.searchAndReplaceSymbol symT (functionId,e) $ (e { ST.additional = Just (ST.FunctionMD newAdditional) })
 
-                                                                                                              case matching of
-                                                                                                                   Nothing -> ST.insertError ("No function \"" ++ functionId ++ "\" with "++ show (length $2) ++ " arguments was declared")
-                                                                                                                   Just e  -> do
-
-                                                                                                                        let newAdditional = (ST.getFunctionMD e) { ST.discriminant = True, ST.fParameters = $2 , ST.fReturn = $3 }
-                                                                                                                            newSymT = ST.searchAndReplaceSymbol symT (functionId,e) (e { ST.additional = Just (ST.FunctionMD newAdditional) })
-
-                                                                                                                        put newSymT
-                                                                                                         else  do
-
-                                                                                                              let msg = "Function "++functionId++" defined, but not declared"
-                                                                                                              -- name not in table
-
-                                                                                                              ST.insertError msg
+                                                                                                                             put newSymT
+                                                                                                         else ST.insertError $ Err.PE (Err.FDefinitionWithoutDeclaration functionId (Tk.position $1))
                                                                                                     }
 
 
@@ -330,7 +349,17 @@ CONST_DECLARATION : const id type TYPE constValue EXPR                          
                   | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                     {}
 
 ALIAS_DECLARATION :: { () }
-     : beginAlias id ALIAS_TYPE TYPE '.'                                                            {% ST.statefullSTupdate (ST.getAliasInfo $2 $3 $4) }
+     : beginAlias id ALIAS_TYPE TYPE '.'                                                            {% do 
+
+                                                                                                    symT <- get 
+
+                                                                                                    let name = Tk.cleanedString $2
+
+                                                                                                    case ST.findSymbol symT name of
+                                                                                                         Nothing -> put $ ST.insertST symT (createAliasEntry name $3 $4)
+                                                                                                         Just _  -> ST.insertError $ Err.PE (Err.RepeatedAliasName name (Tk.position $2))
+ 
+                                                                                                    }
 
 ALIAS_TYPE :: { Ast.AliasType }
      : strongAlias                                                                                  { Ast.StrongAlias }
@@ -441,7 +470,33 @@ parseError (tk:_) = error $ "error: parse error with: \"" ++ Tk.cleanedString tk
                              ++ "\" at position " ++ show (Tk.position tk) 
                              ++ "related to token: " ++ show (Tk.aToken tk)
 
-
 createExpression :: Tk.Token -> Ast.Expr -> Ast.Expression
 createExpression tk expr = Ast.Expression { Ast.getToken = tk, Ast.getExpr = expr, Ast.getType = Ast.AliasT "undefined" }
+
+createAliasEntry :: String -> Ast.AliasType -> Ast.Type -> ST.Entry
+createAliasEntry name aliasType pointedType = (name,info)
+     where
+          info = ST.SymbolInfo { 
+               ST.category   = ST.Alias,
+               ST.scope      = ST.pervasiveScope,
+               ST.tp         = Nothing,
+               ST.additional = Just $ ST.AliasMD aliasType pointedType
+          }
+
+createFunctionDeclarationEntry :: Tk.Token -> Tk.Token -> ST.Entry
+createFunctionDeclarationEntry id argNumber = (symbol, info)
+    where
+        symbol = Tk.cleanedString id
+        info   = ST.SymbolInfo {
+            ST.category   = ST.Function,
+            ST.scope      = ST.functionScope,
+            ST.tp         = Nothing,
+            ST.additional = Just $ ST.FunctionMD (ST.FunctionInfo {
+                ST.nArgs = read $ Tk.cleanedString argNumber :: Int,
+                ST.fParameters =  [],
+                ST.fReturn = [],
+                ST.discriminant = False
+            })
+        }
+
 }
