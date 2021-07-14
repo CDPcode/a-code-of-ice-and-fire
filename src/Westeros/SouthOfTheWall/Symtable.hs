@@ -8,8 +8,9 @@ import qualified Data.Map.Strict as M
 
 import Control.Monad.RWS ( MonadState(put, get), MonadWriter(tell), RWST, when )
 import Data.List (intercalate, find)
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, isJust)
 
+type Type = String
 
 type Symbol = String
 
@@ -34,12 +35,12 @@ data Category
 data SymbolInfo = SymbolInfo
     { category :: Category
     , scope :: Int
-    , tp :: Maybe Ast.Type               
+    , tp :: Maybe Type -- OJO
     , additional :: Maybe AdditionalInfo
 } deriving Eq
 
 data AdditionalInfo
-    = AliasMD Ast.AliasType Ast.Type               
+    = AliasMD Ast.AliasType Ast.Type -- OJO
     | FunctionMD FunctionInfo              
     | PassType Ast.ParamType                   
    deriving (Show,Eq)
@@ -47,7 +48,7 @@ data AdditionalInfo
 data FunctionInfo = FunctionInfo
     { nArgs :: Int
     , fParameters :: [Ast.Parameter]
-    , fReturn :: [Ast.Type]
+    , fReturn :: [Ast.Type] -- OJO
     , discriminant :: Bool
     } deriving (Show,Eq)
 
@@ -87,6 +88,28 @@ searchAndReplace _   _   [] = []
 searchAndReplace new old (x:xs)
  | x == old  = new : xs
  | otherwise = x : searchAndReplace new old xs
+
+
+{- Filtering by scope -}
+
+filterByScopeDict :: Dict -> Int -> [(Symbol,[SymbolInfo])]
+filterByScopeDict dict referenceScope = filter (null . snd) defEntries
+    where 
+        defEntries = map filterEntries . M.toList $ dict 
+        filterEntries (a,symInfList) = (a,filter (\symInfo -> 
+                                        scope symInfo == referenceScope) symInfList)
+
+-- ^ Assumes there are no repeated symbol names in any given scope.
+filterByScopeDict' :: Dict -> Int -> [(Symbol,SymbolInfo)]
+filterByScopeDict' dict refScope 
+        = foldr (\(x,d) acc -> if isJust d then (x,fromJust d) : acc 
+                                           else acc ) [] foundEntries
+    where
+        findEntries (a,xs) = (a, find (\e -> scope e == refScope) xs)
+        foundEntries = map findEntries . M.toList $ dict
+        
+filterByScopeST :: SymbolTable -> Int -> [(Symbol,SymbolInfo)]
+filterByScopeST = filterByScopeDict' . dict
 
 {- ST lookup Functions -}
 
@@ -162,6 +185,8 @@ pervasiveScope = 0
 defaultScope   = maxBound 
 functionScope  = 1
 
+{- Initial types -}
+
 -- Symbol table to begin with scanning
 initialST :: SymbolTable
 initialST = SymbolTable {
@@ -169,3 +194,17 @@ initialST = SymbolTable {
         scopeStack = [0],
         nextScope  = 1
     }
+
+typesSymbolInfo :: SymbolInfo
+typesSymbolInfo = SymbolInfo { 
+    category   = Type,
+    scope      = pervasiveScope,
+    tp         = Nothing,
+    additional = Nothing
+}
+
+initialTypes = ["_int","_float","_char","_bool","_atom","_string","_array"] -- union, struct, tuple, pointer, array, alias
+
+initializedST :: SymbolTable
+initializedST = foldl insertST initialST entries 
+    where entries = zip initialTypes (repeat typesSymbolInfo)
