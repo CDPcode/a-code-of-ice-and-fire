@@ -6,62 +6,16 @@ import Westeros.SouthOfTheWall.Tokens as Tk
 import Westeros.SouthOfTheWall.Error as Err (TypeError(..))
 
 -- AST
-data Program = Program Header FunctionNames Global FunctionDeclarations Main Aliases deriving (Show, Eq)
+data Program = Program Global FunctionDeclarations Main deriving (Show, Eq)
 
--- data Id = Id Token Int deriving (Show, Eq)
 type Id = String
-type Header = String
-type FunctionNames = [(Id, Int)]
-type Global = [Declaration]
 type Main = [Instruction]
-type Aliases = [AliasDeclaration]
+type Global = [Instruction]
 type FunctionDeclarations = [FunctionDeclaration]
-
-data FunctionDeclaration = FunctionDeclaration Id [Parameter] [Type] [Instruction] deriving (Show, Eq)
-
-data Declaration
-    = VarDeclaration VariableDeclaration (Maybe Expression)
-    | ConstantDeclaration Id Type Expression
-    deriving (Show, Eq)
-
-data Parameter = Parameter ParamType Id Type deriving (Show, Eq)
-
-data ParamType
-    = Ref
-    | Value
-    deriving (Show, Eq)
-
-data AliasDeclaration = AliasDec Id Type AliasType deriving (Show, Eq)
-
-data AliasType
-    = StrongAlias
-    | WeakAlias
-    deriving (Show, Eq)
-
-data VariableDeclaration
-    = SimpleVarDeclaration  Id Type
-    | ArrayVarDeclaration   Id Type [Expression]
-    deriving (Show, Eq)
-
-data Type
-    = IntT
-    | FloatT
-    | CharT
-    | AtomT
-    | BoolT
-    | StringT
-    | ArrayT    Type Int
-    | StructT   [VariableDeclaration]
-    | UnionT    [VariableDeclaration]
-    | TupleT    [Type]
-    | PointerT  Type
-    | AliasT    Id
-    | TypeErr   Err.TypeError  -- OJO
-    deriving (Show, Eq) 
+type FunctionDeclaration = [Instruction]
 
 data Expression = Expression
        { getExpr :: Expr
-       , getType :: Type
        , getToken :: Tk.Token
        } deriving (Show, Eq)
 
@@ -83,7 +37,7 @@ data Expr
     | ActiveField Expression Id
     | AccesIndex  Expression [Expression]
     | TupleIndex  Expression Int
-    | Cast        Expression Type
+    -- | Cast        Expression Type
     | IdExpr      Id
     deriving (Show, Eq)
 
@@ -118,7 +72,6 @@ data Instruction
     | Switch            Expression [Case]
     | For               Id Expression Expression [Instruction]
     | While             Expression [Instruction]
-    | DeclarationInst   Declaration
     | FuncCallInst      Expression
     | New               Expression
     | Free              Expression
@@ -152,61 +105,31 @@ putStrIdent n str = do
     escapeChars [] = []
 
 prettyPrintProgram :: Program -> IO ()
-prettyPrintProgram (Program header contents global decs main alias) = do
-    putStrIdent 0 $ "Program: " ++ header
-    prettyPrintContents 1 contents
+prettyPrintProgram (Program global decs main) = do
+    putStrIdent 0 $ "Program: "
     prettyPrintGlobal 1 global
     prettyPrintFunctionDecs 1 decs
     prettyPrintMain 1 main
-    prettyPrintAliases 1 alias
-
-prettyPrintContents :: Int -> FunctionNames -> IO ()
-prettyPrintContents n names = do
-    putStrIdent n "Functions:"
-    mapM_ printName names
-  where
-    printName :: (Id, Int) -> IO ()
-    printName (id, args) = putStrIdent (n+1) (id ++ " " ++ show args)
 
 prettyPrintGlobal :: Int -> Global -> IO ()
 prettyPrintGlobal n global = do
     putStrIdent n "Global Scope:"
-    mapM_ (prettyPrintDeclaration (n+1)) global
+    mapM_ (prettyPrintInstruction (n+1)) global
 
 prettyPrintFunctionDecs :: Int -> FunctionDeclarations -> IO ()
 prettyPrintFunctionDecs n decs = do
     putStrIdent n "Functions Definition:"
     mapM_ (prettyPrintFunctionDec (n+1)) decs
 
+prettyPrintFunctionDec :: Int -> FunctionDeclaration -> IO ()
+prettyPrintFunctionDec n insts = do
+    putStrIdent n "func performing:" 
+    mapM_ (prettyPrintInstruction (n+1)) insts
+
 prettyPrintMain :: Int -> Main -> IO ()
 prettyPrintMain n main = do
     putStrIdent n "Main:"
     mapM_ (prettyPrintInstruction (n+1)) main
-
-prettyPrintAliases :: Int -> Aliases -> IO ()
-prettyPrintAliases n aliases = do
-    putStrIdent n "Aliases:"
-    mapM_ (prettyPrintAlias (n+1)) aliases
-
-prettyPrintDeclaration :: Int -> Declaration -> IO ()
-prettyPrintDeclaration n (VarDeclaration vDec Nothing) = prettyPrintVarDec n vDec
-prettyPrintDeclaration n (VarDeclaration vDec (Just e)) = do
-    prettyPrintVarDec n vDec
-    prettyPrintExpression (n+1) e
-prettyPrintDeclaration n (ConstantDeclaration id tp expr) = do
-    putStrIdent n $ "const " ++ id ++ "of type"
-    prettyPrintType (n+1) tp
-    putStrIdent n $ "with value:"
-    prettyPrintExpression (n+1) expr
-
-prettyPrintFunctionDec :: Int -> FunctionDeclaration -> IO ()
-prettyPrintFunctionDec n (FunctionDeclaration id params types insts) = do
-    putStrIdent n $ "func " ++ id ++ "with params"
-    mapM_ (prettyPrintParam (n+1)) params
-    putStrIdent n "returning"
-    mapM_ (prettyPrintType (n+1)) types
-    putStrIdent n "performing"
-    mapM_ (prettyPrintInstruction (n+1)) insts
 
 prettyPrintInstruction :: Int -> Instruction -> IO ()
 prettyPrintInstruction n (SimpleAssign e0 e1) = do
@@ -244,7 +167,6 @@ prettyPrintInstruction n (While expr insts) = do
     prettyPrintExpression (n+1) expr
     putStrIdent n "performing"
     mapM_ (prettyPrintInstruction (n+1)) insts
-prettyPrintInstruction n (DeclarationInst dec) = prettyPrintDeclaration n dec
 prettyPrintInstruction n (FuncCallInst expr) = do
     putStrIdent n "Function call instruction"
     prettyPrintExpression (n+1) expr
@@ -257,21 +179,6 @@ prettyPrintInstruction n (Free expr) = do
 prettyPrintInstruction n (ExitInst prog) = do
     putStrIdent n $ "Abort " ++ prog
 prettyPrintInstruction n inst = putStrIdent n $ show inst
-
-prettyPrintAlias :: Int -> AliasDeclaration -> IO ()
-prettyPrintAlias n (AliasDec id tp aliasType) = do
-    putStrIdent n $ show aliasType ++ " " ++ id
-    prettyPrintType (n+1) tp
-
-prettyPrintVarDec :: Int -> VariableDeclaration -> IO ()
-prettyPrintVarDec n (SimpleVarDeclaration id tp) = do
-    putStrIdent n $ "var " ++ id ++ " of type"
-    prettyPrintType (n+1) tp
-prettyPrintVarDec n (ArrayVarDeclaration id tp exprs) = do
-    putStrIdent n $ "var " ++ id ++ " of type"
-    prettyPrintType (n+1) tp
-    putStrIdent n "with sizes"
-    mapM_ (prettyPrintExpression (n+1)) exprs
 
 prettyPrintExpression :: Int -> Expression -> IO ()
 prettyPrintExpression n Expression{getExpr = (IntLit x)} = putStrIdent n $ show x
@@ -313,35 +220,12 @@ prettyPrintExpression n Expression{getExpr = (TupleIndex e idx)} = do
     putStrIdent n "Index tuple"
     prettyPrintExpression (n+1) e
     putStrIdent n $ "with index " ++ show idx
-prettyPrintExpression n Expression{getExpr = (Cast e tp)} = do
-    putStrIdent n "Cast expression"
-    prettyPrintExpression (n+1) e
-    putStrIdent n "to type"
-    prettyPrintType (n+1) tp
+--prettyPrintExpression n Expression{getExpr = (Cast e tp)} = do
+--    putStrIdent n "Cast expression"
+--    prettyPrintExpression (n+1) e
+--    putStrIdent n "to type"
+--    prettyPrintType (n+1) tp
 prettyPrintExpression n Expression{getExpr = (IdExpr id)} = putStrIdent n $ "id: " ++ id
-
-prettyPrintType :: Int -> Type -> IO ()
-prettyPrintType n (ArrayT tp x) = do
-    putStrIdent n $ "Type: " ++ show x ++ "-dimensional array of"
-    prettyPrintType (n+1) tp
-prettyPrintType n (StructT decs) = do
-    putStrIdent n "Type: struct with fields"
-    mapM_ (prettyPrintVarDec (n+1)) decs
-prettyPrintType n (UnionT decs) = do
-    putStrIdent n "Type: union with fields"
-    mapM_ (prettyPrintVarDec (n+1)) decs
-prettyPrintType n (TupleT tps) = do
-    putStrIdent n "Type: tuple with fields of type"
-    mapM_ (prettyPrintType (n+1)) tps
-prettyPrintType n (PointerT tp) = do
-    putStrIdent n "Type: pointer to"
-    prettyPrintType (n+1) tp
-prettyPrintType n tp = putStrIdent n $ "Type: " ++ show tp
-
-prettyPrintParam :: Int -> Parameter -> IO ()
-prettyPrintParam n (Parameter pType id tp) = do
-    putStrIdent n $ show pType ++ " " ++ id ++ " of type"
-    prettyPrintType (n+1) tp
 
 prettyPrintIf :: Int -> IfInst -> IO ()
 prettyPrintIf n (IfThen cond ifBlock) = do

@@ -3,7 +3,6 @@ module Westeros.SouthOfTheWall.Symtable where
 import qualified Westeros.SouthOfTheWall.Error as Err
 
 import qualified Westeros.SouthOfTheWall.Tokens as Tk
-import qualified Westeros.SouthOfTheWall.AST as Ast ( ParamType, AliasType, Type, Parameter )
 import qualified Data.Map.Strict as M
 
 import Control.Monad.RWS ( MonadState(put, get), MonadWriter(tell), RWST, when )
@@ -199,6 +198,7 @@ typesSymbolInfo = SymbolInfo {
     additional = Nothing
 }
 
+initialTypes :: [String]
 initialTypes = ["_int","_float","_char","_bool","_atom","_string","_array"] -- union, struct, tuple, pointer, array, alias
 
 initializedST :: SymbolTable
