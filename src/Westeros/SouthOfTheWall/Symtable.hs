@@ -16,11 +16,13 @@ type Symbol = String
 
 type Entry = (Symbol,SymbolInfo)
 
-data PassType = Value | Reference deriving (Show,Eq)
-
-type Dict = M.Map Symbol [SymbolInfo]
+type Dictionary = M.Map Symbol [SymbolInfo]
 
 type MonadParser = RWST () [Err.Error] SymbolTable IO
+
+data AliasType = ByName | ByStructure deriving (Eq, Show)
+
+data ParameterType = Value | Reference deriving (Eq, Show)
 
 data Category 
     = Alias
@@ -35,53 +37,48 @@ data Category
 data SymbolInfo = SymbolInfo
     { category :: Category
     , scope :: Int
-    , tp :: Maybe Type -- OJO
+    , symbolType :: Maybe Type
     , additional :: Maybe AdditionalInfo
 } deriving Eq
 
 data AdditionalInfo
-    = AliasMD Ast.AliasType Ast.Type -- OJO
-    | FunctionMD FunctionInfo              
-    | PassType Ast.ParamType                   
+    = AliasMetaData AliasType Type
+    | FunctionMetaData FunctionInfo              
+    | ParameterType ParameterType                  
    deriving (Show,Eq)
 
 data FunctionInfo = FunctionInfo
-    { nArgs :: Int
-    , fParameters :: [Ast.Parameter]
-    , fReturn :: [Ast.Type] -- OJO
-    , discriminant :: Bool
+    { numberOfArgs :: Int
+    , argumentTypes :: [Type]
+    , returnTypes :: [Type]
+    , defined :: Bool
     } deriving (Show,Eq)
 
 data SymbolTable = SymbolTable
-    { dict :: Dict
+    { table :: Dictionary
     , scopeStack :: [Int]
     , nextScope :: Int    
     }
 
-
-
-
-getFunctionMD :: SymbolInfo -> FunctionInfo
-getFunctionMD SymbolInfo { additional = Just (FunctionMD e) } = e
-getFunctionMD _                                               = error "getFunctionMD: Unpropper use. Report use"
-
+getFunctionMetaData :: SymbolInfo -> FunctionInfo
+getFunctionMetaData SymbolInfo { additional = Just (FunctionMetaData e) } = e
+getFunctionMetaData _ = error "getFunctionMetaData: Unpropper use. Report use"
 
 {- Dictionary and ST functions -}
 
-insertDict :: Dict -> Entry -> Dict
-insertDict dict (k,v) = M.insertWith (++) k [v] dict
+insertDictionary :: Dictionary -> Entry -> Dictionary
+insertDictionary dict (s,si) = M.insertWith (++) s [si] dict
 
 insertST :: SymbolTable -> Entry -> SymbolTable
-insertST st entry = st { dict = insertDict (dict st) entry }
+insertST st entry = st { table = insertDictionary (table st) entry }
 
 searchAndReplaceSymbol :: SymbolTable -> Entry -> SymbolInfo -> SymbolTable
-searchAndReplaceSymbol st entry@(name,info) newInfo = st { dict = newDict }
+searchAndReplaceSymbol st entry@(name,info) newInfo = st { table = newDictionary }
     where
-        newDict = M.insert name (fromJust newList) (dict st)
+        newDictionary = M.insert name (fromJust newList) (table st)
         newList = do
            oldList <- findSymbol st name
            return (searchAndReplace newInfo info oldList)
-
 
 searchAndReplace :: Eq a => a -> a -> [a] -> [a]
 searchAndReplace _   _   [] = []
@@ -89,19 +86,18 @@ searchAndReplace new old (x:xs)
  | x == old  = new : xs
  | otherwise = x : searchAndReplace new old xs
 
-
 {- Filtering by scope -}
 
-filterByScopeDict :: Dict -> Int -> [(Symbol,[SymbolInfo])]
-filterByScopeDict dict referenceScope = filter (null . snd) defEntries
+filterByScopeDictionary :: Dictionary -> Int -> [(Symbol,[SymbolInfo])]
+filterByScopeDictionary dict referenceScope = filter (null . snd) defEntries
     where 
         defEntries = map filterEntries . M.toList $ dict 
         filterEntries (a,symInfList) = (a,filter (\symInfo -> 
                                         scope symInfo == referenceScope) symInfList)
 
 -- ^ Assumes there are no repeated symbol names in any given scope.
-filterByScopeDict' :: Dict -> Int -> [(Symbol,SymbolInfo)]
-filterByScopeDict' dict refScope 
+filterByScopeDictionary' :: Dictionary -> Int -> [(Symbol,SymbolInfo)]
+filterByScopeDictionary' dict refScope 
         = foldr (\(x,d) acc -> if isJust d then (x,fromJust d) : acc 
                                            else acc ) [] foundEntries
     where
@@ -109,15 +105,15 @@ filterByScopeDict' dict refScope
         foundEntries = map findEntries . M.toList $ dict
         
 filterByScopeST :: SymbolTable -> Int -> [(Symbol,SymbolInfo)]
-filterByScopeST = filterByScopeDict' . dict
+filterByScopeST = filterByScopeDictionary' . table
 
 {- ST lookup Functions -}
 
-findDict :: Dict -> Symbol -> Maybe [SymbolInfo]
-findDict = flip M.lookup
+findDictionary :: Dictionary -> Symbol -> Maybe [SymbolInfo]
+findDictionary = flip M.lookup
 
 findSymbol :: SymbolTable -> Symbol -> Maybe [SymbolInfo]
-findSymbol st = findDict (dict st)
+findSymbol st = findDictionary (table st)
 
 checkExisting :: SymbolTable -> Symbol -> Bool
 checkExisting st sym = case findSymbol st sym of
@@ -166,7 +162,7 @@ lookupFunction sym params = do
 
 findFunction :: Int -> [SymbolInfo] -> Maybe SymbolInfo
 findFunction params [] = Nothing
-findFunction params bucket = find (\e -> nArgs (getFunctionMD e) == params) bucket
+findFunction params bucket = find (\e -> numberOfArgs (getFunctionMetaData e) == params) bucket
 
 currentScope :: MonadParser Int
 currentScope = do
@@ -190,7 +186,7 @@ functionScope  = 1
 -- Symbol table to begin with scanning
 initialST :: SymbolTable
 initialST = SymbolTable {
-        dict       = M.empty :: M.Map Symbol [SymbolInfo],
+        table       = M.empty :: M.Map Symbol [SymbolInfo],
         scopeStack = [0],
         nextScope  = 1
     }
@@ -199,7 +195,7 @@ typesSymbolInfo :: SymbolInfo
 typesSymbolInfo = SymbolInfo { 
     category   = Type,
     scope      = pervasiveScope,
-    tp         = Nothing,
+    symbolType = Nothing,
     additional = Nothing
 }
 
