@@ -146,7 +146,7 @@ tokens :-
 <0>         is(@ws)coming\.                                                                             { makeToken TknEndReturnVals }
 <0>         Dracarys                                                                                    { makeToken TknReturnOpen }
 <0>         !                                                                                           { makeToken TknReturnClose }
-<0>         Valued                                                                                      { makeToken TknValueAParam }
+<0>         Valued                                                                                      { makeToken TknValueParam }
 <0>         Honorable                                                                                   { makeToken TknReferenceParam }
 
 --          Blocks

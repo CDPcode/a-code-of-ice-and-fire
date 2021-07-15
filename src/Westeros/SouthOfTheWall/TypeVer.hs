@@ -3,6 +3,7 @@ module Westeros.SouthOfTheWall.TypeVer where
 import qualified Westeros.SouthOfTheWall.AST as AST
 import qualified Westeros.SouthOfTheWall.Error as Err (TypeError(..))
 
+data Type where
 
 -- This interface will provide type check consistency for their instances.
 --

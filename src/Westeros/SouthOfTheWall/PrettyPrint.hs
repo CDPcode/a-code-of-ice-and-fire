@@ -20,7 +20,7 @@ import Rainbow
 import qualified Data.ByteString.Lazy.Char8 as BS
 import qualified Data.Map as M (toList) 
 
-import Westeros.SouthOfTheWall.Symtable ( SymbolTable(dict, scopeStack, nextScope), SymbolInfo(category, scope, additional) )
+import Westeros.SouthOfTheWall.Symtable ( SymbolTable(table, scopeStack, nextScope), SymbolInfo(category, scope, additional) )
 import qualified Westeros.SouthOfTheWall.Tokens as Tk (Token(..), Position(..)) 
 import Westeros.SouthOfTheWall.Error 
 
@@ -69,7 +69,7 @@ symTableChunk symT = chunk "* Name info\n"
                           ++ "\n* Next Scope " ++ show (nextScope symT) )
                         ]
     where 
-        asList = M.toList (dict symT)
+        asList = M.toList (table symT)
         foo (a,b) = (chunkFromStr ('\n':a) & fore green) : preProcess b :: [Chunk]
             where  -- OJO: possible bottleneck
                 preProcess = intercalate [chunkFromStr bar] . map symbolInfoChunk 

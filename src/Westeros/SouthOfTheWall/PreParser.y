@@ -194,21 +194,24 @@ FUNCTION_NAMES :: { () }
                                                                                         symT <- get
                                                                                         let name  = Tk.cleanedString $3
                                                                                             entry = createFunctionDeclarationEntry name $ read Tk.cleanedString $4 :: Int
+                                                                                            
                                                                                         case ST.findSymbol symT name of
                                                                                             Nothing      -> put $ ST.insertST ( symT { ST.nextScope = succ (ST.nextScope symT) } ) entry
                                                                                             Just entries -> do
+
                                                                                                 let actualFunctions  = filter (\e -> ST.category e == ST.Function) entries
-                                                                                                functionsEntries = map ST.getFunctionMetaData actualFunctions
-                                                                                                params           = map ST.numberOfParams functionsEntries
-                                                                                                currentParams    = ST.numberOfParams ( ST.getFunctionMetaData (snd entry) )
+                                                                                                    functionsEntries = map ST.getFunctionMetaData actualFunctions
+                                                                                                    params           = map ST.numberOfParams functionsEntries
+                                                                                                    currentParams    = ST.numberOfParams ( ST.getFunctionMetaData (snd entry) )
+
                                                                                                 if currentParams `notElem` params then
-                                                                                                put $ ST.insertST ( symT { ST.nextScope = succ (ST.nextScope symT) } ) entry
-                                                                                                else ST.insertError $ Err.PE (Err.FRepeatedDeclarations name (Tk.position $3)) 
+                                                                                                    put $ ST.insertST ( symT { ST.nextScope = succ (ST.nextScope symT) } ) entry
+                                                                                                    else ST.insertError $ Err.PE (Err.FRepeatedDeclarations name (Tk.position $3)) 
                                                                                     }
 
 
 GLOBAL :: {}
-    globalDec '{' DECLARATIONS '}'                                                  {}
+    : globalDec '{' DECLARATIONS '}'                                                {}
 
 MAIN :: {}
     : main FUNCTION_BODY                                                            {}
