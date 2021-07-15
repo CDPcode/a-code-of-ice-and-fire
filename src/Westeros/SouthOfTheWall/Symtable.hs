@@ -47,8 +47,8 @@ data AdditionalInfo
    deriving (Show,Eq)
 
 data FunctionInfo = FunctionInfo
-    { numberOfArgs :: Int
-    , argumentTypes :: [Type]
+    { numberOfParams :: Int
+    , parameters :: [Symbol]
     , returnTypes :: [Type]
     , defined :: Bool
     } deriving (Show,Eq)
@@ -161,7 +161,7 @@ lookupFunction sym params = do
 
 findFunction :: Int -> [SymbolInfo] -> Maybe SymbolInfo
 findFunction params [] = Nothing
-findFunction params bucket = find (\e -> numberOfArgs (getFunctionMetaData e) == params) bucket
+findFunction params bucket = find (\e -> numberOfParams (getFunctionMetaData e) == params) bucket
 
 currentScope :: MonadParser Int
 currentScope = do
@@ -197,6 +197,22 @@ typesSymbolInfo = SymbolInfo {
     symbolType = Nothing,
     additional = Nothing
 }
+
+int :: String
+int = "_int"
+float :: String
+float = "_float"
+char :: String
+char = "_char"
+bool :: String
+bool = "_bool"
+atom :: String
+atom = "_atom"
+string :: String
+string = "_string"
+array :: String
+array = "_array"
+
 
 initialTypes :: [String]
 initialTypes = ["_int","_float","_char","_bool","_atom","_string","_array"] -- union, struct, tuple, pointer, array, alias

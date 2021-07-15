@@ -107,8 +107,8 @@ beginReturnVals { Tk.Token { Tk.aToken=Tk.TknBeginReturnVals } }
 endReturnVals   { Tk.Token { Tk.aToken=Tk.TknEndReturnVals } }
 returnOpen      { Tk.Token { Tk.aToken=Tk.TknReturnOpen } }
 returnClose     { Tk.Token { Tk.aToken=Tk.TknReturnClose } }
-valueArg        { Tk.Token { Tk.aToken=Tk.TknValueArg } }
-refArg          { Tk.Token { Tk.aToken=Tk.TknReferenceArg } }
+valueParam      { Tk.Token { Tk.aToken=Tk.TknValueParam } }
+refParam        { Tk.Token { Tk.aToken=Tk.TknReferenceParam } }
 '{'             { Tk.Token { Tk.aToken=Tk.TknOpenBlock } }
 '}'             { Tk.Token { Tk.aToken=Tk.TknCloseBlock } }
 '(('            { Tk.Token { Tk.aToken=Tk.TknProcCallOpen } }
@@ -132,7 +132,7 @@ switchDec       { Tk.Token { Tk.aToken=Tk.TknMultipleSelectionDecorator } }
 case            { Tk.Token { Tk.aToken=Tk.TknBranch } }
 endSwitch       { Tk.Token { Tk.aToken=Tk.TknEndMultipleSelection } }
 id              { Tk.Token { Tk.aToken=Tk.TknID } }
-argNumber       { Tk.Token { Tk.aToken=Tk.TknArgNumber } }
+paramNumber     { Tk.Token { Tk.aToken=Tk.TknParamNumber } }
 nothing         { Tk.Token { Tk.aToken=Tk.TknNothing } }
 atomLit         { Tk.Token { Tk.aToken=Tk.TknAtomLit } }
 aliasDec        { Tk.Token { Tk.aToken=Tk.TknAliasDec } }
@@ -175,296 +175,295 @@ comment         { Tk.Token { Tk.aToken=Tk.TknComment }  }
 -- comments at any point as long as they do not interfere with an expression
 
 -- Program --
-PROGRAM : HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                                     {}
-        | HEADER CONTENTS GLOBAL FUNCTIONS MAIN ALIASES                                             {}
+PROGRAM :: {}
+    : HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                         {}
+    | HEADER CONTENTS GLOBAL FUNCTIONS MAIN ALIASES                                 {}
 
-HEADER : programStart programName                                                                   {}
+HEADER :: {}
+    : programStart programName                                                      {}
 
-CONTENTS : beginFuncDec FUNCTION_DECLARATIONS                                                       {}
+CONTENTS :: {}
+    : beginFuncDec FUNCTION_DECLARATIONS                                            {}
 
-FUNCTION_DECLARATIONS : item globalDec FUNCTION_NAMES item main                                     {}
+FUNCTION_DECLARATIONS :: {}
+    : item globalDec FUNCTION_NAMES item main                                       {}
  
 FUNCTION_NAMES :: { () }
-     : {- empty -}                                                                                  { () }
-     | FUNCTION_NAMES item id argNumber                                                             {% do -- ST.statefullSTupdate (ST.getFunctionDeclarationInfo $3 $4)
-                                                                                                        symT <- get
+    : {- empty -}                                                                   { () }
+    | FUNCTION_NAMES item id paramNumber                                            {% do 
+                                                                                        symT <- get
+                                                                                        let name  = Tk.cleanedString $3
+                                                                                            entry = createFunctionDeclarationEntry name $ read Tk.cleanedString $4 :: Int
+                                                                                        case ST.findSymbol symT name of
+                                                                                            Nothing      -> put $ ST.insertST ( symT { ST.nextScope = succ (ST.nextScope symT) } ) entry
+                                                                                            Just entries -> do
+                                                                                                let actualFunctions  = filter (\e -> ST.category e == ST.Function) entries
+                                                                                                functionsEntries = map ST.getFunctionMetaData actualFunctions
+                                                                                                params           = map ST.numberOfParams functionsEntries
+                                                                                                currentParams    = ST.numberOfParams ( ST.getFunctionMetaData (snd entry) )
+                                                                                                if currentParams `notElem` params then
+                                                                                                put $ ST.insertST ( symT { ST.nextScope = succ (ST.nextScope symT) } ) entry
+                                                                                                else ST.insertError $ Err.PE (Err.FRepeatedDeclarations name (Tk.position $3)) 
+                                                                                    }
 
-                                                                                                        let name  = Tk.cleanedString $3
-                                                                                                            entry = createFunctionDeclarationEntry $3 $4
 
-                                                                                                        case ST.findSymbol symT name of
-                                                                                                             Nothing      -> put $ ST.insertST ( symT { ST.nextScope = succ (ST.nextScope symT) } ) entry
-                                                                                                             Just entries -> do
+GLOBAL :: {}
+    globalDec '{' DECLARATIONS '}'                                                  {}
 
-                                                                                                               let actualFunctions  = filter (\e -> ST.category e == ST.Function) entries
-                                                                                                                   functionsEntries = map ST.getFunctionMD actualFunctions
-                                                                                                                   functionsArgs    = map ST.nArgs functionsEntries
-                                                                                                                   currentArgs      = ST.nArgs ( ST.getFunctionMD (snd entry) )
-                                                                                     
-                                                                                                               if currentArgs `notElem` functionsArgs then
-                                                                                                                  put $ ST.insertST ( symT { ST.nextScope = succ (ST.nextScope symT) } ) entry
-                                                                                                               else ST.insertError $ Err.PE (Err.FRepeatedDeclarations name (Tk.position $3)) 
+MAIN :: {}
+    : main FUNCTION_BODY                                                            {}
 
-                                                                                                     
-                                                                                                    }
-     
+ALIASES :: {}
+    : aliasDec ALIAS_DECLARATIONS                                                   {}
 
-GLOBAL : globalDec '{' DECLARATIONS '}'                                                             {}
-
-MAIN : main FUNCTION_BODY                                                                           {}
-
-ALIASES : aliasDec ALIAS_DECLARATIONS                                                               {}
-
-ALIAS_DECLARATIONS: ALIAS_DECLARATION                                                               {}
-                  | ALIAS_DECLARATIONS ALIAS_DECLARATION                                            {}
+ALIAS_DECLARATIONS :: {}
+    : ALIAS_DECLARATION                                                             {}
+    | ALIAS_DECLARATIONS ALIAS_DECLARATION                                          {}
 
 -- Subrutines --
 
-FUNCTIONS : {- empty -}                                                                             {}
-          | FUNCTIONS FUNCTION                                                                      {}
+FUNCTIONS :: {} 
+    : {- empty -}                                                                   {}
+    | FUNCTIONS FUNCTION                                                            {}
 
 FUNCTION :: { () }
-     : id FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY                                         {% do
-                                                                                                         symT <- get
+    : id FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY                          {% do
+                                                                                        symT <- get
+                                                                                        let functionId = (Tk.cleanedString $1)
+                                                                                        if ST.checkExisting symT functionId then do
+                                                                                            -- match found
+                                                                                            let entries         = fromJust $ ST.findSymbol symT functionId            
+                                                                                                actualFunctions = filter (\e-> ST.category e == ST.Function) entries 
+                                                                                                -- ^ Bring all definitions for functionId name
+                                                                                                -- ^ Filter those defined as functions
+                                                                                                notAlreadyDefined fEntry = not $ ST.defined (ST.getFunctionMetaData fEntry)
+                                                                                                sameNParams fEntry       = ST.numberOfParams  (ST.getFunctionMetaData fEntry) == length $2
+                                                                                                -- ^ Choose the function entry that matches the requirements:
+                                                                                                --    + is a Function that hasn't been validated (.i.e: discriminant is false)
+                                                                                                --    + is a Function with the same number of parameters
+                                                                                            case (filter notAlreadyDefined actualFunctions) of 
+                                                                                                [] -> ST.insertError $ Err.PE (Err.FRepeatedDefinitions functionId (Tk.position $1)) 
+                                                                                                xs -> case find sameNParams xs of
+                                                                                                    Nothing -> ST.insertError $ Err.PE (Err.InvalidNArgsDef functionId (length $2) (Tk.position $1) )
+                                                                                                    Just e  -> do
+                                                                                                        let newAdditional = (ST.getFunctionMetaData e) { ST.defined = True, ST.parameters = $2 , ST.returnTypes = $3 }
+                                                                                                            newSymT = ST.searchAndReplaceSymbol symT (functionId,e) $ (e { ST.additional = Just (ST.FunctionMetaData newAdditional) })
+                                                                                                        put newSymT
+                                                                                        else ST.insertError $ Err.PE (Err.FDefinitionWithoutDeclaration functionId (Tk.position $1))
+                                                                                    }
 
-                                                                                                         let functionId = (Tk.cleanedString $1)
+FUNCTION_PARAMETERS :: { [ST.Symbol] }
+    : beginFuncParams PARAMETER_LIST endFuncParams                                  { reverse $2 }
 
-                                                                                                         if (ST.checkExisting symT functionId) then do
+PARAMETER_LIST :: { [ST.Symbol] }
+    : void                                                                          { [] }
+    | PARAMETERS                                                                    { $1 }
 
-                                                                                                              -- match found
-                                                                                                              let entries         = fromJust $ ST.findSymbol symT functionId            
-                                                                                                                  actualFunctions = filter (\e-> ST.category e == ST.Function) entries 
-                                                                                                                  -- ^ Bring all definitions for functionId name
-                                                                                                                  -- ^ Filter those defined as functions
+PARAMETERS :: { [ST.Symbol]}
+    : PARAMETER                                                                     { [$1] }
+    | PARAMETERS ',' PARAMETER                                                      { $3 : $1 }
 
-                                                                                                                  notAlreadyDefined fEntry = not $ ST.discriminant (ST.getFunctionMD fEntry)
-                                                                                                                  sameNArgs fEntry         = ST.nArgs (ST.getFunctionMD fEntry) == length $2
-                                                                                                                  -- ^ Choose the function entry that matches the requirements:
-                                                                                                                  --    + is a Function that hasn't been validated (.i.e: discriminant is false)
-                                                                                                                  --    + is a Function with the same number of arguments
+PARAMETER :: { ST.Symbol }
+    : PARAMETER_TYPE id type TYPE                                                   { Tk.cleanedString $2 }
 
-                                                                                                              case (filter notAlreadyDefined actualFunctions) of 
-                                                                                                                   [] -> ST.insertError $ Err.PE (Err.FRepeatedDefinitions functionId (Tk.position $1)) 
-                                                                                                                   xs -> case find sameNArgs xs of
-                                                                                                                        Nothing -> ST.insertError $ Err.PE (Err.InvalidNArgsDef functionId (length $2) (Tk.position $1) )
-                                                                                                                        Just e  -> do
-                                                                                                                                                      
-                                                                                                                             let newAdditional = (ST.getFunctionMD e) { ST.discriminant = True, ST.fParameters = $2 , ST.fReturn = $3 }
-                                                                                                                                 newSymT = ST.searchAndReplaceSymbol symT (functionId,e) $ (e { ST.additional = Just (ST.FunctionMD newAdditional) })
+PARAMETER_TYPE :: { ST.ParameterType }
+    : valueParam                                                                    { ST.Value }
+    | refParam                                                                      { ST.Reference }
 
-                                                                                                                             put newSymT
-                                                                                                         else ST.insertError $ Err.PE (Err.FDefinitionWithoutDeclaration functionId (Tk.position $1))
-                                                                                                    }
+FUNCTION_RETURN :: { [ST.Type] }
+    : beginReturnVals RETURN_TYPES endReturnVals                                    { reverse $2 }
 
+RETURN_TYPES  :: { [ST.Type] }
+    : void                                                                          { [] }
+    | TYPES                                                                         { $1 }
 
+TYPES :: { [ST.Type] }
+    : TYPE                                                                          { [$1] }
+    | TYPES ',' TYPE                                                                { $3 : $1 }
 
-
-
-FUNCTION_PARAMETERS :: { [Ast.Parameter] }
-     : beginFuncParams PARAMETER_LIST endFuncParams                                                 { reverse $2 }
-
-PARAMETER_LIST :: { [Ast.Parameter] }
-     : void                                                                                         { [] }
-     | PARAMETERS                                                                                   { $1 }
-
-PARAMETERS :: { [Ast.Parameter] }
-          : PARAMETER                                                                               { [$1] }
-          | PARAMETERS ',' PARAMETER                                                                { $3 : $1 }
-
-PARAMETER :: { Ast.Parameter }
-     : PARAMETER_TYPE id type TYPE                                                                  { Ast.Parameter $1 (Tk.cleanedString $2) $4 }
-
-PARAMETER_TYPE :: { Ast.ParamType }
-     : valueArg                                                                                     { Ast.Value }
-     | refArg                                                                                       { Ast.Ref }
-
-FUNCTION_RETURN :: { [Ast.Type] }
-     : beginReturnVals RETURN_TYPES endReturnVals                                                   { reverse $2 }
-
-RETURN_TYPES  :: { [Ast.Type] }
-          : void                                                                                    { [] }
-          | TYPES                                                                                   { $1 }
-
-TYPES :: { [Ast.Type] }
-     : TYPE                                                                                         { [$1] }
-     | TYPES ',' TYPE                                                                               { $3 : $1 }
-
-FUNCTION_BODY : '{' INSTRUCTIONS '}'                                                                {}
+FUNCTION_BODY :: {}
+    : '{' INSTRUCTIONS '}'                                                          {}
 
 -- Types ---
 
-TYPE :: { Ast.Type }
-     : PRIMITIVE_TYPE                                                                               { $1 }
-     | COMPOSITE_TYPE                                                                               { $1 }
-     | id                                                                                           { Ast.AliasT (Tk.cleanedString $1) }
+TYPE :: { ST.Type }
+    : PRIMITIVE_TYPE                                                                { return $1 }
+    | COMPOSITE_TYPE                                                                { return $1 }
+    | id                                                                            { Tk.cleanedString $1 } -- TODO habria que verificar que este alias esté en la tabla (?)
 
-PRIMITIVE_TYPE :: { Ast.Type }
-     : int                                                                                          { Ast.IntT }
-     | float                                                                                        { Ast.FloatT }
-     | char                                                                                         { Ast.CharT }
-     | bool                                                                                         { Ast.BoolT }
-     | atom                                                                                         { Ast.AtomT }
+PRIMITIVE_TYPE :: { ST.Type }
+    : int                                                                           { ST.int }
+    | float                                                                         { ST.float }
+    | char                                                                          { ST.char }
+    | bool                                                                          { ST.bool }
+    | atom                                                                          { ST.atom }
 
-COMPOSITE_TYPE :: { Ast.Type }
-     : beginArray naturalLit TYPE endArray                                                          { Ast.ArrayT $3 (read (Tk.cleanedString $2) :: Int) }
-     | string                                                                                       { Ast.StringT }
-     | pointerType TYPE                                                                             { Ast.PointerT $2 }
-     | beginStruct SIMPLE_DECLARATIONS endStruct                                                    { Ast.StructT $ reverse $2 }
-     | beginUnion SIMPLE_DECLARATIONS endUnion                                                      { Ast.UnionT $ reverse $2 }
-     | beginTuple TUPLE_TYPES endTuple                                                              { Ast.TupleT $2 }
+-- TODO
+COMPOSITE_TYPE :: { ST.Type }
+    : beginArray naturalLit TYPE endArray                                           { }
+    | string                                                                        { }
+    | pointerType TYPE                                                              { }
+    | beginStruct SIMPLE_DECLARATIONS endStruct                                     { }
+    | beginUnion SIMPLE_DECLARATIONS endUnion                                       { }
+    | beginTuple TUPLE_TYPES endTuple                                               { }
 
-TUPLE_TYPES :: { [Ast.Type] }
-          : {- empty -}                                                                             { [] }
-          | TYPES                                                                                   { reverse $1 }
+TUPLE_TYPES :: { [ST.Type] }
+    : {- empty -}                                                                   { [] }
+    | TYPES                                                                         { reverse $1 }
 
 -- Alias Declaration --
 
-DECLARATIONS : {- empty -}                                                                          {}
-             | DECLARATIONS DECLARATION                                                             {}
-             | DECLARATIONS comment                                                                 {}
+DECLARATIONS :: {}
+    : {- empty -}                                                                   {}
+    | DECLARATIONS DECLARATION                                                      {}
+    | DECLARATIONS comment                                                          {}
 
-DECLARATION : SIMPLE_DECLARATION '.'                                                                { }
-            | SIMPLE_DECLARATION ':=' EXPR '.'                                                      {}
-            | SIMPLE_DECLARATION ':==' EXPR '.'                                                     {}
-            | CONST_DECLARATION '.'                                                                 {}
+DECLARATION :: {}
+    : SIMPLE_DECLARATION '.'                                                        {}
+    | SIMPLE_DECLARATION ':=' EXPR '.'                                              {}
+    | SIMPLE_DECLARATION ':==' EXPR '.'                                             {}
+    | CONST_DECLARATION '.'                                                         {}
 
-SIMPLE_DECLARATIONS :: { [Ast.VariableDeclaration] }
-     : SIMPLE_DECLARATION                                                                           { [$1] }
-     | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION                                                   { $3 : $1 }
+-- TODO: Las reglas de las declaraciones son las que llenan en la tabla los campos de los structs y unions
+SIMPLE_DECLARATIONS :: { }
+    : SIMPLE_DECLARATION                                                            { }
+    | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION                                    { }
 
-SIMPLE_DECLARATION :: { Ast.VariableDeclaration }
-     : PRIMITIVE_DECLARATION                                                                        { $1 }
-     | COMPOSITE_DECLARATION                                                                        { $1 }
+SIMPLE_DECLARATION :: {  }
+    : PRIMITIVE_DECLARATION                                                         { }
+    | COMPOSITE_DECLARATION                                                         { }
 
-PRIMITIVE_DECLARATION :: { Ast.VariableDeclaration }
-     : var id type TYPE                                                                             { Ast.SimpleVarDeclaration (Tk.cleanedString $2) $4 }
+PRIMITIVE_DECLARATION :: { }
+    : var id type TYPE                                                              { }
 
-COMPOSITE_DECLARATION :: { Ast.VariableDeclaration }
-     : beginCompTypeId var id endCompTypeId TYPE                                                    { Ast.SimpleVarDeclaration (Tk.cleanedString $3) $5 }
-     | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz                             { Ast.ArrayVarDeclaration (Tk.cleanedString $3) $5 $7 }
-     | beginCompTypeId pointerVar id endCompTypeId TYPE                                             { Ast.SimpleVarDeclaration (Tk.cleanedString $3) $5 }
-     | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz                      { Ast.SimpleVarDeclaration (Tk.cleanedString $3) $5 }
-
-CONST_DECLARATION : const id type TYPE constValue EXPR                                              {}
-                  | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                     {}
+COMPOSITE_DECLARATION :: {  }
+    : beginCompTypeId var id endCompTypeId TYPE                                     { }
+    | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz              { }
+    | beginCompTypeId pointerVar id endCompTypeId TYPE                              { }
+    | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz       { }
+--
+CONST_DECLARATION :: {}
+    : const id type TYPE constValue EXPR                                            {}
+    | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                   {}
 
 ALIAS_DECLARATION :: { () }
-     : beginAlias id ALIAS_TYPE TYPE '.'                                                            {% do 
+    : beginAlias id ALIAS_TYPE TYPE '.'                                             {% do 
+                                                                                        symT <- get 
+                                                                                        let name = Tk.cleanedString $2
+                                                                                        case ST.findSymbol symT name of
+                                                                                                Nothing -> put $ ST.insertST symT (createAliasEntry name $3 $4)
+                                                                                                Just _  -> ST.insertError $ Err.PE (Err.RepeatedAliasName name (Tk.position $2))
+                                                                                    }
 
-                                                                                                    symT <- get 
-
-                                                                                                    let name = Tk.cleanedString $2
-
-                                                                                                    case ST.findSymbol symT name of
-                                                                                                         Nothing -> put $ ST.insertST symT (createAliasEntry name $3 $4)
-                                                                                                         Just _  -> ST.insertError $ Err.PE (Err.RepeatedAliasName name (Tk.position $2))
- 
-                                                                                                    }
-
-ALIAS_TYPE :: { Ast.AliasType }
-     : strongAlias                                                                                  { Ast.StrongAlias }
-     | weakAlias                                                                                    { Ast.WeakAlias }
+ALIAS_TYPE :: { ST.AliasType }
+    : strongAlias                                                                   { ST.ByName }
+    | weakAlias                                                                     { ST.ByStructure }
 
 -- Instructions --
+INSTRUCTIONS :: {}
+    : {- empty -}                                                                   {}
+    | INSTRUCTIONS INSTRUCTION                                                      {}
+    | INSTRUCTIONS comment                                                          {}
 
-INSTRUCTIONS : {- empty -}                                                                          {}
-             | INSTRUCTIONS INSTRUCTION                                                             {}
-             | INSTRUCTIONS comment                                                                 {}
+INSTRUCTION :: {}
+    : EXPR ':=' EXPR '.'                                                            {}
+    | void ':=' EXPR '.'                                                            {}
+    | EXPRLIST ':==' EXPR '.'                                                       {}
+    | void ':==' EXPR '.'                                                           {}
+    | pass '.'                                                                      {}
+    | beginExit programName endExit '.'                                             {}
+    | read EXPR '.'                                                                 {}
+    | print EXPR '.'                                                                {}
+    | EXPR new '.'                                                                  {}
+    | EXPR free '.'                                                                 {}
+    | continue '.'                                                                  {}
+    | break '.'                                                                     {}
+    | returnOpen EXPRLIST returnClose                                               {}
+    | returnOpen returnClose                                                        {}
+    | IF '.'                                                                        {}
+    | SWITCHCASE  '.'                                                               {}
+    | FOR '.'                                                                       {}
+    | WHILE                                                                         {}
+    | DECLARATION                                                                   {}
+    | FUNCTIONCALL                                                                  {}
 
-INSTRUCTION : EXPR ':=' EXPR '.'                                                                    {}
-            | EXPRLIST ':==' EXPR '.'                                                               {}
-            | void ':=' EXPR '.'                                                                    {}
-            | void ':==' EXPR '.'                                                                   {}
-            | pass '.'                                                                              {}
-            | beginExit programName endExit '.'                                                     {}
-            | read EXPR '.'                                                                         {}
-            | print EXPR '.'                                                                        {}
-            | EXPR new '.'                                                                          {}
-            | EXPR free '.'                                                                         {}
-            | continue '.'                                                                          {}
-            | break '.'                                                                             {}
-            | returnOpen EXPRLIST returnClose                                                       {}
-            | returnOpen returnClose                                                                {}
-            | IF '.'                                                                                {} -- ##
-            | SWITCHCASE  '.'                                                                       {}
-            | FOR '.'                                                                               {} -- ##
-            | WHILE                                                                                 {}
-            | DECLARATION                                                                           {}
-            | FUNCTIONCALL                                                                          {}
+IF :: {}
+    : if EXPR then INSTRUCTIONS endif                                               {}
+    | if EXPR then INSTRUCTIONS else INSTRUCTIONS endif                             {}
 
-IF : if EXPR then INSTRUCTIONS endif                                                                {}
-   | if EXPR then INSTRUCTIONS else INSTRUCTIONS endif                                              {}
+SWITCHCASE :: {}
+    : switch EXPR switchDec '.' CASES endSwitch                                     {}
 
-SWITCHCASE : switch EXPR switchDec '.' CASES endSwitch                                              {}
+CASES :: {}
+    : CASE                                                                          {}
+    | CASES CASE                                                                    {}
 
-CASES : CASE                                                                                        {}
-      | CASES CASE                                                                                  {}
+CASE :: {}
+    : case atomLit '.' INSTRUCTIONS                                                 {}
+    | case nothing '.' INSTRUCTIONS                                                 {}
 
-CASE : case atomLit '.' INSTRUCTIONS                                                                {}
-     | case nothing '.' INSTRUCTIONS                                                                {}
+FOR :: {}
+    : for id type int '.' forLB EXPR forUB EXPR '.' INSTRUCTIONS endFor             {}
 
-FOR : for id type int '.' forLB EXPR forUB EXPR '.' INSTRUCTIONS endFor                             {}
-
-WHILE : while EXPR whileDec INSTRUCTIONS endWhile                                                   {}
+WHILE :: {}
+    : while EXPR whileDec INSTRUCTIONS endWhile                                     {}
 
 -- Expresions --
 
 EXPR :: { Ast.Expression }
-    : EXPR '+' EXPR                                                                                 { createExpression $2 $ Ast.BinOp Ast.Sum $1 $3 }
-    | EXPR '-' EXPR                                                                                 { createExpression $2 $ Ast.BinOp Ast.Sub $1 $3 }
-    | EXPR '*' EXPR                                                                                 { createExpression $2 $ Ast.BinOp Ast.Prod $1 $3 }
-    | EXPR '/' EXPR                                                                                 { createExpression $2 $ Ast.BinOp Ast.Div $1 $3 }
-    | EXPR '%' EXPR                                                                                 { createExpression $2 $ Ast.BinOp Ast.Mod $1 $3 }
-    | EXPR '=' EXPR                                                                                 { createExpression $2 $ Ast.BinOp Ast.Eq $1 $3 }
-    | EXPR '!=' EXPR                                                                                { createExpression $2 $ Ast.BinOp Ast.Neq $1 $3 }
-    | EXPR '<' EXPR                                                                                 { createExpression $2 $ Ast.BinOp Ast.Lt $1 $3 }
-    | EXPR '>' EXPR                                                                                 { createExpression $2 $ Ast.BinOp Ast.Gt $1 $3 }
-    | EXPR '<=' EXPR                                                                                { createExpression $2 $ Ast.BinOp Ast.Leq $1 $3 }
-    | EXPR '>=' EXPR                                                                                { createExpression $2 $ Ast.BinOp Ast.Geq $1 $3 }
-    | EXPR and EXPR                                                                                 { createExpression $2 $ Ast.BinOp Ast.And $1 $3 }
-    | EXPR or EXPR                                                                                  { createExpression $2 $ Ast.BinOp Ast.Or $1 $3 }
-    | EXPR '~'                                                                                      { createExpression $2 $ Ast.UnOp Ast.Neg $1 }
-    | deref EXPR                                                                                    { createExpression $1 $ Ast.UnOp Ast.Deref $2 }
-    | '[' EXPRLIST ']' EXPR                                                                         { createExpression $3 $ Ast.AccesIndex $4 (reverse $2) }
-    | id '<-' EXPR                                                                                  { createExpression $2 $ Ast.AccesField $3 (Tk.cleanedString $1) }
-    | EXPR '->' id                                                                                  { createExpression $2 $ Ast.AccesField $1 (Tk.cleanedString $3) }
-    | EXPR '?' id                                                                                   { createExpression $2 $ Ast.ActiveField $1 (Tk.cleanedString $3) }
-    | '[(' naturalLit ']' EXPR                                                                      { createExpression $3 $ Ast.TupleIndex $4 ((read $ Tk.cleanedString $2) :: Int) }
-    | EXPR cast TYPE                                                                                { createExpression $2 $ Ast.Cast $1 $3 }
-    | '(' EXPR ')'                                                                                  { $2 }
-    | ARRAYLIT                                                                                      { $1 }
-    | TUPLELIT                                                                                      { $1 }
-    | FUNCTIONCALL                                                                                  { $1 }
-    | intLit                                                                                        { createExpression $1 $ Ast.IntLit ((read $ Tk.cleanedString $1) :: Int) }
-    | floatLit                                                                                      { createExpression $1 $ Ast.FloatLit ((read $ Tk.cleanedString $1) :: Float) }
-    | charLit                                                                                       { createExpression $1 $ Ast.CharLit $ head $ Tk.cleanedString $1 }
-    | atomLit                                                                                       { createExpression $1 $ Ast.AtomLit $ Tk.cleanedString $1 }
-    | stringLit                                                                                     { createExpression $1 $ Ast.StringLit $ Tk.cleanedString $1 }
-    | true                                                                                          { createExpression $1 $ Ast.TrueLit }
-    | false                                                                                         { createExpression $1 $ Ast.FalseLit }
-    | id                                                                                            { createExpression $1 $ Ast.IdExpr $ Tk.cleanedString $1 }
-    | null                                                                                          { createExpression $1 $ Ast.NullLit }
+    : EXPR '+' EXPR                                                                 { }
+    | EXPR '-' EXPR                                                                 { createExpression $2 $ Ast.BinOp Ast.Sub $1 $3 }
+    | EXPR '*' EXPR                                                                 { createExpression $2 $ Ast.BinOp Ast.Prod $1 $3 }
+    | EXPR '/' EXPR                                                                 { createExpression $2 $ Ast.BinOp Ast.Div $1 $3 }
+    | EXPR '%' EXPR                                                                 { createExpression $2 $ Ast.BinOp Ast.Mod $1 $3 }
+    | EXPR '=' EXPR                                                                 { createExpression $2 $ Ast.BinOp Ast.Eq $1 $3 }
+    | EXPR '!=' EXPR                                                                { createExpression $2 $ Ast.BinOp Ast.Neq $1 $3 }
+    | EXPR '<' EXPR                                                                 { createExpression $2 $ Ast.BinOp Ast.Lt $1 $3 }
+    | EXPR '>' EXPR                                                                 { createExpression $2 $ Ast.BinOp Ast.Gt $1 $3 }
+    | EXPR '<=' EXPR                                                                { createExpression $2 $ Ast.BinOp Ast.Leq $1 $3 }
+    | EXPR '>=' EXPR                                                                { createExpression $2 $ Ast.BinOp Ast.Geq $1 $3 }
+    | EXPR and EXPR                                                                 { createExpression $2 $ Ast.BinOp Ast.And $1 $3 }
+    | EXPR or EXPR                                                                  { createExpression $2 $ Ast.BinOp Ast.Or $1 $3 }
+    | EXPR '~'                                                                      { createExpression $2 $ Ast.UnOp Ast.Neg $1 }
+    | deref EXPR                                                                    { createExpression $1 $ Ast.UnOp Ast.Deref $2 }
+    | '[' EXPRLIST ']' EXPR                                                         { createExpression $3 $ Ast.AccesIndex $4 (reverse $2) }
+    | id '<-' EXPR                                                                  { createExpression $2 $ Ast.AccesField $3 (Tk.cleanedString $1) }
+    | EXPR '->' id                                                                  { createExpression $2 $ Ast.AccesField $1 (Tk.cleanedString $3) }
+    | EXPR '?' id                                                                   { createExpression $2 $ Ast.ActiveField $1 (Tk.cleanedString $3) }
+    | '[(' naturalLit ']' EXPR                                                      { createExpression $3 $ Ast.TupleIndex $4 ((read $ Tk.cleanedString $2) :: Int) }
+    | EXPR cast TYPE                                                                { createExpression $2 $ Ast.Cast $1 $3 }
+    | '(' EXPR ')'                                                                  { $2 }
+    | ARRAYLIT                                                                      { $1 }
+    | TUPLELIT                                                                      { $1 }
+    | FUNCTIONCALL                                                                  { $1 }
+    | intLit                                                                        { createExpression $1 $ Ast.IntLit ((read $ Tk.cleanedString $1) :: Int) }
+    | floatLit                                                                      { createExpression $1 $ Ast.FloatLit ((read $ Tk.cleanedString $1) :: Float) }
+    | charLit                                                                       { createExpression $1 $ Ast.CharLit $ head $ Tk.cleanedString $1 }
+    | atomLit                                                                       { createExpression $1 $ Ast.AtomLit $ Tk.cleanedString $1 }
+    | stringLit                                                                     { createExpression $1 $ Ast.StringLit $ Tk.cleanedString $1 }
+    | true                                                                          { createExpression $1 $ Ast.TrueLit }
+    | false                                                                         { createExpression $1 $ Ast.FalseLit }
+    | id                                                                            { createExpression $1 $ Ast.IdExpr $ Tk.cleanedString $1 }
+    | null                                                                          { createExpression $1 $ Ast.NullLit }
 
 FUNCTIONCALL :: { Ast.Expression }
-    : id '((' procCallArgs EXPRLIST '))'                                                            { createExpression $2 $ Ast.FuncCall (Tk.cleanedString $1) (reverse $4) }
-    | id '((' procCallArgs void '))'                                                                { createExpression $2 $ Ast.FuncCall (Tk.cleanedString $1) [] }
-    | id '(('  '))'                                                                                 { createExpression $2 $ Ast.FuncCall (Tk.cleanedString $1) [] }
+    : id '((' procCallArgs EXPRLIST '))'                                            { createExpression $2 $ Ast.FuncCall (Tk.cleanedString $1) (reverse $4) }
+    | id '((' procCallArgs void '))'                                                { createExpression $2 $ Ast.FuncCall (Tk.cleanedString $1) [] }
+    | id '(('  '))'                                                                 { createExpression $2 $ Ast.FuncCall (Tk.cleanedString $1) [] }
 
 ARRAYLIT :: { Ast.Expression }
-    : '{{' EXPRLIST '}}'                                                                            { createExpression $1 $ Ast.ArrayLit $ reverse $2 }
-    | '{{' '}}'                                                                                     { createExpression $1 $ Ast.ArrayLit [] }
+    : '{{' EXPRLIST '}}'                                                            { createExpression $1 $ Ast.ArrayLit $ reverse $2 }
+    | '{{' '}}'                                                                     { createExpression $1 $ Ast.ArrayLit [] }
 
 TUPLELIT :: { Ast.Expression }
-    : '[[' EXPRLIST ']]'                                                                            { createExpression $1 $ Ast.TupleLit $ reverse $2 }
-    | '[[' ']]'                                                                                     { createExpression $1 $ Ast.TupleLit [] }
+    : '[[' EXPRLIST ']]'                                                            { createExpression $1 $ Ast.TupleLit $ reverse $2 }
+    | '[[' ']]'                                                                     { createExpression $1 $ Ast.TupleLit [] }
 
 EXPRLIST :: { [Ast.Expression] }
-    : EXPR                                                                                          { [$1] }
-    | EXPRLIST ',' EXPR                                                                             { $3 : $1 }
-
+    : EXPR                                                                          { [$1] }
+    | EXPRLIST ',' EXPR                                                             { $3 : $1 }
 
 {
-
 parseError [] = error "Parse error at EOF."
 parseError (tk:_) = error $ "error: parse error with: \"" ++ Tk.cleanedString tk 
                              ++ "\" at position " ++ show (Tk.position tk) 
@@ -473,30 +472,29 @@ parseError (tk:_) = error $ "error: parse error with: \"" ++ Tk.cleanedString tk
 createExpression :: Tk.Token -> Ast.Expr -> Ast.Expression
 createExpression tk expr = Ast.Expression { Ast.getToken = tk, Ast.getExpr = expr, Ast.getType = Ast.AliasT "undefined" }
 
-createAliasEntry :: String -> Ast.AliasType -> Ast.Type -> ST.Entry
+createAliasEntry :: String -> ST.AliasType -> ST.Type -> ST.Entry
 createAliasEntry name aliasType pointedType = (name,info)
-     where
-          info = ST.SymbolInfo { 
-               ST.category   = ST.Alias,
-               ST.scope      = ST.pervasiveScope,
-               ST.tp         = Nothing,
-               ST.additional = Just $ ST.AliasMD aliasType pointedType
-          }
-
-createFunctionDeclarationEntry :: Tk.Token -> Tk.Token -> ST.Entry
-createFunctionDeclarationEntry id argNumber = (symbol, info)
     where
-        symbol = Tk.cleanedString id
+        info = ST.SymbolInfo { 
+            ST.category   = ST.Alias,
+            ST.scope      = ST.pervasiveScope,
+            ST.symbolType = Nothing,
+            ST.additional = Just $ ST.AliasMetaData aliasType pointedType
+        }
+
+createFunctionDeclarationEntry :: String -> Int -> ST.Entry
+createFunctionDeclarationEntry sym params = (symbol, info)
+    where
+        symbol = sym
         info   = ST.SymbolInfo {
             ST.category   = ST.Function,
             ST.scope      = ST.functionScope,
-            ST.tp         = Nothing,
-            ST.additional = Just $ ST.FunctionMD (ST.FunctionInfo {
-                ST.nArgs = read $ Tk.cleanedString argNumber :: Int,
-                ST.fParameters =  [],
-                ST.fReturn = [],
-                ST.discriminant = False
+            ST.symbolType = Nothing,
+            ST.additional = Just $ ST.FunctionMetaData (ST.FunctionInfo {
+                ST.numberOfParams = params,
+                ST.parameters =  [],
+                ST.returnTypes = [],
+                ST.defined = False
             })
         }
-
 }

@@ -133,8 +133,8 @@ data AbstractToken =
     | TknEndReturnVals
     | TknReturnOpen
     | TknReturnClose
-    | TknValueArg
-    | TknReferenceArg
+    | TknValueParam
+    | TknReferenceParam
 
     -- Blocks
     | TknOpenBlock
@@ -174,7 +174,7 @@ data AbstractToken =
 
     -- Identifiers
     | TknID
-    | TknArgNumber
+    | TknParamNumber
 
     -- Atoms
     | TknNothing

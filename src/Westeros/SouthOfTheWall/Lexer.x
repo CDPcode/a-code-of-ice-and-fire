@@ -146,8 +146,8 @@ tokens :-
 <0>         is(@ws)coming\.                                                                             { makeToken TknEndReturnVals }
 <0>         Dracarys                                                                                    { makeToken TknReturnOpen }
 <0>         !                                                                                           { makeToken TknReturnClose }
-<0>         Valued                                                                                      { makeToken TknValueArg }
-<0>         Honorable                                                                                   { makeToken TknReferenceArg }
+<0>         Valued                                                                                      { makeToken TknValueAParam }
+<0>         Honorable                                                                                   { makeToken TknReferenceParam }
 
 --          Blocks
 <0>         Valar(@ws)Morghulis\.                                                                       { makeToken TknOpenBlock }
@@ -187,10 +187,10 @@ tokens :-
 
 --          Identifiers
 <0>         [A-Z]([\']?[a-z]+)+                                                                         { makeToken TknID }
-<0>         M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{1,3})                                      { makeToken TknArgNumber }
-<0>         M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{1,3})(IX|IV|V?I{0,3})                                      { makeToken TknArgNumber }
-<0>         M{0,4}(CM|CD|D?C{1,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})                                      { makeToken TknArgNumber }
-<0>         M{1,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})                                      { makeToken TknArgNumber }
+<0>         M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{1,3})                                      { makeToken TknParamNumber }
+<0>         M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{1,3})(IX|IV|V?I{0,3})                                      { makeToken TknParamNumber }
+<0>         M{0,4}(CM|CD|D?C{1,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})                                      { makeToken TknParamNumber }
+<0>         M{1,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})                                      { makeToken TknParamNumber }
 
 --          Atoms
 <0>         nothing                                                                                     { makeToken TknNothing }
@@ -350,7 +350,7 @@ postProcess (Token TknStringLit s _ p) = Token TknStringLit s (processStringLit 
 postProcess (Token TknIntLit s _ p) = Token TknIntLit s (processIntLit s) p
 postProcess (Token TknFloatLit s _ p) = Token TknFloatLit s (processFloatLit s) p
 postProcess (Token TknTupleSelect s _ p) = Token TknTupleSelect s (processIntLit s) p
-postProcess (Token TknArgNumber s _ p) = Token TknArgNumber s (processArgNumber s) p
+postProcess (Token TknParamNumber s _ p) = Token TknParamNumber s (processParamNumber s) p
 postProcess tkn = tkn
 
 processCharLit :: String -> String
@@ -369,8 +369,8 @@ processIntLit = filter (\x -> isDigit x || x == '-')
 processFloatLit :: String -> String
 processFloatLit = filter (\x -> isDigit x || x == '.' || x == '-')
 
-processArgNumber :: String -> String
-processArgNumber str = show $ (parseRomanNumeral str) - 1
+processParamNumber :: String -> String
+processParamNumber str = show $ (parseRomanNumeral str) - 1
   where
     parseRomanNumeral :: String -> Int
     parseRomanNumeral ('I':'V':xs) = 4 + parseRomanNumeral xs
