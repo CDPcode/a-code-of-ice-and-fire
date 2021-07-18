@@ -256,39 +256,68 @@ PARAMETER_TYPE :: { Ast.ParamType }
     : valueArg                                                                                      { Ast.Value }
     | refArg                                                                                        { Ast.Ref }
 
-FUNCTION_RETURN :: { [Ast.Type] }
+FUNCTION_RETURN :: { [ST.Type] }
     : beginReturnVals RETURN_TYPES endReturnVals                                                    { $2 }
 
-RETURN_TYPES :: { [Ast.Type]}
+RETURN_TYPES :: { [ST.Type] }
     : void                                                                                          { [] }
     | TYPES                                                                                         { reverse $1 }
 
-TYPES :: { [Ast.Type] }
+TYPES :: { [ST.Type] }
     : TYPE                                                                                          { [$1] }
     | TYPES ',' TYPE                                                                                { $3 : $1 }
 
 FUNCTION_BODY :: { [Ast.Instruction] }
     : '{' INSTRUCTIONS '}'                                                                          { reverse $2 }
 
-TYPE :: { Ast.Type }
+TYPE :: { ST.Type }
     : PRIMITIVE_TYPE                                                                                { $1 }
     | COMPOSITE_TYPE                                                                                { $1 }
-    | id                                                                                            { Ast.AliasT (Tk.cleanedString $1) }
+    | id                                                                                            { (Tk.cleanedString $1) }
 
-PRIMITIVE_TYPE :: { Ast.Type }
-    : int                                                                                           { Ast.IntT }
-    | float                                                                                         { Ast.FloatT }
-    | char                                                                                          { Ast.CharT }
-    | bool                                                                                          { Ast.BoolT }
-    | atom                                                                                          { Ast.AtomT }
+PRIMITIVE_TYPE :: { ST.Type }
+    : int                                                                                           {% return ST.int }
+    | float                                                                                         {% return ST.float }
+    | char                                                                                          {% return ST.char }
+    | bool                                                                                          {% return ST.bool }
+    | atom                                                                                          {% return ST.atom }
 
-COMPOSITE_TYPE :: { Ast.Type }
-    : beginArray naturalLit TYPE endArray                                                           { Ast.ArrayT $3 (read (Tk.cleanedString $2) :: Int) }
-    | string                                                                                        { Ast.StringT }
-    | pointerType TYPE                                                                              { Ast.PointerT $2 }
-    | beginStruct SIMPLE_DECLARATIONS endStruct                                                     { Ast.StructT $2 }
-    | beginUnion SIMPLE_DECLARATIONS endUnion                                                       { Ast.UnionT $2 }
-    | beginTuple TUPLE_TYPES endTuple                                                               { Ast.TupleT $2 }
+COMPOSITE_TYPE :: { ST.Type }
+    : beginArray naturalLit TYPE endArray                                                           {% do
+                                                                                                        symT <- get
+                                                                                                        let dim        = $1
+                                                                                                            tp         = $2 
+                                                                                                            arrTpName  = ST.getArrayType tp dim
+                                                                                                            additional = Just $ ST.DopeVector tp dim
+                                                                                                            typeEntry  = ST.compoundTypeEntry arrTpName ST.pervasive Type Nothing additional
+                                                                                                        if not $ checkExisting symT arrTpName
+                                                                                                            then return arrTpName
+                                                                                                            else do 
+                                                                                                                ST.insertST symT typeEntry
+                                                                                                                return arrTpName
+                                                                                                    }
+    | string                                                                                        {% return ST.string}
+    | pointerType TYPE                                                                              {% return ST.pointer}
+    | beginStruct OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endStruct                              {% do
+                                                                                                        let typeScope = $2 
+                                                                                                        ST.insertNestedType typeScope True 
+                                                                                                    }
+    | beginUnion OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endUnion                                {% do
+                                                                                                        let typeScope = $2 
+                                                                                                        ST.insertNestedType typeScope False 
+                                                                                                    }
+    | beginTuple TUPLE_TYPES endTuple                                                               {% }
+
+OPEN_SCOPE :: { Int } 
+    :  {- empty -}                                                                                  {% do 
+                                                                                                        cachedScope <- ST.currentScope 
+                                                                                                        ST.openScope  
+
+                                                                                                        return cachedScope
+                                                                                                    }
+
+CLOSE_SCOPE :: { () } 
+    :  {- empty -}                                                                                  {% ST.closeScope }
 
 TUPLE_TYPES :: { [Ast.Type] }
     : {- empty -}                                                                                   { [] }
@@ -319,14 +348,14 @@ PRIMITIVE_DECLARATION :: { Ast.VariableDeclaration }
     : var id type TYPE                                                                              {% maybeInsertVar $2 $4 Nothing }
 
 COMPOSITE_DECLARATION :: { Ast.VariableDeclaration }
-    : beginCompTypeId var id endCompTypeId TYPE                                                     {% maybeInsertVar $3 $5 Nothing }
-    | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz                              {% maybeInsertVar $3 $5 (Just $7) }
-    | beginCompTypeId pointerVar id endCompTypeId TYPE                                              {% maybeInsertVar $3 $5 Nothing }
-    | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz                       {% maybeInsertVar $3 $5 (Just $7) }
+    : beginCompTypeId var id endCompTypeId TYPE                                                     {% }
+    | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz                              {% } 
+    | beginCompTypeId pointerVar id endCompTypeId TYPE                                              {% } 
+    | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz                       {% } 
 
 CONST_DECLARATION :: { Ast.Declaration }
-    : const id type TYPE constValue EXPR                                                            {% maybeInsertConst $2 $4 $6 }
-    | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                                   {% maybeInsertConst $3 $5 $7 }
+    : const id type TYPE constValue EXPR                                                            {% }
+    | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                                   {% }
 
 ALIAS_DECLARATION :: { Ast.AliasDeclaration }
     : beginAlias id ALIAS_TYPE TYPE '.'                                                             { Ast.AliasDec (Tk.cleanedString $2) $4 $3}

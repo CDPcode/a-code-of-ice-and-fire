@@ -13,6 +13,8 @@ type Type = String
 
 type Symbol = String
 
+type Scope = Int
+
 type Entry = (Symbol,SymbolInfo)
 
 type Dictionary = M.Map Symbol [SymbolInfo]
@@ -42,6 +44,11 @@ data SymbolInfo = SymbolInfo
 
 data AdditionalInfo
     = AliasMetaData AliasType Type
+    | DopeVector Type Int 
+    | PointedType String
+    | NestedScope Int
+    | TupleTypes [Type]
+
     | FunctionMetaData FunctionInfo              
     | ParameterType ParameterType                  
    deriving (Show,Eq)
@@ -59,9 +66,13 @@ data SymbolTable = SymbolTable
     , nextScope :: Int    
     }
 
+
+{- Utility -}
+
 getFunctionMetaData :: SymbolInfo -> FunctionInfo
 getFunctionMetaData SymbolInfo { additional = Just (FunctionMetaData e) } = e
 getFunctionMetaData _ = error "getFunctionMetaData: Unpropper use. Report use"
+
 
 {- Dictionary and ST functions -}
 
@@ -85,7 +96,8 @@ searchAndReplace new old (x:xs)
  | x == old  = new : xs
  | otherwise = x : searchAndReplace new old xs
 
-{- Filtering by scope -}
+
+{- ST Filtering by scope -}
 
 filterByScopeDictionary :: Dictionary -> Int -> [(Symbol,[SymbolInfo])]
 filterByScopeDictionary dict referenceScope = filter (null . snd) defEntries
@@ -105,6 +117,7 @@ filterByScopeDictionary' dict refScope
         
 filterByScopeST :: SymbolTable -> Int -> [(Symbol,SymbolInfo)]
 filterByScopeST = filterByScopeDictionary' . table
+
 
 {- ST lookup Functions -}
 
@@ -126,7 +139,7 @@ openScope :: MonadParser ()
 openScope = do
     symT <- get
     let newScope = nextScope symT
-    let newStack = newScope : scopeStack symT
+        newStack = newScope : scopeStack symT
     put $ symT { scopeStack = newStack, nextScope = succ newScope }
 
 closeScope :: MonadParser ()
@@ -142,11 +155,11 @@ findBest entries (s:ss) = case filter (\e -> scope e == s) entries of
     [a] -> Just a
     _ -> error "Somehow more than one id with same scope"
 
-lookup :: Symbol -> MonadParser (Maybe SymbolInfo)
-lookup sym = do
+lookupST :: Symbol -> MonadParser (Maybe SymbolInfo)
+lookupST sym = do
     symT <- get
     let stack = scopeStack symT
-    let mBucket = findSymbol symT sym
+        mBucket = findSymbol symT sym
     case mBucket of
         Nothing -> return Nothing
         Just bucket -> return $ findBest bucket stack
@@ -180,12 +193,13 @@ pervasiveScope = 0
 defaultScope   = maxBound 
 functionScope  = 1
 
+
 {- Initial types -}
 
 -- Symbol table to begin with scanning
 initialST :: SymbolTable
 initialST = SymbolTable {
-        table       = M.empty :: M.Map Symbol [SymbolInfo],
+        table      = M.empty :: M.Map Symbol [SymbolInfo],
         scopeStack = [0],
         nextScope  = 1
     }
@@ -210,13 +224,167 @@ atom :: String
 atom = "_atom"
 string :: String
 string = "_string"
-array :: String
+pointer :: String 
+pointer = "_ptr"
+array :: String 
 array = "_array"
 
 
 initialTypes :: [String]
-initialTypes = ["_int","_float","_char","_bool","_atom","_string","_array"] -- union, struct, tuple, pointer, array, alias
+initialTypes = ["_int","_float","_char","_bool","_atom","_string", "_pointer"] --array, union, struct, tuple, alias
 
 initializedST :: SymbolTable
 initializedST = foldl insertST initialST entries 
     where entries = zip initialTypes (repeat typesSymbolInfo)
+
+
+-- Most generic insertion function
+regularEntry:: Symbol
+            -> Scope 
+            -> Category 
+            -> Maybe Type
+            -> Maybe AdditionalInfo
+            -> Entry
+regularEntry name sc ctg tp add = (name, symInfo)
+    where
+        symInfo = SymbolInfo {                 
+            category = ctg,
+            scope = sc,
+            symbolType = tp,
+            additional = add 
+        }
+
+-- ^ Insertion function for symbols with simple types.
+idEntry :: Symbol -> Scope -> Category -> Type -> Entry
+idEntry name sc ctg tp = regularEntry name sc ctg (Just tp) Nothing 
+
+typeEntry :: Symbol -> Scope -> Category -> AdditionalInfo -> Entry
+typeEntry name sc ctg add = regularEntry name sc ctg Nothing (Just add)
+
+
+-- ^ To insert entries for id's of things that are not a type.
+insertId :: Tk.Token -> Category -> Type -> MonadParser ()
+insertId tk ctg tp = do
+    sc <- currentScope
+
+    let name  = Tk.cleanedString tk
+        entry = idEntry name sc ctg tp
+
+    symT  <- get
+    mInfo <- lookupST name
+
+    case mInfo of
+        Nothing -> put $ insertST symT entry
+        Just info -> if checkNotRepeated info sc 
+                        then put $ insertST symT entry
+                        else let pos = Tk.position tk
+                             in insertError $ Err.PE (Err.RedeclaredVar name pos)
+
+-- ^ To insert entries on ST for id's of types
+-- ^ Special cases:
+-- ^    + Array
+-- ^    + Structs
+-- ^    + Unions
+-- ^    + Tuples (?)
+-- ^    + Aliases (?)
+insertType :: Symbol -> Bool -> AdditionalInfo -> MonadParser Type
+insertType name isNested additional = do
+    symT <- get
+
+    let entry = typeEntry name pervasiveScope Type additional
+
+    if not $ checkExisting symT name 
+        then do
+            put $ insertST symT entry 
+            return name
+        else error "TODO"
+
+
+-- ^ This is for inserting structs/unions
+insertNestedType :: Scope -> Bool -> MonadParser Type
+insertNestedType sc isStruct = do
+
+    let definedScope = NestedScope (succ sc)
+        tpName        
+            | isStruct  = getAnonymousType sc "_struct_"
+            | otherwise = getAnonymousType sc "_union_"
+        typeEntry    = compoundTypeEntry tpName pervasive Type Nothing definedScope
+
+    symT  <- get
+    put $ insertST symT typeEntry
+
+    return tpName
+
+getAnonymousType sc preName = preName ++ show (succ sc)
+
+getArrayType tp dim = array ++ '_' : tp ++ '_' : show dim
+
+
+checkNotRepeated :: SymbolInfo -> Scope -> Bool
+checkNotRepeated symInf sc 
+    | cond      = True
+    | otherwise = False
+    where cond = scope symInf /= sc && category symInf `notElem` [Function,Alias]
+
+{-
+struct { 
+    int a;
+    int b; 
+    struct { 
+        bool a;
+        bool b;
+    } my_struct_2; 
+} my_struct_1;
+
+
+|   "_struct0" -> category = Type,
+|                 scope = a,
+|                 type = Nothing,
+|                 additional = Just (NestedScope $ succ a)
+|
+|   "my_struct_1" -> category = Var,
+|                    scope = a,
+|                    type = "_struct0",
+|                    additional = Nothing
+|   
+|   "a" -> category = Var,        
+|          scope = succ a,
+|          type = "_int",
+|          additional = Nothing
+|   
+|   "b" -> category = Var,        
+|          scope = succ a,
+|          type = "_int",
+|          additional = Nothing
+| 
+|
+| | "_struct1" -> category = Type,
+| |               scope = succ a ,
+| |               type = Nothing,
+| |               additional = Just (NestedScope $ succ $ succ a)
+| |
+| | "my_struct_2" -> category = Var,
+| |                  scope = succ a,
+| |                  type = "_struct1",
+| |                  additional = Nothing
+| | 
+| | "a" -> category = Var,        
+| |        scope = succ $ succ a,
+| |        type = "_bool",
+| |        additional = Nothing
+| | 
+| | "b" -> category = Var,        
+| |        scope = succ $ succ a,
+| |        type = "_bool",
+| |        additional = Nothing
+
+nested types saving:
+
+create an entry in ST for the indexed type (["_struct","_union"]"$i"), with NestedScope = succ currentScope
+create an entry in ST with name, scope (=currentScope), saved nested type and additionalInfo if applies
+
+for each of the ("name","type") pairs:
+    if type is Struct -> call nested types saving.
+    else -> save it as usual, with adjusted scope
+
+-}
