@@ -306,9 +306,15 @@ COMPOSITE_TYPE :: { ST.Type }
     : beginArray naturalLit TYPE endArray                                           { }
     | string                                                                        { }
     | pointerType TYPE                                                              { }
-    | beginStruct SIMPLE_DECLARATIONS endStruct                                     { }
-    | beginUnion SIMPLE_DECLARATIONS endUnion                                       { }
+    | beginStruct OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endStruct                                     { }
+    | beginUnion OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endUnion                                       { }
     | beginTuple TUPLE_TYPES endTuple                                               { }
+
+OPEN_SCOPE :: { Int } 
+    :  {- empty -}                                                                   { } 
+
+CLOSE_SCOPE :: { () } 
+    :  {- empty -}                                                                   { }
 
 TUPLE_TYPES :: { [ST.Type] }
     : {- empty -}                                                                   { [] }
