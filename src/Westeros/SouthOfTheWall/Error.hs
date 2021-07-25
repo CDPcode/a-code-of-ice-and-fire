@@ -32,5 +32,53 @@ data ParserError
     deriving Show
 
 data TypeError
-    = VoidForNow
+    {- Arrays -}
+    = HeterogeneusArrayType String Tk.Position
+    | InvalidIndexType String String Tk.Position
+        -- ^ Invalid Type
+        -- ^ Expression cleaned String
+        -- ^ Position
+
+    {- Binary operations -}
+
+    | InconsistentTypesBinOp String (String,String) [String] Tk.Position
+        -- ^ Operation
+        -- ^ Type of Operands
+        -- ^ List of correct types
+        -- ^ Position of first operand
+    | InvalidTypesBinOp String (String, String) [String] Tk.Position
+    | InvalidTypeUnOp String String [String] Tk.Position
+        -- ^ Operation
+        -- ^ Type Of Operand
+        -- ^ Correct Types
+        -- ^ Position
+
+    | InvalidDereference String Tk.Position
+
+    {- Record Access -}
+
+    | RecordFieldNotFound String Int Tk.Position
+    | RepeatedRecordField String Int Tk.Position
+    | UnTypedRecordField String Int Tk.Position
+    | NotARecordType String Tk.Position
+    | NotAnUnion String Tk.Position
+
+    {- Tuple -}
+
+    | NotATupleType String Tk.Position
+
+    {- Id --}
+
+    | IdNotFound String
+    | UnTypedId String
+
+    {- Function -}
+
+    | NotAFunction String
+    | FunctionWithoutMD String
+
+    {- Cast -}
+
+    | NonCasteableTypes String String Tk.Position
+
     deriving (Show, Eq)

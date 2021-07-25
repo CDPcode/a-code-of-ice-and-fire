@@ -4,12 +4,15 @@ import Control.Monad                    (replicateM_)
 import Control.Monad.RWS                ( MonadState(put, get) )
 import Data.Foldable                    (foldl')
 import Data.Maybe                       (fromJust)
+
 import Westeros.SouthOfTheWall.TypeVer  ( typeQuery )
 
-import qualified Westeros.SouthOfTheWall.Error as Err (TypeError(..))
+import qualified Westeros.SouthOfTheWall.Error as Err 
 import qualified Westeros.SouthOfTheWall.Symtable as ST
 import qualified Westeros.SouthOfTheWall.Tokens as Tk
 import qualified Westeros.SouthOfTheWall.TypeVer as T
+
+import Data.List (elemIndex, findIndex)
 
 -- AST
 data Program = Program Global FunctionDeclarations Main deriving (Show, Eq)
@@ -44,7 +47,7 @@ data Expr
     | ActiveField Expression Id
     | AccesIndex  Expression [Expression]
     | TupleIndex  Expression Int
-    -- | Cast        Expression Type
+    | Cast        Expression String
     | IdExpr      Id
     deriving (Show, Eq)
 
@@ -118,8 +121,18 @@ instance T.Typeable Expr where
             cond1   = all T.notTypeError types
             cond2   = foldl' (\acc b -> arrType == b && acc ) True types
 
-        if cond1 && cond2
-            then return $ T.ArrayT arrType (length array)
+        if cond1
+            then if cond2
+                then return $ T.ArrayT arrType (length array)
+                else do
+                    let Just errorInd = findIndex (/= arrType) types
+                        errorExpr     = array !! errorInd
+                        errorTk       = getToken errorExpr
+                        str           = Tk.cleanedString errorTk
+                        pos           = Tk.position errorTk
+
+                    ST.insertError $ Err.TE (Err.HeterogeneusArrayType str pos) 
+                    return T.TypeError
             else return T.TypeError
 
     typeQuery (ArrayLit []) = error "Empty literal array not supported"
@@ -137,53 +150,59 @@ instance T.Typeable Expr where
     typeQuery (FuncCall id args) = do
 
         types <- mapM (typeQuery . getExpr) args
-        symT <- get
+        symT  <- get
 
         entry <- ST.lookupFunction id $ length args
         case entry of
-            Nothing -> return T.TypeError
+
             Just function -> do
                 case ST.additional function of
-                    Nothing -> return T.TypeError
+                    
                     Just (ST.FunctionMetaData info) -> do
                         let params = ST.parameters info
+
                         paramTypes <- mapM T.getTypeFromString params
 
                         let cond1 = all T.notTypeError paramTypes
-                            cond2 = all (\x -> x) $ zipWith (==) paramTypes types
+                            cond2 = and $ zipWith (==) paramTypes types
 
-                        if cond1 && cond2
-                        then do
+                        if cond1 && cond2 then do
+
                             let functionType = ST.symbolType function
                             case functionType of
                                 Just typeName -> T.getTypeFromString typeName
-                                Nothing -> return T.TypeError -- Ojo, esto está mal. Hay que implementar un tipo para las funciones
+                                Nothing -> return T.VoidT -- Ojo, esto está mal. Hay que implementar un tipo para las funciones
+
                         else return T.TypeError
+
+                    Nothing                         -> do
+                        let error = Err.FunctionWithoutMD id
+                        ST.insertError $ Err.TE error 
+                        return T.TypeError
+
                     _ -> return T.TypeError
 
+            Nothing -> do
+                let error = Err.NotAFunction id
+                ST.insertError $ Err.TE error 
+                return T.TypeError
+                
 
-    typeQuery (BinOp Sum a b)  = arithmeticBinOpCheck a b
-    typeQuery (BinOp Sub a b)  = arithmeticBinOpCheck a b
-    typeQuery (BinOp Prod a b) = arithmeticBinOpCheck a b
-    typeQuery (BinOp Mod a b)  = arithmeticBinOpCheck a b
-    typeQuery (BinOp Div a b)  = arithmeticBinOpCheck a b
-
-    typeQuery (BinOp Eq a b)  = comparisonBinOpCheck  a b
-    typeQuery (BinOp Neq a b) = comparisonBinOpCheck a b
-    typeQuery (BinOp Lt a b)  = comparisonBinOpCheck a b
-    typeQuery (BinOp Gt a b)  = comparisonBinOpCheck a b
-    typeQuery (BinOp Leq a b) = comparisonBinOpCheck a b
-    typeQuery (BinOp Geq a b) = comparisonBinOpCheck a b
-
-    typeQuery (BinOp And a b) = boolBinOpCheck a b
-    typeQuery (BinOp Or a b)  = boolBinOpCheck a b
+    typeQuery (BinOp op a b)  = binOpCheck op a b
 
     typeQuery (UnOp Neg a) = do
         x <- typeQuery (getExpr a)
 
-        if x `elem` [T.IntT, T.FloatT]
+        let validTypes   =  [T.IntT, T.FloatT]
+            tkErrPos     = Tk.position $ getToken a        
+            correctTypes = map show validTypes
+
+        if x `elem` validTypes 
             then return x
-            else return T.TypeError
+            else do
+                let error = Err.InvalidTypeUnOp (show Neg) (show x) correctTypes tkErrPos
+                ST.insertError $ Err.TE error
+                return T.TypeError 
 
     typeQuery (UnOp Deref p) = do
         mustBePtr <- typeQuery (getExpr p)
@@ -191,48 +210,60 @@ instance T.Typeable Expr where
         case mustBePtr of
             T.PointerT e
                 | e == T.TypeError -> return T.TypeError
-                | otherwise      -> return e
-            _          -> return T.TypeError
+                | otherwise        -> return e
+            _          -> do
+                let error = Err.InvalidDereference (show mustBePtr) (Tk.position $ getToken p)
+                ST.insertError $ Err.TE error
+                return T.TypeError
 
     typeQuery (AccesField expr id) = do
-        structExpr <- typeQuery $ getExpr expr
+        accessExpr <- typeQuery $ getExpr expr
 
-        case structExpr of
-            (T.StructT scope) -> do -- ! OJO
+        let isRecordType = case accessExpr of
+                T.StructT scope -> Just scope
+                T.UnionT scope  -> Just scope
+                _               -> Nothing
+
+        case isRecordType of
+            (Just scope) -> do 
+            
                 symT <- get
 
                 let inScope         = ST.filterByScopeST symT scope
                     possibleEntries = ST.findDictionary inScope id
+                    position        = Tk.position $ getToken expr
 
                 case possibleEntries of
 
                     Just [entry] -> case ST.symbolType entry of
 
                         Just strType -> T.getTypeFromString strType
-                        Nothing      -> return T.TypeError
+                        Nothing      -> do
+                            let error = Err.UnTypedRecordField id scope position
+                            ST.insertError $ Err.TE error
+                            return T.TypeError
 
-                    Nothing          -> return T.TypeError
-            (T.UnionT scope) -> do -- ! OJO
-                symT <- get
-
-                let inScope         = ST.filterByScopeST symT scope
-                    possibleEntries = ST.findDictionary inScope id
-
-                case possibleEntries of
-
-                    Just [entry] -> case ST.symbolType entry of
-
-                        Just strType -> T.getTypeFromString strType
-                        Nothing      -> return T.TypeError
-
-                    Nothing          -> return T.TypeError
-
-            _              -> return T.TypeError
+                    Nothing       -> do
+                        let error = Err.RecordFieldNotFound id scope position
+                        ST.insertError $ Err.TE error
+                        return T.TypeError
+                    _             -> do
+                        let error = Err.RepeatedRecordField id scope position 
+                        ST.insertError $ Err.TE error
+                        return T.TypeError
+            _              -> do
+                let name = Tk.cleanedString $ getToken expr 
+                    pos  = Tk.position $ getToken expr 
+                    error = Err.NotARecordType name pos
+                ST.insertError $ Err.TE error
+                return T.TypeError
 
     typeQuery (ActiveField expr id) = do
-        structExpr <- typeQuery $ getExpr expr
+        unionExpr <- typeQuery $ getExpr expr
 
-        case structExpr of
+        let position = Tk.position $ getToken expr 
+
+        case unionExpr of
             (T.UnionT scope) -> do
                 symT <- get
 
@@ -243,23 +274,53 @@ instance T.Typeable Expr where
 
                     Just [entry] -> case ST.symbolType entry of
 
-                        Just _       -> return T.BoolT  -- ! The type just indicates that the field is a correct field from struct
-                        Nothing      -> return T.TypeError
+                        Just _       -> return T.BoolT  
+                        Nothing      -> do 
+                            let error = Err.UnTypedRecordField id scope position
+                            ST.insertError $ Err.TE error
+                            return T.TypeError
 
-                    _             -> return T.TypeError
+                    Nothing      -> do
+                        let error = Err.RecordFieldNotFound id scope position
+                        ST.insertError $ Err.TE error
+                        return T.TypeError
 
-            _              -> return T.TypeError
+                    _            -> do
+                        let error = Err.RepeatedRecordField id scope position 
+                        ST.insertError $ Err.TE error
+                        return T.TypeError
 
-    typeQuery (AccesIndex arr ind)  = do
+            _              -> do
+                let name = Tk.cleanedString $ getToken expr 
+                    pos  = Tk.position $ getToken expr 
+                    error = Err.NotAnUnion name pos
+                ST.insertError $ Err.TE error
+                return T.TypeError
+
+    typeQuery (AccesIndex arr inds)  = do
         arrType  <- typeQuery (getExpr arr)
-        indTypes <- mapM (typeQuery . getExpr) ind
+        indTypes <- mapM (typeQuery . getExpr) inds
 
         let cond1 = T.notTypeError arrType
             cond2 = all T.notTypeError indTypes
             cond3 = foldl (\acc b -> T.IntT == b && acc ) True indTypes
 
-        if cond1 && cond2 && cond3
-            then return $ T.ArrayT arrType (length indTypes)
+        if cond1 && cond2 
+            
+            then if cond3
+                then return $ T.ArrayT arrType (length indTypes)
+                else do
+                    let Just errorInd = findIndex (/=T.IntT) indTypes
+                        errorTp       = show $ indTypes !! errorInd
+
+                        errorExprTk   = getToken (inds !! errorInd)
+                        exprString    = Tk.cleanedString errorExprTk
+                        pos           = Tk.position errorExprTk 
+                        error         = Err.InvalidIndexType errorTp exprString pos
+
+                    ST.insertError $ Err.TE error
+                    return T.TypeError
+
             else return T.TypeError
 
     typeQuery (TupleIndex tupleExpr ind) = do
@@ -268,8 +329,27 @@ instance T.Typeable Expr where
         if T.notTypeError tupleType then
             case tupleType of
                 T.TupleT xs -> return $ xs !! ind
-                _         -> return T.TypeError
+                _           -> do
+                    let invalidType = show tupleType 
+                        pos         = Tk.position $ getToken tupleExpr
+                        error       = Err.NotATupleType invalidType pos
+                    ST.insertError $ Err.TE error
+                    return T.TypeError
             else return T.TypeError
+
+    typeQuery (Cast expr id) = do
+        destType <- T.getTypeFromString id
+        exprType <- typeQuery $ getExpr expr
+
+        if isCasteable exprType destType
+            then return destType
+            else do
+                let position = Tk.position $ getToken expr
+                    error    = Err.NonCasteableTypes (show exprType) (show destType) position
+
+                ST.insertError $ Err.TE error 
+                return T.TypeError
+
 
     typeQuery (IdExpr id)       = do
         symT <- get
@@ -278,41 +358,62 @@ instance T.Typeable Expr where
 
         case idType of
             Just entry -> case ST.symbolType entry of
-                            Just tp -> T.getTypeFromString tp
-                            Nothing -> return T.TypeError
-            Nothing    -> return T.TypeError
+                Just tp -> T.getTypeFromString tp
+                Nothing -> do 
+                    let err = Err.UnTypedId id
+                    ST.insertError $ Err.TE err
 
+                    return T.TypeError
 
-arithmeticBinOpCheck :: Expression -> Expression -> ST.MonadParser T.Type
-arithmeticBinOpCheck a b = do
+            Nothing    -> do
+                let err = Err.IdNotFound id
+                ST.insertError $ Err.TE err
+
+                return T.TypeError
+
+isCasteable :: T.Type -> T.Type -> Bool 
+isCasteable source dest = source `elem` simpleType && dest `elem` simpleType 
+    where simpleType = [T.IntT,T.BoolT,T.CharT,T.FloatT]
+
+binOpCheck :: BinOp -> Expression -> Expression -> ST.MonadParser T.Type
+binOpCheck bop a b = do
     x <- typeQuery (getExpr a)
     d <- typeQuery (getExpr b)
 
-    if x == d && x `elem` [T.IntT, T.FloatT]
-        then return x
-        else return T.TypeError
+    let validTypes 
+         | bop `elem` [Sum,Sub,Prod,Mod,Div] = [T.IntT, T.FloatT]
+         | bop `elem` [Eq,Neq,Lt,Gt,Leq,Geq] = [T.IntT, T.BoolT, T.FloatT, T.CharT]
+         | otherwise                         = [T.BoolT]
+
+        tkErrPos = Tk.position $ getToken a           
+        lType    = show x
+        rType    = show d 
+        correctTypes = map show validTypes
+
+    if x == d 
+        then if x `elem` validTypes
+            then return x
+            else do 
+                let error = Err.InvalidTypesBinOp (show bop) (lType,rType) correctTypes tkErrPos
+
+                ST.insertError $ Err.TE error
+                return T.TypeError 
+        else do 
+            let error = Err.InconsistentTypesBinOp (show bop) (lType,rType) correctTypes tkErrPos
+                    
+            ST.insertError $ Err.TE error
+            return T.TypeError 
 
 
-comparisonBinOpCheck :: Expression -> Expression -> ST.MonadParser T.Type
-comparisonBinOpCheck a b = do
-    x <- typeQuery (getExpr a)
-    d <- typeQuery (getExpr b)
+buildAndCheckExpr :: Tk.Token -> Expr -> ST.MonadParser Expression
+buildAndCheckExpr tk expr = do
+    exprType <- typeQuery expr
 
-    let typeList = [T.IntT, T.BoolT, T.FloatT, T.CharT]
-
-    if x == d && x `elem` typeList
-        then return T.BoolT
-        else return T.TypeError
-
-boolBinOpCheck :: Expression -> Expression -> ST.MonadParser T.Type
-boolBinOpCheck a b = do
-    x <- typeQuery (getExpr a)
-    d <- typeQuery (getExpr b)
-
-    if x == d && x == T.BoolT
-        then return T.BoolT
-        else return T.TypeError
-
+    return $ Expression { 
+           getToken = tk,
+           getExpr  = expr, 
+           getType  = exprType
+        }
 
 -- Pretty print AST
 putStrIdent :: Int -> String -> IO ()
