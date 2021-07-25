@@ -4,6 +4,7 @@ import qualified Westeros.SouthOfTheWall.AST as AST
 import qualified Westeros.SouthOfTheWall.Error as Err (TypeError(..))
 import qualified Westeros.SouthOfTheWall.Symtable as ST 
 
+import Control.Monad.RWS
 
 data Type
     = IntT 
@@ -15,11 +16,13 @@ data Type
     | AliasT String 
 
     | StringT 
-    | Array Type Int 
+    | ArrayT Type Int 
     | TupleT [Type]
-    | StrucT Int
+    | StructT Int
     | UnionT Int
     | PointerT Type 
+
+    | NullT
 
     | TypeError
     deriving (Eq, Show)
@@ -41,21 +44,21 @@ instance Typeable AST.Expr where
     typeQuery AST.TrueLit       = return BoolT 
     typeQuery AST.FalseLit      = return BoolT 
 
-    typeQuery AST.NullLit       = undefined
+    typeQuery AST.NullLit       = return NullT
 
-    typeQuery (AST.ArrayLit a@(x:xs)) = do 
-           let asExpr = map AST.getExpr a
+    typeQuery (AST.ArrayLit array@(x:xs)) = do 
+           let asExpr = map AST.getExpr array
 
            types   <- mapM typeQuery asExpr
            
            let arrType = head types
-               cond1 = all notTypeError types
-               cond2 = foldl (\acc b -> arrType == b && acc ) True types 
+               cond1   = all notTypeError types
+               cond2   = foldl (\acc b -> arrType == b && acc ) True types 
 
            if cond1 && cond2 
-               then return $ Array (head types) (length a)
+               then return $ ArrayT (head types) (length array)
                else return TypeError 
-    typeQuery (AST.ArrayLit [])    = error "Empty literal array not supported"
+    typeQuery (AST.ArrayLit [])           = error "Empty literal array not supported"
 
     typeQuery (AST.TupleLit parts)   = do 
         types <- mapM (typeQuery . AST.getExpr) parts
@@ -86,18 +89,142 @@ instance Typeable AST.Expr where
 
     typeQuery (AST.UnOp AST.Neg a) = do 
             x <- typeQuery (AST.getExpr a)
+
             if x `elem` [IntT, FloatT] 
                then return x
                else return TypeError 
 
-    typeQuery (AST.UnOp AST.Deref p) = undefined
+    typeQuery (AST.UnOp AST.Deref p) = do
+        mustBePtr <- typeQuery (AST.getExpr p)
 
-    typeQuery (AST.AccesField expr id) = undefined 
-    typeQuery (AST.ActiveField _ _) = undefined 
-    typeQuery (AST.AccesIndex _ _)  = undefined 
+        case mustBePtr of
+            PointerT e 
+                | e == TypeError -> return TypeError
+                | otherwise      -> return e
+            _          -> return TypeError
 
-    typeQuery (AST.TupleIndex _ _) = undefined 
-    typeQuery (AST.IdExpr _)       = undefined
+    typeQuery (AST.AccesField expr id) = do
+        structExpr <- typeQuery $ AST.getExpr expr
+        
+        case structExpr of  
+            (StructT scope) -> do -- ! OJO
+                symT <- get
+
+                let inScope         = ST.filterByScopeST symT scope
+                    possibleEntries = ST.findDictionary inScope id
+
+                case possibleEntries of 
+
+                    Just [entry] -> case ST.symbolType entry of                            
+
+                        Just strType -> getTypeFromString strType
+                        Nothing      -> return TypeError
+
+                    _             -> return TypeError 
+            (UnionT scope) -> do -- ! OJO
+                symT <- get
+
+                let inScope         = ST.filterByScopeST symT scope
+                    possibleEntries = ST.findDictionary inScope id
+
+                case possibleEntries of 
+
+                    Just [entry] -> case ST.symbolType entry of                            
+
+                        Just strType -> getTypeFromString strType
+                        Nothing      -> return TypeError
+
+                    _             -> return TypeError 
+
+            _              -> return TypeError
+        
+    typeQuery (AST.ActiveField expr id) = do
+        structExpr <- typeQuery $ AST.getExpr expr
+        
+        case structExpr of 
+            (UnionT scope) -> do                    
+                symT <- get
+
+                let inScope         = ST.filterByScopeST symT scope
+                    possibleEntries = ST.findDictionary inScope id
+
+                case possibleEntries of 
+
+                    Just [entry] -> case ST.symbolType entry of                            
+
+                        Just _       -> return BoolT  -- ! The type just indicates that the field is a correct field from struct
+                        Nothing      -> return TypeError
+
+                    _             -> return TypeError 
+
+            _              -> return TypeError
+
+    typeQuery (AST.AccesIndex arr ind)  = do
+        arrType  <- typeQuery (AST.getExpr arr) 
+        indTypes <- mapM (typeQuery . AST.getExpr) ind
+
+        let cond1 = notTypeError arrType
+            cond2 = all notTypeError indTypes
+            cond3 = foldl (\acc b -> IntT == b && acc ) True indTypes 
+        
+        if cond1 && cond2 && cond3 
+            then return $ ArrayT arrType (length indTypes)
+            else return TypeError
+
+    typeQuery (AST.TupleIndex tupleExpr ind) = do
+        tupleType <- typeQuery (AST.getExpr tupleExpr)
+        
+        if notTypeError tupleType then 
+            case tupleType of
+                TupleT xs -> return $ xs !! ind
+                _         -> return TypeError
+            else return TypeError
+
+    typeQuery (AST.IdExpr id)       = do           
+        symT <- get
+
+        idType <- ST.lookupST id
+
+        case idType of
+            Just entry -> case ST.symbolType entry of
+                            Just tp -> getTypeFromString tp 
+                            Nothing -> return TypeError
+            Nothing    -> return TypeError
+
+
+getTypeFromString :: ST.Type -> ST.MonadParser Type
+getTypeFromString base = case base of 
+    "_int"     -> return IntT 
+    "_float"   -> return FloatT
+    "_char"    -> return CharT
+    "_bool"    -> return BoolT
+    "_atom"    -> return AtomT 
+    "_string"  -> return StringT 
+    otherType  -> do
+        espType <- ST.lookupST otherType
+
+        case espType of
+
+            Just entry  -> case ST.additional entry of
+
+                Just info -> case info of
+                    ST.AliasMetaData _ aliasName -> return $ AliasT aliasName
+                    ST.DopeVector tp scope       -> do
+                        arrType <- getTypeFromString tp
+                        return $ ArrayT arrType scope
+                    ST.PointedType tp            -> do
+                        ptrType <- getTypeFromString tp
+                        return $ PointerT ptrType
+                    ST.NestedScope scope         -> return $ StructT scope 
+                    ST.TupleTypes xs             -> do
+                        types <- mapM getTypeFromString xs
+                        return $ TupleT types
+
+                    _                            -> return TypeError
+
+                Nothing -> return TypeError
+
+            Nothing -> return TypeError
 
 
 -- ^ Use to check if recursive types have some leave with a type error.
@@ -112,6 +239,7 @@ arithmeticBinOpCheck :: AST.Expression -> AST.Expression -> ST.MonadParser Type
 arithmeticBinOpCheck a b = do 
       x <- typeQuery (AST.getExpr a) 
       d <- typeQuery (AST.getExpr b)
+
       if x == d && x `elem` [IntT, FloatT]
           then return x 
           else return TypeError 
@@ -121,7 +249,9 @@ comparisonBinOpCheck :: AST.Expression -> AST.Expression -> ST.MonadParser Type
 comparisonBinOpCheck a b = do 
      x <- typeQuery (AST.getExpr a) 
      d <- typeQuery (AST.getExpr b) 
+
      let typeList = [IntT, BoolT, FloatT, CharT] 
+
      if x == d && x `elem` typeList
         then return BoolT 
         else return TypeError 
@@ -130,6 +260,7 @@ boolBinOpCheck :: AST.Expression -> AST.Expression -> ST.MonadParser Type
 boolBinOpCheck a b = do 
     x <- typeQuery (AST.getExpr a)
     d <- typeQuery (AST.getExpr b)
+    
     if x == d && x == BoolT
         then return BoolT 
         else return TypeError
