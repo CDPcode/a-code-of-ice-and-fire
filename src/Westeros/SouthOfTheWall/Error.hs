@@ -13,7 +13,7 @@ data ParserError
     | InvalidNArgsDef String Int Tk.Position
     | FDefinitionWithoutDeclaration String Tk.Position
     | RepeatedAliasName String Tk.Position
-    | UndefinedTypePointed String Tk.Position
+    | UndefinedType String Tk.Position
     -- ^ Preparser related
 
     | UndefinedFunction String Tk.Position

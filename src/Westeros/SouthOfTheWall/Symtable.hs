@@ -276,9 +276,13 @@ getTypeInfo id = do
     case mInfo of
         Nothing -> fail $ "Somehow type with id " ++ id ++ " has not been inserted in symbols table"
         Just info ->
-            case typeInfo info of
-                Nothing -> fail $ "Somehow type with id " ++ id ++ " doesn't have width and alignment"
-                Just tInfo -> return tInfo
+            case category info of
+                Alias -> getTypeInfo $ snd $ getAliasMetaData info
+                Type ->
+                    case typeInfo info of
+                        Nothing -> fail $ "Somehow type with id " ++ id ++ " doesn't have width and alignment"
+                        Just tInfo -> return tInfo
+                _ -> fail $ "Wrong category for id " ++ id ++ " expected type or alias."
 
 getTupleTypeInfo :: [Type] -> MonadParser TypeInfo
 getTupleTypeInfo tps = do
@@ -438,7 +442,7 @@ insertAlias tk name aliasType tp = do
     then insertError $ Err.PE (Err.RepeatedAliasName name (Tk.position tk))
     else do
         case findSymbolInScope symT tp globalScope of
-            Nothing -> insertError $ Err.PE (Err.UndefinedTypePointed name (Tk.position tk))
+            Nothing -> insertError $ Err.PE (Err.UndefinedType name (Tk.position tk))
             Just info -> do
                 let realType = case category info of
                         Alias ->
