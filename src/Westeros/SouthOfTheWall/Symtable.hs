@@ -91,6 +91,10 @@ getFunctionMetaData :: SymbolInfo -> FunctionInfo
 getFunctionMetaData SymbolInfo { additional = Just (FunctionMetaData e) } = e
 getFunctionMetaData _ = error "getFunctionMetaData: Unpropper use. Report use"
 
+getAliasMetaData :: SymbolInfo -> (AliasType, Type)
+getAliasMetaData SymbolInfo { additional = Just (AliasMetaData aType tp) } = (aType, tp)
+getAliasMetaData _ = error "getFunctionMetaData: Unpropper use. Report use"
+
 
 {- Dictionary and ST functions -}
 
@@ -134,6 +138,14 @@ findDictionary = flip M.lookup
 
 findSymbol :: SymbolTable -> Symbol -> Maybe [SymbolInfo]
 findSymbol st = findDictionary (table st)
+
+findSymbolInScope :: SymbolTable -> Symbol -> Scope -> Maybe SymbolInfo
+findSymbolInScope st sym sc = wrap $ filterScope <$> findSymbol st sym
+  where
+    filterScope = filter (\info -> scope info == sc)
+    wrap (Just [x]) = Just x
+    wrap _  = Nothing
+
 
 checkExisting :: SymbolTable -> Symbol -> Bool
 checkExisting st sym = case findSymbol st sym of
@@ -235,6 +247,12 @@ setCurrentOffset newOffset = do
 
     put $ symT { offsetStack = newOffsetStack }
 
+updateOffset :: TypeInfo -> MonadParser ()
+updateOffset tInfo = do
+    offs <- currentOffset
+    let alignedOffset = getAlignedOffset offs (align tInfo)
+    setCurrentOffset $ alignedOffset + width tInfo
+
 getNextSymAlias :: MonadParser Int
 getNextSymAlias = do
     symT <- get
@@ -271,6 +289,16 @@ getTupleTypeInfo tps = do
     return $ TypeInfo {width = w, align = a}
   where
     sumTypeInfo acc info = getAlignedOffset acc (align info) + width info
+
+getUnionTypeInfo :: [Type] -> MonadParser TypeInfo
+getUnionTypeInfo tps = do
+    tInfos <- mapM getTypeInfo tps
+    let widths = map width tInfos
+        aligns = map align tInfos
+        a = foldr max 0 aligns
+        w = foldl' max 0 widths
+    return $ TypeInfo {width = w, align = a}
+
 
 {- Constants -}
 
@@ -402,6 +430,24 @@ insertType name additional tInfo = do
             put $ insertST symT entry
             return name
     else return name
+
+insertAlias :: Tk.Token -> Symbol -> AliasType -> Type -> MonadParser ()
+insertAlias tk name aliasType tp = do
+    symT <- get
+    if checkExisting symT name
+    then insertError $ Err.PE (Err.RepeatedAliasName name (Tk.position tk))
+    else do
+        case findSymbolInScope symT tp globalScope of
+            Nothing -> insertError $ Err.PE (Err.UndefinedTypePointed name (Tk.position tk))
+            Just info -> do
+                let realType = case category info of
+                        Alias ->
+                            case getAliasMetaData info of
+                                (ByStructure, realType) -> realType
+                                _ -> tp
+                        _ -> tp
+                let entry = aliasEntry name aliasType realType
+                put $ insertST symT entry
 
 genTypeSymbol :: MonadParser Type
 genTypeSymbol = do

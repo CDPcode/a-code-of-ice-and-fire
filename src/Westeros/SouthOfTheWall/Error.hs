@@ -2,8 +2,8 @@ module Westeros.SouthOfTheWall.Error where
 
 import qualified Westeros.SouthOfTheWall.Tokens as Tk (Position(..),Token(..))
 
-data Error 
-    = PE ParserError 
+data Error
+    = PE ParserError
     | TE TypeError
 
 -- ^ Sorted in occurrence order
@@ -13,6 +13,7 @@ data ParserError
     | InvalidNArgsDef String Int Tk.Position
     | FDefinitionWithoutDeclaration String Tk.Position
     | RepeatedAliasName String Tk.Position
+    | UndefinedTypePointed String Tk.Position
     -- ^ Preparser related
 
     | UndefinedFunction String Tk.Position
@@ -30,6 +31,6 @@ data ParserError
     -- ^ parseError :: [Tk.Token] -> a/syntax related
     deriving Show
 
-data TypeError 
+data TypeError
     = VoidForNow
     deriving (Show, Eq)
