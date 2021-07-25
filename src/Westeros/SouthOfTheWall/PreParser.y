@@ -177,7 +177,7 @@ comment         { Tk.Token { Tk.aToken=Tk.TknComment }  }
 -- Program --
 PROGRAM :: {}
     : HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                         {}
-    | HEADER CONTENTS GLOBAL FUNCTIONS MAIN ALIASES                                 {}
+    | ALIASES HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                             {}
 
 HEADER :: {}
     : programStart programName                                                      {}

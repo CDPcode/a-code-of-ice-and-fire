@@ -18,11 +18,11 @@ import Rainbow
       Chunk )
 
 import qualified Data.ByteString.Lazy.Char8 as BS
-import qualified Data.Map as M (toList) 
+import qualified Data.Map as M (toList)
 
 import Westeros.SouthOfTheWall.Symtable ( SymbolTable(table, scopeStack, nextScope), SymbolInfo(category, scope, additional) )
-import qualified Westeros.SouthOfTheWall.Tokens as Tk (Token(..), Position(..)) 
-import Westeros.SouthOfTheWall.Error 
+import qualified Westeros.SouthOfTheWall.Tokens as Tk (Token(..), Position(..))
+import Westeros.SouthOfTheWall.Error
 
 
 
@@ -30,54 +30,54 @@ import Westeros.SouthOfTheWall.Error
 class Pretty a where
     pretty :: a -> IO ()
 
--- ^ Get a lazy bytestring from a chunk generator 
+-- ^ Get a lazy bytestring from a chunk generator
 --      Chunk generator == output of colored formatted text
 -- OJO: possible bottleneck
 chunksToLazyBS :: (a -> [Chunk]) -> a -> BS.ByteString
 chunksToLazyBS chunker source = printable
-    where 
-        printable = BS.concat $ map BS.fromStrict strict           
+    where
+        printable = BS.concat $ map BS.fromStrict strict
         strict    = chunksToByteStrings toByteStringsColors256 (chunker source)
 
 -- ^ Eases producing chunks from things other than text
-chunkFromStr :: String -> Chunk 
+chunkFromStr :: String -> Chunk
 chunkFromStr = chunk . pack
 
 
 {- Pretty printing for Tokens -}
 
 instance Pretty Tk.Token where
-    pretty = BS.putStrLn . chunksToLazyBS tokenChunks 
+    pretty = BS.putStrLn . chunksToLazyBS tokenChunks
 
 tokenChunks :: Tk.Token -> [Chunk]
 tokenChunks token = [ chunk "-Token "
                     , chunkFromStr (show $ Tk.aToken token) & fore green
-                    , chunkFromStr $ "\n\tContents " ++ show (Tk.cleanedString  token) 
+                    , chunkFromStr $ "\n\tContents " ++ show (Tk.cleanedString  token)
                     ] ++ positionChunks (Tk.position token)
 
 
 {- Pretty printing for ST -}
 
 instance Pretty SymbolTable where
-    pretty = BS.putStrLn . chunksToLazyBS symTableChunk 
+    pretty = BS.putStrLn . chunksToLazyBS symTableChunk
 
 
 symTableChunk :: SymbolTable -> [Chunk]
-symTableChunk symT = chunk "* Name info\n" 
-                     : concatMap foo asList 
+symTableChunk symT = chunk "* Name info\n"
+                     : concatMap foo asList
                      ++ [ chunkFromStr ("\n* Scope stack :" ++ show (scopeStack symT)
                           ++ "\n* Next Scope " ++ show (nextScope symT) )
                         ]
-    where 
+    where
         asList = M.toList (table symT)
         foo (a,b) = (chunkFromStr ('\n':a) & fore green) : preProcess b :: [Chunk]
             where  -- OJO: possible bottleneck
-                preProcess = intercalate [chunkFromStr bar] . map symbolInfoChunk 
+                preProcess = intercalate [chunkFromStr bar] . map symbolInfoChunk
                 bar = "\n\t-------------------"
 
 
 symbolInfoChunk :: SymbolInfo -> [Chunk]
-symbolInfoChunk si = [ chunk "\n\tCategory: " 
+symbolInfoChunk si = [ chunk "\n\tCategory: "
                      , chunkFromStr (show (category si)) & fore blue
                      , chunkFromStr $ "\n\tScope: " ++ show (scope si)
                      ]
@@ -87,87 +87,87 @@ symbolInfoChunk si = [ chunk "\n\tCategory: "
 instance Pretty Error where
     pretty (PE parserError) = pretty parserError
     pretty (TE typeError)   = pretty typeError
-    
+
 
 {- Pretty printing for parse errors -}
 
 instance Pretty ParserError where
-    pretty pe =  BS.putStrLn . chunksToLazyBS 
+    pretty pe =  BS.putStrLn . chunksToLazyBS
                     ( (parseErrorHead :) . errorChunks ) $ pe
 
 
 errorChunks :: ParserError -> [Chunk]
-errorChunks (FRepeatedDeclarations fName pos) = 
+errorChunks (FRepeatedDeclarations fName pos) =
     [ chunk "Redeclared function "
     , chunkFromStr fName & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-errorChunks (FRepeatedDefinitions fName pos) = 
+errorChunks (FRepeatedDefinitions fName pos) =
     [ chunk "Redefined function "
-    , chunkFromStr fName 
+    , chunkFromStr fName
     , chunk "."
     ] ++ positionChunks pos
-errorChunks (InvalidNArgsDef fName nArgs pos) = 
+errorChunks (InvalidNArgsDef fName nArgs pos) =
     [ chunk "Undeclared function "
     , chunkFromStr fName & fore brightBlue
-    , chunkFromStr (" with " ++ show nArgs ++ " parameters.") 
+    , chunkFromStr (" with " ++ show nArgs ++ " parameters.")
     ] ++ positionChunks pos
-errorChunks (FDefinitionWithoutDeclaration fName pos) = 
+errorChunks (FDefinitionWithoutDeclaration fName pos) =
     [ chunk "Function "
-    , chunkFromStr fName & fore brightBlue 
+    , chunkFromStr fName & fore brightBlue
     , chunk " defined, but not declared."
     ] ++ positionChunks pos
 errorChunks (RepeatedAliasName aName pos) =
     [ chunk "Redeclared symbol "
-    , chunkFromStr aName & fore brightBlue 
+    , chunkFromStr aName & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
 
-errorChunks (UndefinedFunction fName pos) = 
+errorChunks (UndefinedFunction fName pos) =
     [ chunk "Undefined function "
-    , chunkFromStr fName & fore brightBlue 
+    , chunkFromStr fName & fore brightBlue
     , chunk "."
     ]  ++ positionChunks pos
-errorChunks (RedeclaredParameter parName pos) = 
+errorChunks (RedeclaredParameter parName pos) =
     [ chunk "Redeclared parameter "
-    , chunkFromStr parName & fore brightBlue 
+    , chunkFromStr parName & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-errorChunks (RedeclaredName name pos) = 
+errorChunks (RedeclaredName name pos) =
     [ chunk "Redeclared name: "
-    , chunkFromStr name & fore brightBlue 
+    , chunkFromStr name & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-errorChunks (UndefinedVar name pos) = 
+errorChunks (UndefinedVar name pos) =
     [ chunk "Undefined variable: "
-    , chunkFromStr name & fore brightBlue 
+    , chunkFromStr name & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-errorChunks (InvalidVar category unexpectedSym pos) = 
-    [ chunkFromStr ("Expected variable, found " ++ show category ++ " ") 
-    , chunkFromStr unexpectedSym & fore brightBlue 
+errorChunks (InvalidVar category unexpectedSym pos) =
+    [ chunkFromStr ("Expected variable, found " ++ show category ++ " ")
+    , chunkFromStr unexpectedSym & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-errorChunks (RedeclaredVar name pos) = 
+errorChunks (RedeclaredVar name pos) =
     [ chunk "Redeclared variable: "
-    , chunkFromStr name & fore brightBlue 
+    , chunkFromStr name & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-errorChunks (RedeclaredConstant name pos) = 
+errorChunks (RedeclaredConstant name pos) =
     [ chunk "Redeclared constant: "
     , chunkFromStr name & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-errorChunks (ExpectedFunction category name pos) = 
+errorChunks (ExpectedFunction category name pos) =
     [ chunkFromStr ("Expected function, foound " ++ category ++ " ")
-    , chunkFromStr name & fore brightBlue 
+    , chunkFromStr name & fore brightBlue
     , chunk "."
     ]
 errorChunks (SyntaxErr tk) =
     [ chunk "Syntax error related to: "
-    , chunkFromStr (show (Tk.aToken tk)) & fore brightBlue 
+    , chunkFromStr (show (Tk.aToken tk)) & fore brightBlue
     ] ++ positionChunks (Tk.position tk)
-errorChunks SyntaxErrEOF = 
+errorChunks SyntaxErrEOF =
     [ chunk "Syntax error at End Of File"]
 
 parseErrorHead :: Chunk
@@ -177,11 +177,11 @@ positionChunks :: Tk.Position -> [Chunk]
 positionChunks Tk.Position{ Tk.row = r , Tk.col = c } =
     [ chunk "\n"
     , chunk "--> " & fore brightBlue
-    , chunkFromStr (show r) & fore brightRed 
+    , chunkFromStr (show r) & fore brightRed
     , chunk ":"
-    , chunkFromStr (show c) & fore brightRed 
+    , chunkFromStr (show c) & fore brightRed
     ]
-                                        
+
 
 {- Pretty printing for type errors -}
 

@@ -173,9 +173,9 @@ comment         { Tk.Token { Tk.aToken=Tk.TknComment }  }
 -- comments at any point as long as they do not interfere with an expression
 
 -- Program --
-PROGRAM :: { AST.Program }
-    : HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                                         { AST.Program $1 $2 $3 $4 $5 [] }
-    | HEADER CONTENTS GLOBAL FUNCTIONS MAIN ALIASES                                                 { AST.Program $1 $2 $3 $4 $5 $6 }
+PROGRAM :: { Ast.Program }
+    : HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                                         { Ast.Program $1 $2 $3 $4 $5 [] }
+    | ALIASES HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                                 { Ast.Program $2 $3 $4 $5 $6 $1 }
 
 HEADER :: { AST.Header }
     : programStart programName                                                                      { Tk.cleanedString $2 }
@@ -615,5 +615,5 @@ checkFunctionCall tkPar tkId exprs = do
             case ST.category info of
                 ST.Function -> return ()
                 c -> ST.insertError $ Err.PE (Err.ExpectedFunction (show c) name pos)
-    return $ createExpression tkPar $ AST.FuncCall name exprs
+    return $ createExpression tkPar $ Ast.FuncCall name exprs
 }
