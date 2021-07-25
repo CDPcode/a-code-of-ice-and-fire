@@ -176,14 +176,14 @@ comment         { Tk.Token { Tk.aToken=Tk.TknComment }  }
 
 -- Program --
 PROGRAM : HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                                     {}
-        | HEADER CONTENTS GLOBAL FUNCTIONS MAIN ALIASES                                             {}
+        | ALIASES HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                             {}
 
 HEADER : programStart programName                                                                   {}
 
 CONTENTS : beginFuncDec FUNCTION_DECLARATIONS                                                       {}
 
 FUNCTION_DECLARATIONS : item globalDec FUNCTION_NAMES item main                                     {}
- 
+
 FUNCTION_NAMES :: { () }
      : {- empty -}                                                                                  { () }
      | FUNCTION_NAMES item id argNumber                                                             {% do -- ST.statefullSTupdate (ST.getFunctionDeclarationInfo $3 $4)
@@ -200,14 +200,14 @@ FUNCTION_NAMES :: { () }
                                                                                                                    functionsEntries = map ST.getFunctionMD actualFunctions
                                                                                                                    functionsArgs    = map ST.nArgs functionsEntries
                                                                                                                    currentArgs      = ST.nArgs ( ST.getFunctionMD (snd entry) )
-                                                                                     
+
                                                                                                                if currentArgs `notElem` functionsArgs then
                                                                                                                   put $ ST.insertST ( symT { ST.nextScope = succ (ST.nextScope symT) } ) entry
-                                                                                                               else ST.insertError $ Err.PE (Err.FRepeatedDeclarations name (Tk.position $3)) 
+                                                                                                               else ST.insertError $ Err.PE (Err.FRepeatedDeclarations name (Tk.position $3))
 
-                                                                                                     
+
                                                                                                     }
-     
+
 
 GLOBAL : globalDec '{' DECLARATIONS '}'                                                             {}
 
@@ -232,8 +232,8 @@ FUNCTION :: { () }
                                                                                                          if (ST.checkExisting symT functionId) then do
 
                                                                                                               -- match found
-                                                                                                              let entries         = fromJust $ ST.findSymbol symT functionId            
-                                                                                                                  actualFunctions = filter (\e-> ST.category e == ST.Function) entries 
+                                                                                                              let entries         = fromJust $ ST.findSymbol symT functionId
+                                                                                                                  actualFunctions = filter (\e-> ST.category e == ST.Function) entries
                                                                                                                   -- ^ Bring all definitions for functionId name
                                                                                                                   -- ^ Filter those defined as functions
 
@@ -243,12 +243,12 @@ FUNCTION :: { () }
                                                                                                                   --    + is a Function that hasn't been validated (.i.e: discriminant is false)
                                                                                                                   --    + is a Function with the same number of arguments
 
-                                                                                                              case (filter notAlreadyDefined actualFunctions) of 
-                                                                                                                   [] -> ST.insertError $ Err.PE (Err.FRepeatedDefinitions functionId (Tk.position $1)) 
+                                                                                                              case (filter notAlreadyDefined actualFunctions) of
+                                                                                                                   [] -> ST.insertError $ Err.PE (Err.FRepeatedDefinitions functionId (Tk.position $1))
                                                                                                                    xs -> case find sameNArgs xs of
                                                                                                                         Nothing -> ST.insertError $ Err.PE (Err.InvalidNArgsDef functionId (length $2) (Tk.position $1) )
                                                                                                                         Just e  -> do
-                                                                                                                                                      
+
                                                                                                                              let newAdditional = (ST.getFunctionMD e) { ST.discriminant = True, ST.fParameters = $2 , ST.fReturn = $3 }
                                                                                                                                  newSymT = ST.searchAndReplaceSymbol symT (functionId,e) $ (e { ST.additional = Just (ST.FunctionMD newAdditional) })
 
@@ -349,16 +349,16 @@ CONST_DECLARATION : const id type TYPE constValue EXPR                          
                   | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                     {}
 
 ALIAS_DECLARATION :: { () }
-     : beginAlias id ALIAS_TYPE TYPE '.'                                                            {% do 
+     : beginAlias id ALIAS_TYPE TYPE '.'                                                            {% do
 
-                                                                                                    symT <- get 
+                                                                                                    symT <- get
 
                                                                                                     let name = Tk.cleanedString $2
 
                                                                                                     case ST.findSymbol symT name of
                                                                                                          Nothing -> put $ ST.insertST symT (createAliasEntry name $3 $4)
                                                                                                          Just _  -> ST.insertError $ Err.PE (Err.RepeatedAliasName name (Tk.position $2))
- 
+
                                                                                                     }
 
 ALIAS_TYPE :: { Ast.AliasType }
@@ -466,8 +466,8 @@ EXPRLIST :: { [Ast.Expression] }
 {
 
 parseError [] = error "Parse error at EOF."
-parseError (tk:_) = error $ "error: parse error with: \"" ++ Tk.cleanedString tk 
-                             ++ "\" at position " ++ show (Tk.position tk) 
+parseError (tk:_) = error $ "error: parse error with: \"" ++ Tk.cleanedString tk
+                             ++ "\" at position " ++ show (Tk.position tk)
                              ++ "related to token: " ++ show (Tk.aToken tk)
 
 createExpression :: Tk.Token -> Ast.Expr -> Ast.Expression
@@ -476,7 +476,7 @@ createExpression tk expr = Ast.Expression { Ast.getToken = tk, Ast.getExpr = exp
 createAliasEntry :: String -> Ast.AliasType -> Ast.Type -> ST.Entry
 createAliasEntry name aliasType pointedType = (name,info)
      where
-          info = ST.SymbolInfo { 
+          info = ST.SymbolInfo {
                ST.category   = ST.Alias,
                ST.scope      = ST.pervasiveScope,
                ST.tp         = Nothing,
