@@ -228,6 +228,8 @@ pointer :: String
 pointer = "_ptr"
 array :: String 
 array = "_array"
+tError :: String 
+tError = "_type_error"
 
 
 initialTypes :: [String]
@@ -308,10 +310,10 @@ insertNestedType sc isStruct = do
         tpName        
             | isStruct  = getAnonymousType sc "_struct_"
             | otherwise = getAnonymousType sc "_union_"
-        typeEntry    = compoundTypeEntry tpName pervasive Type Nothing definedScope
+        tpEntry = typeEntry tpName pervasiveScope Type definedScope
 
     symT  <- get
-    put $ insertST symT typeEntry
+    put $ insertST symT tpEntry
 
     return tpName
 
@@ -325,6 +327,7 @@ checkNotRepeated symInf sc
     | cond      = True
     | otherwise = False
     where cond = scope symInf /= sc && category symInf `notElem` [Function,Alias]
+
 
 {-
 struct { 

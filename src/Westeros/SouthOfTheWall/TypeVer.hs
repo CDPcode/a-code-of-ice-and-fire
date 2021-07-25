@@ -2,23 +2,24 @@ module Westeros.SouthOfTheWall.TypeVer where
 
 import qualified Westeros.SouthOfTheWall.AST as AST
 import qualified Westeros.SouthOfTheWall.Error as Err (TypeError(..))
-import qualified Westeros.SouthOfTheWall.Symtable as ST (Type)
+import qualified Westeros.SouthOfTheWall.Symtable as ST 
+
 
 data Type
     = IntT 
     | FloatT
-    | BoolT 
-    | CharT 
-    | AtomT
+    | CharT
+    | BoolT
+    | AtomT 
 
-    | AliasT String
+    | AliasT String 
 
     | StringT 
-    | ArrayT Type Int 
+    | Array Type Int 
     | TupleT [Type]
-    | StructT [Type]
-    | UnionT [Type]
-    | PointerT Type
+    | StrucT Int
+    | UnionT Int
+    | PointerT Type 
 
     | TypeError
     deriving (Eq, Show)
@@ -29,41 +30,109 @@ data Type
 -- the language susceptible of having a type and then performing type queries when
 -- necessary.
 class Typeable a where 
-    typeQuery :: a -> ST.Type
+    typeQuery :: a -> ST.MonadParser Type
 
 instance Typeable AST.Expr where
-    typeQuery (AST.IntLit    _) = "_int"
-    typeQuery (AST.CharLit   _) = "_char"
-    typeQuery (AST.FloatLit  _) = "_float"
-    typeQuery (AST.AtomLit   _) = "_atom"
-    typeQuery (AST.StringLit _) = "_string"
-    typeQuery AST.TrueLit       = "_bool"
-    typeQuery AST.FalseLit      = "_bool"
+    typeQuery (AST.IntLit    _) = return IntT 
+    typeQuery (AST.CharLit   _) = return CharT
+    typeQuery (AST.FloatLit  _) = return FloatT 
+    typeQuery (AST.AtomLit   _) = return AtomT 
+    typeQuery (AST.StringLit _) = return StringT 
+    typeQuery AST.TrueLit       = return BoolT 
+    typeQuery AST.FalseLit      = return BoolT 
 
     typeQuery AST.NullLit       = undefined
 
-    typeQuery (AST.ArrayLit   _) = undefined 
-    typeQuery (AST.TupleLit   _) = undefined 
+    typeQuery (AST.ArrayLit a@(x:xs)) = do 
+           let asExpr = map AST.getExpr a
+
+           types   <- mapM typeQuery asExpr
+           
+           let arrType = head types
+               cond1 = all notTypeError types
+               cond2 = foldl (\acc b -> arrType == b && acc ) True types 
+
+           if cond1 && cond2 
+               then return $ Array (head types) (length a)
+               else return TypeError 
+    typeQuery (AST.ArrayLit [])    = error "Empty literal array not supported"
+
+    typeQuery (AST.TupleLit parts)   = do 
+        types <- mapM (typeQuery . AST.getExpr) parts
+
+        let res = TupleT types
+
+        if notTypeError res 
+            then return res 
+            else return TypeError
+
     typeQuery (AST.FuncCall   _ _) = undefined 
 
-    typeQuery (AST.BinOp      _ _ _) = undefined 
-    typeQuery (AST.UnOp       _ _) = undefined 
+    typeQuery (AST.BinOp AST.Sum a b)  = arithmeticBinOpCheck a b
+    typeQuery (AST.BinOp AST.Sub a b)  = arithmeticBinOpCheck a b
+    typeQuery (AST.BinOp AST.Prod a b) = arithmeticBinOpCheck a b
+    typeQuery (AST.BinOp AST.Mod a b)  = arithmeticBinOpCheck a b
+    typeQuery (AST.BinOp AST.Div a b)  = arithmeticBinOpCheck a b
 
-    typeQuery (AST.AccesField _ _) = undefined 
+    typeQuery (AST.BinOp AST.Eq a b)  = comparisonBinOpCheck  a b
+    typeQuery (AST.BinOp AST.Neq a b) = comparisonBinOpCheck a b
+    typeQuery (AST.BinOp AST.Lt a b)  = comparisonBinOpCheck a b
+    typeQuery (AST.BinOp AST.Gt a b)  = comparisonBinOpCheck a b
+    typeQuery (AST.BinOp AST.Leq a b) = comparisonBinOpCheck a b
+    typeQuery (AST.BinOp AST.Geq a b) = comparisonBinOpCheck a b
+ 
+    typeQuery (AST.BinOp AST.And a b) = boolBinOpCheck a b
+    typeQuery (AST.BinOp AST.Or a b)  = boolBinOpCheck a b
+
+    typeQuery (AST.UnOp AST.Neg a) = do 
+            x <- typeQuery (AST.getExpr a)
+            if x `elem` [IntT, FloatT] 
+               then return x
+               else return TypeError 
+
+    typeQuery (AST.UnOp AST.Deref p) = undefined
+
+    typeQuery (AST.AccesField expr id) = undefined 
     typeQuery (AST.ActiveField _ _) = undefined 
-    typeQuery (AST.AccesIndex _ _) = undefined 
+    typeQuery (AST.AccesIndex _ _)  = undefined 
 
     typeQuery (AST.TupleIndex _ _) = undefined 
-    typeQuery (AST.IdExpr _) = undefined
+    typeQuery (AST.IdExpr _)       = undefined
 
 
+-- ^ Use to check if recursive types have some leave with a type error.
+notTypeError :: Type -> Bool 
+notTypeError (TupleT xs)  = all notTypeError xs
+notTypeError (PointerT e) = notTypeError e
+notTypeError TypeError    = False
+notTypeError _            = True
 
 
+arithmeticBinOpCheck :: AST.Expression -> AST.Expression -> ST.MonadParser Type
+arithmeticBinOpCheck a b = do 
+      x <- typeQuery (AST.getExpr a) 
+      d <- typeQuery (AST.getExpr b)
+      if x == d && x `elem` [IntT, FloatT]
+          then return x 
+          else return TypeError 
 
 
+comparisonBinOpCheck :: AST.Expression -> AST.Expression -> ST.MonadParser Type 
+comparisonBinOpCheck a b = do 
+     x <- typeQuery (AST.getExpr a) 
+     d <- typeQuery (AST.getExpr b) 
+     let typeList = [IntT, BoolT, FloatT, CharT] 
+     if x == d && x `elem` typeList
+        then return BoolT 
+        else return TypeError 
 
-
-
+boolBinOpCheck :: AST.Expression -> AST.Expression -> ST.MonadParser Type
+boolBinOpCheck a b = do 
+    x <- typeQuery (AST.getExpr a)
+    d <- typeQuery (AST.getExpr b)
+    if x == d && x == BoolT
+        then return BoolT 
+        else return TypeError
 
 {-
 data Expr

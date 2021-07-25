@@ -322,6 +322,7 @@ CLOSE_SCOPE :: { () }
 TUPLE_TYPES :: { [Ast.Type] }
     : {- empty -}                                                                                   { [] }
     | TYPES                                                                                         { reverse $1 }
+    
 
 -- Alias Declaration --
 
@@ -336,33 +337,33 @@ DECLARATION :: { Ast.Declaration }
     | SIMPLE_DECLARATION ':==' EXPR '.'                                                             { Ast.VarDeclaration $1 $ Just $3 }
     | CONST_DECLARATION '.'                                                                         { $1 }
 
-SIMPLE_DECLARATIONS :: { [Ast.VariableDeclaration] }
+SIMPLE_DECLARATIONS :: {()}
     : SIMPLE_DECLARATION                                                                            { [$1] }
     | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION                                                    { $3 : $1 }
 
-SIMPLE_DECLARATION :: { Ast.VariableDeclaration }
-    : PRIMITIVE_DECLARATION                                                                         { $1 }
-    | COMPOSITE_DECLARATION                                                                         { $1 }
+SIMPLE_DECLARATION :: {()}
+    : PRIMITIVE_DECLARATION                                                                         { }
+    | COMPOSITE_DECLARATION                                                                         { }
 
-PRIMITIVE_DECLARATION :: { Ast.VariableDeclaration }
-    : var id type TYPE                                                                              {% maybeInsertVar $2 $4 Nothing }
+PRIMITIVE_DECLARATION :: {()}
+    : var id type TYPE                                                                              {% }
 
-COMPOSITE_DECLARATION :: { Ast.VariableDeclaration }
+COMPOSITE_DECLARATION :: {()}
     : beginCompTypeId var id endCompTypeId TYPE                                                     {% }
     | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz                              {% } 
     | beginCompTypeId pointerVar id endCompTypeId TYPE                                              {% } 
     | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz                       {% } 
 
-CONST_DECLARATION :: { Ast.Declaration }
+CONST_DECLARATION :: {()}
     : const id type TYPE constValue EXPR                                                            {% }
     | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                                   {% }
 
-ALIAS_DECLARATION :: { Ast.AliasDeclaration }
-    : beginAlias id ALIAS_TYPE TYPE '.'                                                             { Ast.AliasDec (Tk.cleanedString $2) $4 $3}
+ALIAS_DECLARATION :: {()}
+    : beginAlias id ALIAS_TYPE TYPE '.'                                                             {}
 
-ALIAS_TYPE :: { Ast.AliasType }
-    : strongAlias                                                                                   { Ast.StrongAlias }
-    | weakAlias                                                                                     { Ast.WeakAlias }
+ALIAS_TYPE :: {()}
+    : strongAlias                                                                                   {}
+    | weakAlias                                                                                     {}
 
 -- Instructions --
 
