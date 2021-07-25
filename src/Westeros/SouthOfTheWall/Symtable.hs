@@ -114,6 +114,10 @@ searchAndReplace new old (x:xs)
     | x == old  = new : xs
     | otherwise = x : searchAndReplace new old xs
 
+genTypeSymbol :: MonadParser Type
+genTypeSymbol = do
+    next <- getNextSymAlias
+    return $ "a_" ++ show next
 
 {- ST Filtering by scope -}
 
@@ -278,7 +282,6 @@ pervasiveScope, globalScope :: Scope
 pervasiveScope = 0
 globalScope  = 1
 
-
 {- Initial types -}
 
 int :: String
@@ -325,8 +328,8 @@ typesSymbolInfo info = SymbolInfo
     , typeInfo   = Just info
     }
 
+{- Entries generation functions -}
 
--- Most generic insertion function
 regularEntry:: Symbol
             -> Scope
             -> Category
@@ -349,6 +352,9 @@ regularEntry name sc ctg tp add mOffset mInfo = (name, symInfo)
 idEntry :: Symbol -> Scope -> Category -> Type -> Offset -> Entry
 idEntry name sc ctg tp offs = regularEntry name sc ctg (Just tp) Nothing (Just offs) Nothing
 
+paramEntry :: Symbol -> Scope -> Type -> AdditionalInfo -> Entry
+paramEntry name sc tp info = regularEntry name sc Parameter (Just tp) (Just info) Nothing Nothing
+
 typeEntry :: Symbol -> AdditionalInfo -> TypeInfo -> Entry
 typeEntry name info tInfo = regularEntry name globalScope Type Nothing (Just info) Nothing (Just tInfo)
 
@@ -358,9 +364,9 @@ aliasEntry name aliasType pointedType =
 
 functionDecEntry :: Symbol -> Int -> Entry
 functionDecEntry name params =
-    regularEntry name globalScope Function Nothing additional Nothing Nothing
+    regularEntry name globalScope Function Nothing info Nothing Nothing
     where
-        additional = Just $ FunctionMetaData (
+        info = Just $ FunctionMetaData (
             FunctionInfo {
                 numberOfParams = params,
                 parameters =  [],
@@ -368,7 +374,8 @@ functionDecEntry name params =
                 defined = False
             })
 
--- ^ To insert entries for id's of things that are not a type.
+{- Insertion Function -}
+
 insertId :: Tk.Token -> Category -> Type -> MonadParser ()
 insertId tk ctg tp = do
     sc <- currentScope
@@ -392,24 +399,32 @@ insertId tk ctg tp = do
                 setCurrentOffset newOffset
             else insertError $ Err.PE (Err.RedeclaredVar name $ Tk.position tk)
 
--- ^ To insert entries on ST for id's of types
+insertParam :: Tk.Token -> Type -> ParameterType -> MonadParser ()
+insertParam tk tp paramType = do
+    
+    sc <- currentScope
+    let name  = Tk.cleanedString tk
+        entry = paramEntry name sc tp $ ParameterType paramType
+    
+    symT  <- get
+    mInfo <- lookupST name
+    case mInfo of
+        Nothing -> put $ insertST symT entry
+        Just info ->
+            if checkNotRepeated info sc
+            then do
+                put $ insertST symT entry
+            else insertError $ Err.PE (Err.RedeclaredParameter name $ Tk.position tk)
+
 insertType :: Symbol -> AdditionalInfo -> TypeInfo -> MonadParser Type
-insertType name additional tInfo = do
+insertType name add tInfo = do
     symT <- get
     if not $ checkExisting symT name
         then do
-            let entry = typeEntry name additional tInfo
+            let entry = typeEntry name add tInfo
             put $ insertST symT entry
             return name
     else return name
 
-genTypeSymbol :: MonadParser Type
-genTypeSymbol = do
-    next <- getNextSymAlias
-    return $ "a_" ++ show next
-
 checkNotRepeated :: SymbolInfo -> Scope -> Bool
-checkNotRepeated symInf sc
-    | cond      = True
-    | otherwise = False
-    where cond = scope symInf /= sc && category symInf `notElem` [Function,Alias]
+checkNotRepeated symInf sc = scope symInf /= sc && category symInf `notElem` [Function, Alias]

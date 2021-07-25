@@ -5,7 +5,7 @@ import qualified Westeros.SouthOfTheWall.AST as AST
 import qualified Westeros.SouthOfTheWall.Error as Err
 import qualified Westeros.SouthOfTheWall.Tokens as Tk
 import qualified Westeros.SouthOfTheWall.Symtable as ST
-
+import qualified Westeros.SouthOfTheWall.TypeVer as T
 import Data.Maybe (fromJust)
 import Control.Monad.RWS ( MonadState(put, get), RWST, when )
 
@@ -15,7 +15,6 @@ import Control.Monad.RWS ( MonadState(put, get), RWST, when )
 %tokentype            { Tk.Token }
 %error                { parseError }
 %monad                { ST.MonadParser }
--- TODO: %monad expr to properly handle errors
 
 -- Token aliases definitions
 %token
@@ -174,87 +173,71 @@ comment         { Tk.Token { Tk.aToken=Tk.TknComment }  }
 
 -- Program --
 PROGRAM :: { Ast.Program }
-    : HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                                         { Ast.Program $1 $2 $3 $4 $5 [] }
-    | ALIASES HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                                 { Ast.Program $2 $3 $4 $5 $6 $1 }
+    : HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                         { Ast.Program $3 (reverse $4) $5 }
+    | ALIASES HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                 { Ast.Program $4 (reverse $5) $6 }
 
-HEADER :: { AST.Header }
-    : programStart programName                                                                      { Tk.cleanedString $2 }
+HEADER :: { }
+    : programStart programName                                                      { Tk.cleanedString $2 }
 
-CONTENTS :: { AST.FunctionNames }
-    : beginFuncDec FUNCTION_DECLARATIONS                                                            { $2 }
+CONTENTS :: { }
+    : beginFuncDec FUNCTION_DECLARATIONS                                            { }
 
-FUNCTION_DECLARATIONS :: { AST.FunctionNames }
-    : item globalDec FUNCTION_NAMES item main                                                       { reverse $3 }
+FUNCTION_DECLARATIONS :: { }
+    : item globalDec FUNCTION_NAMES item main                                       { }
 
-FUNCTION_NAMES :: { AST.FunctionNames }
-    : {- empty -}                                                                                   { [] }
-    | FUNCTION_NAMES item id argNumber                                                              {% do
-                                                                                                        let name = Tk.cleanedString $3
-                                                                                                        let params = read (Tk.cleanedString $4) :: Int
-                                                                                                        let pos = Tk.position $3
+FUNCTION_NAMES :: { }
+    : {- empty -}                                                                   { }
+    | FUNCTION_NAMES item id argNumber                                              {% do
+                                                                                        let name = Tk.cleanedString $3
+                                                                                            params = read (Tk.cleanedString $4) :: Int
+                                                                                            pos = Tk.position $3
+                                                                                        function <- ST.lookupFunction name params
+                                                                                        case function of
+                                                                                            Nothing -> ST.insertError $ Err.PE (Err.UndefinedFunction name pos)
+                                                                                            Just info -> case ST.defined $ ST.getFunctionMetaData info of
+                                                                                                True -> return ()
+                                                                                                False -> ST.insertError $ Err.PE (Err.UndefinedFunction name pos)
+                                                                                    }
 
-                                                                                                        function <- ST.lookupFunction name params
-                                                                                                        case function of
-                                                                                                            Nothing -> ST.insertError $ Err.PE (Err.UndefinedFunction name pos)
-                                                                                                            Just info -> case ST.discriminant $ ST.getFunctionMD info of
-                                                                                                                True -> return ()
-                                                                                                                False -> ST.insertError $ Err.PE (Err.UndefinedFunction name pos)
-                                                                                                        return $ (name, params) : $1 }
-
-GLOBAL :: { [AST.Declaration] }
-    : globalDec '{' DECLARATIONS '}'                                                                { reverse $3 }
+GLOBAL :: { [AST.Instruction] }
+    : globalDec '{' DECLARATIONS '}'                                                { reverse $3 }
 
 MAIN :: { [AST.Instruction] }
-    : main FUNCTION_BODY                                                                            { $2 }
+    : main FUNCTION_BODY                                                            { $2 }
 
-ALIASES :: { [AST.AliasDeclaration] }
-    : aliasDec ALIAS_DECLARATIONS                                                                   { reverse $2 }
+ALIASES :: { }
+    : aliasDec ALIAS_DECLARATIONS                                                   { }
 
-ALIAS_DECLARATIONS :: { [AST.AliasDeclaration] }
-    : ALIAS_DECLARATION                                                                             { [$1] }
-    | ALIAS_DECLARATIONS ALIAS_DECLARATION                                                          { $2 : $1 }
+ALIAS_DECLARATIONS :: { }
+    : ALIAS_DECLARATION                                                             { }
+    | ALIAS_DECLARATIONS ALIAS_DECLARATION                                          { }
 
 -- Subrutines --
 
 FUNCTIONS :: { [AST.FunctionDeclaration] }
-    : {- empty -}                                                                                   { [] }
-    | FUNCTIONS FUNCTION                                                                            { $2 : $1 }
+    : {- empty -}                                                                   { [] }
+    | FUNCTIONS FUNCTION                                                            { $2 : $1 }
 
 FUNCTION :: { AST.FunctionDeclaration }
-    : id OPEN_SCOPE FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY CLOSE_SCOPE                   { AST.FunctionDeclaration (Tk.cleanedString $1) $3 $4 $5 }
+    : id OPEN_SCOPE FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY CLOSE_SCOPE   { AST.FunctionDeclaration $5 }
 
-FUNCTION_PARAMETERS :: { [AST.Parameter] }
-    : beginFuncParams PARAMETER_LIST endFuncParams                                                  { $2 }
+FUNCTION_PARAMETERS :: { }
+    : beginFuncParams PARAMETER_LIST endFuncParams                                  { }
 
-PARAMETER_LIST :: { [AST.Parameter] }
-    : void                                                                                          { [] }
-    | PARAMETERS                                                                                    { reverse $1 }
+PARAMETER_LIST :: { }
+    : void                                                                          { }
+    | PARAMETERS                                                                    { }
 
-PARAMETERS :: { [AST.Parameter] }
-    : PARAMETER                                                                                     { [$1] }
-    | PARAMETERS ',' PARAMETER                                                                      { $3 : $1 }
+PARAMETERS :: { }
+    : PARAMETER                                                                     { }
+    | PARAMETERS ',' PARAMETER                                                      { }
 
-PARAMETER :: { AST.Parameter }
-    : PARAMETER_TYPE id type TYPE                                                                   {% do
-                                                                                                        sc <- ST.currentScope
-                                                                                                        let name = Tk.cleanedString $2
-                                                                                                        let entry = createParamEntry name sc $4 $1
-                                                                                                        let pos = Tk.position $2
-                                                                                                        symT <- get
-                                                                                                        mInfo <- ST.lookup name
-                                                                                                        case mInfo of
-                                                                                                            Nothing -> put $ ST.insertST symT entry
-                                                                                                            Just info ->
-                                                                                                                if ST.scope info /= sc && ST.category info /= ST.Function && ST.category info /= ST.Alias
-                                                                                                                    then put $ ST.insertST symT entry
-                                                                                                                    else ST.insertError $ Err.PE (Err.RedeclaredParameter name pos)
+PARAMETER :: { }
+    : PARAMETER_TYPE id type TYPE                                                   { insertParam $2 $4 $1 }
 
-                                                                                                        return $ AST.Parameter $1 (Tk.cleanedString $2) $4
-                                                                                                    }
-
-PARAMETER_TYPE :: { AST.ParamType }
-    : valueArg                                                                      { AST.Value }
-    | refArg                                                                        { AST.Ref }
+PARAMETER_TYPE :: { ST.ParameterType }
+    : valueArg                                                                      { ST.Value }
+    | refArg                                                                        { ST.Ref }
 
 FUNCTION_RETURN :: { [ST.Type] }
     : beginReturnVals RETURN_TYPES endReturnVals                                    { $2 }
@@ -315,82 +298,113 @@ COMPOSITE_TYPE :: { ST.Type }
                                                                                         ST.insertType name info
                                                                                     }
 
-TUPLE_TYPES :: { [AST.Type] }
-    : {- empty -}                                                                                   { [] }
-    | TYPES                                                                                         { reverse $1 }
-
+TUPLE_TYPES :: { }
+    : {- empty -}                                                                   { [] }
+    | TYPES                                                                         { reverse $1 }
 
 -- Alias Declaration --
+DECLARATIONS :: { [AST.Instruction] }
+    : {- empty -}                                                                   { [] }
+    | DECLARATIONS DECLARATION                                                      { case $2 of
+                                                                                        Nothing -> $1
+                                                                                        Just AST.Instruction -> $2 : $1 }
+    | DECLARATIONS comment                                                          { $1 }
 
-DECLARATIONS :: { [AST.Declaration] }
-    : {- empty -}                                                                                   { [] }
-    | DECLARATIONS DECLARATION                                                                      { $2 : $1 }
-    | DECLARATIONS comment                                                                          { $1 }
+DECLARATION :: { Maybe AST.Instruction }
+    : SIMPLE_DECLARATION '.'                                                        { return Nothing }
+    | SIMPLE_DECLARATION ':=' EXPR '.'                                              {  }
+    | SIMPLE_DECLARATION ':==' EXPR '.'                                             {  }
+    | CONST_DECLARATION '.'                                                         { return Nothing }
 
-DECLARATION :: { AST.Declaration }
-    : SIMPLE_DECLARATION '.'                                                                        { AST.VarDeclaration $1 Nothing }
-    | SIMPLE_DECLARATION ':=' EXPR '.'                                                              { AST.VarDeclaration $1 $ Just $3 }
-    | SIMPLE_DECLARATION ':==' EXPR '.'                                                             { AST.VarDeclaration $1 $ Just $3 }
-    | CONST_DECLARATION '.'                                                                         { $1 }
+SIMPLE_DECLARATIONS :: { }
+    : SIMPLE_DECLARATION                                                            {  }
+    | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION                                    {  }
 
-SIMPLE_DECLARATIONS :: {()}
-    : SIMPLE_DECLARATION                                                                            { [$1] }
-    | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION                                                    { $3 : $1 }
+SIMPLE_DECLARATION :: {  }
+    : PRIMITIVE_DECLARATION                                                         { }
+    | COMPOSITE_DECLARATION                                                         { }
 
-SIMPLE_DECLARATION :: {()}
-    : PRIMITIVE_DECLARATION                                                                         { }
-    | COMPOSITE_DECLARATION                                                                         { }
-
-PRIMITIVE_DECLARATION :: {()}
-    : var id type TYPE                                                                              {% }
+PRIMITIVE_DECLARATION :: {  }
+    : var id type TYPE                                                              {
+                                                                                    }   
 
 COMPOSITE_DECLARATION :: {()}
-    : beginCompTypeId var id endCompTypeId TYPE                                                     {% }
-    | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz                              {% }
-    | beginCompTypeId pointerVar id endCompTypeId TYPE                                              {% }
-    | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz                       {% }
+    : beginCompTypeId var id endCompTypeId TYPE                                     { }
+    | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz              { }
+    | beginCompTypeId pointerVar id endCompTypeId TYPE                              { }
+    | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz       { }
 
-CONST_DECLARATION :: {()}
-    : const id type TYPE constValue EXPR                                                            {% }
-    | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                                   {% }
+CONST_DECLARATION :: { }
+    : const id type TYPE constValue EXPR                                            {% do 
+                                                                                        let symbol = Tk.cleanedString $2
+                                                                                            entry = lookupST symbol 
+                                                                                        case entry of 
+                                                                                            Nothing -> do 
+                                                                                                -- TypeChecking missing
+                                                                                                -- Need to check that type is Primitive
+                                                                                                insertId $2 ST.Constant $4                                                                                            
+                                                                                            Just info -> do
+                                                                                                if scope info == ST.currentScope
+                                                                                                    then ST.insertError $ Err.PE (Err.RedeclaredName symbol (Tk.position $2))
+                                                                                                    else do
+                                                                                                        -- TypeChecking missing
+                                                                                                        insertId $2 ST.Constant $4 
+                                                                                        -- return missing
+                                                                                    }
+    | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                   { % do 
+                                                                                        let symbol = Tk.cleanedString $2
+                                                                                            entry = lookupST symbol 
+                                                                                        case entry of 
+                                                                                            Nothing -> do 
+                                                                                                -- TypeChecking missing
+                                                                                                -- Need to check that type is Composed
+                                                                                                insertId $2 ST.Constant $4                                                                                            
+                                                                                            Just info -> do
+                                                                                                if scope info == ST.currentScope
+                                                                                                    then ST.insertError $ Err.PE (Err.RedeclaredName symbol (Tk.position $2))
+                                                                                                    else do
+                                                                                                        -- TypeChecking missing
+                                                                                                        insertId $2 ST.Constant $4 
+                                                                                        -- return missing
+                                                                                    }
 
-ALIAS_DECLARATION :: {()}
-    : beginAlias id ALIAS_TYPE TYPE '.'                                                             {}
+ALIAS_DECLARATION :: { }
+    : beginAlias id ALIAS_TYPE TYPE '.'                                             { }
 
-ALIAS_TYPE :: {()}
-    : strongAlias                                                                                   {}
-    | weakAlias                                                                                     {}
+ALIAS_TYPE :: { }
+    : strongAlias                                                                   { }
+    | weakAlias                                                                     { }
 
 -- Instructions --
 
 CODE_BLOCK :: { [AST.Instruction] }
-    : OPEN_SCOPE INSTRUCTIONS CLOSE_SCOPE                                                           { $2 }
+    : OPEN_SCOPE INSTRUCTIONS CLOSE_SCOPE                                           { $2 }
 
 INSTRUCTIONS :: { [AST.Instruction] }
-    : {- empty -}                                                                                   { [] }
-    | INSTRUCTIONS INSTRUCTION                                                                      { $2 : $1 }
-    | INSTRUCTIONS comment                                                                          { $1 }
+    : {- empty -}                                                                   { [] }
+    | INSTRUCTIONS INSTRUCTION                                                      { $2 : $1 }
+    | INSTRUCTIONS comment                                                          { $1 }
 
 INSTRUCTION :: { AST.Instruction }
-    : EXPR ':=' EXPR '.'                                                                            { AST.SimpleAssign $1 $3 }
-    | EXPRLIST ':==' EXPR '.'                                                                       { AST.MultAssign (reverse $1) $3 }
-    | void ':=' EXPR '.'                                                                            { AST.FuncCallInst $3 }
-    | void ':==' EXPR '.'                                                                           { AST.FuncCallInst $3 }
-    | pass '.'                                                                                      { AST.EmptyInst }
-    | beginExit programName endExit '.'                                                             { AST.ExitInst (Tk.cleanedString $3) }
-    | read EXPR '.'                                                                                 { AST.Read $2 }
-    | print EXPR '.'                                                                                { AST.Print $2}
-    | EXPR new '.'                                                                                  { AST.New $1 }
-    | EXPR free '.'                                                                                 { AST.Free $1 }
-    | continue '.'                                                                                  { AST.Continue }
-    | break '.'                                                                                     { AST.Break }
-    | returnOpen EXPRLIST returnClose                                                               { AST.Return (reverse $2) }
-    | returnOpen returnClose                                                                        { AST.Return [] }
-    | IF '.'                                                                                        { AST.If $1 }
-    | SWITCHCASE '.'                                                                                { $1 }
-    | FOR '.'                                                                                       { $1 }
-    | WHILE '.'                                                                                     { $1 }
-    | DECLARATION                                                                                   { AST.DeclarationInst $1 }
+    : EXPR ':=' EXPR '.'                                                            { AST.SimpleAssign $1 $3 }
+    | EXPRLIST ':==' EXPR '.'                                                       { AST.MultAssign (reverse $1) $3 }
+    | void ':=' EXPR '.'                                                            { AST.FuncCallInst $3 }
+    | void ':==' EXPR '.'                                                           { AST.FuncCallInst $3 }
+    | pass '.'                                                                      { AST.EmptyInst }
+    | beginExit programName endExit '.'                                             { AST.ExitInst (Tk.cleanedString $3) }
+    | read EXPR '.'                                                                 { AST.Read $2 }
+    | print EXPR '.'                                                                { AST.Print $2}
+    | EXPR new '.'                                                                  { AST.New $1 }
+    | EXPR free '.'                                                                 { AST.Free $1 }
+    | continue '.'                                                                  { AST.Continue }
+    | break '.'                                                                     { AST.Break }
+    | returnOpen EXPRLIST returnClose                                               { AST.Return (reverse $2) }
+    | returnOpen returnClose                                                        { AST.Return [] }
+    | IF '.'                                                                        { AST.If $1 }
+    | SWITCHCASE '.'                                                                { $1 }
+    | FOR '.'                                                                       { $1 }
+    | WHILE '.'                                                                     { $1 }
+    | DECLARATION                                                                   { AST.DeclarationInst $1 }
 
 IF :: { AST.IfInst }
     : if EXPR then CODE_BLOCK endif                                                                 { AST.IfThen $2 (reverse $4) }
@@ -523,83 +537,6 @@ parseError (tk:_) = do ST.insertError $ Err.PE (Err.SyntaxErr tk)
                        fail $ "error: parse error with: \"" ++ Tk.cleanedString tk
                              ++ "\" at position " ++ show (Tk.position tk)
                              ++ "related to token: " ++ show (Tk.aToken tk)
-
-
--- ST.insertError $ Err.PE (Err.RedeclaredVar name pos)
-
-createExpression :: Tk.Token -> AST.Expr -> AST.Expression
-createExpression tk expr = AST.Expression { AST.getToken = tk, AST.getExpr = expr, AST.getType = AST.AliasT "undefined" }
-
-createVarEntry :: ST.Symbol -> Int -> AST.Type -> ST.Entry
-createVarEntry name scope tp = (name, info)
-  where
-    info = ST.SymbolInfo
-        { ST.category = ST.Variable
-        , ST.scope = scope
-        , ST.tp = Just tp
-        , ST.additional = Nothing
-        }
-
-createParamEntry :: ST.Symbol -> Int -> AST.Type -> AST.ParamType -> ST.Entry
-createParamEntry name scope tp ptp = (name, info)
-  where
-    info = ST.SymbolInfo
-        { ST.category = ST.Parameter
-        , ST.scope = scope
-        , ST.tp = Just tp
-        , ST.additional = Just $ ST.PassType ptp
-        }
-
-createConstEntry :: ST.Symbol -> Int -> AST.Type -> ST.Entry
-createConstEntry sym scope tp = (sym, info)
-  where
-    info = ST.SymbolInfo
-        { ST.category = ST.Constant
-        , ST.scope = scope
-        , ST.tp = Just tp
-        , ST.additional = Nothing
-        }
-
-
--- TODO: Stop ignoring size expressions
-maybeInsertVar :: Tk.Token -> AST.Type -> Maybe [AST.Expression] -> ST.MonadParser AST.VariableDeclaration
-maybeInsertVar tk tp mSizes = do
-    sc <- ST.currentScope
-    let name = Tk.cleanedString tk
-        pos = Tk.position tk
-        entry = createVarEntry name sc tp
-
-    symT  <- get
-    mInfo <- ST.lookup name
-
-    case mInfo of
-        Nothing -> put $ ST.insertST symT entry
-        Just info ->
-            if ST.scope info /= sc && ST.category info /= ST.Function && ST.category info /= ST.Alias
-                then put $ ST.insertST symT entry
-                else ST.insertError $ Err.PE (Err.RedeclaredVar name pos)
-    case mSizes of
-        Nothing -> return $ AST.SimpleVarDeclaration name tp
-        Just sz -> return $ AST.ArrayVarDeclaration name tp sz
-
-maybeInsertConst :: Tk.Token -> AST.Type -> AST.Expression -> ST.MonadParser AST.Declaration
-maybeInsertConst tk tp expr = do
-    sc <- ST.currentScope
-    let name  = Tk.cleanedString tk
-        pos   = Tk.position tk
-        entry = createConstEntry name sc tp
-
-    symT  <- get
-    mInfo <- ST.lookup name
-
-    case mInfo of
-        Nothing -> put $ ST.insertST symT entry
-        Just info ->
-            if ST.scope info /= sc && ST.category info /= ST.Function && ST.category info /= ST.Alias
-                then put $ ST.insertST symT entry
-                else ST.insertError $ Err.PE (Err.RedeclaredConstant name pos)
-    return $ AST.ConstantDeclaration name tp expr
-
 
 checkFunctionCall :: Tk.Token -> Tk.Token -> [AST.Expression] -> ST.MonadParser AST.Expression
 checkFunctionCall tkPar tkId exprs = do
