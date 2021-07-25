@@ -192,10 +192,10 @@ FUNCTION_NAMES :: { Ast.FunctionNames }
                                                                                                         let name = Tk.cleanedString $3
                                                                                                         let params = read (Tk.cleanedString $4) :: Int
                                                                                                         let pos = Tk.position $3
-                                                                                                        
+
                                                                                                         function <- ST.lookupFunction name params
                                                                                                         case function of
-                                                                                                            Nothing -> ST.insertError $ Err.PE (Err.UndefinedFunction name pos) 
+                                                                                                            Nothing -> ST.insertError $ Err.PE (Err.UndefinedFunction name pos)
                                                                                                             Just info -> case ST.discriminant $ ST.getFunctionMD info of
                                                                                                                 True -> return ()
                                                                                                                 False -> ST.insertError $ Err.PE (Err.UndefinedFunction name pos)
@@ -286,37 +286,37 @@ COMPOSITE_TYPE :: { ST.Type }
     : beginArray naturalLit TYPE endArray                                                           {% do
                                                                                                         symT <- get
                                                                                                         let dim        = $1
-                                                                                                            tp         = $2 
+                                                                                                            tp         = $2
                                                                                                             arrTpName  = ST.getArrayType tp dim
                                                                                                             additional = Just $ ST.DopeVector tp dim
                                                                                                             typeEntry  = ST.compoundTypeEntry arrTpName ST.pervasive Type Nothing additional
                                                                                                         if not $ checkExisting symT arrTpName
                                                                                                             then return arrTpName
-                                                                                                            else do 
+                                                                                                            else do
                                                                                                                 ST.insertST symT typeEntry
                                                                                                                 return arrTpName
                                                                                                     }
     | string                                                                                        {% return ST.string}
     | pointerType TYPE                                                                              {% return ST.pointer}
     | beginStruct OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endStruct                              {% do
-                                                                                                        let typeScope = $2 
-                                                                                                        ST.insertNestedType typeScope True 
+                                                                                                        let typeScope = $2
+                                                                                                        ST.insertNestedType typeScope True
                                                                                                     }
     | beginUnion OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endUnion                                {% do
-                                                                                                        let typeScope = $2 
-                                                                                                        ST.insertNestedType typeScope False 
+                                                                                                        let typeScope = $2
+                                                                                                        ST.insertNestedType typeScope False
                                                                                                     }
     | beginTuple TUPLE_TYPES endTuple                                                               {% }
 
-OPEN_SCOPE :: { Int } 
-    :  {- empty -}                                                                                  {% do 
-                                                                                                        cachedScope <- ST.currentScope 
-                                                                                                        ST.openScope  
+OPEN_SCOPE :: { Int }
+    :  {- empty -}                                                                                  {% do
+                                                                                                        cachedScope <- ST.currentScope
+                                                                                                        ST.openScope
 
                                                                                                         return cachedScope
                                                                                                     }
 
-CLOSE_SCOPE :: { () } 
+CLOSE_SCOPE :: { () }
     :  {- empty -}                                                                                  {% ST.closeScope }
 
 TUPLE_TYPES :: { [Ast.Type] }
@@ -350,9 +350,9 @@ PRIMITIVE_DECLARATION :: {()}
 
 COMPOSITE_DECLARATION :: {()}
     : beginCompTypeId var id endCompTypeId TYPE                                                     {% }
-    | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz                              {% } 
-    | beginCompTypeId pointerVar id endCompTypeId TYPE                                              {% } 
-    | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz                       {% } 
+    | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz                              {% }
+    | beginCompTypeId pointerVar id endCompTypeId TYPE                                              {% }
+    | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz                       {% }
 
 CONST_DECLARATION :: {()}
     : const id type TYPE constValue EXPR                                                            {% }
@@ -415,7 +415,7 @@ FOR :: { Ast.Instruction }
     : OPEN_SCOPE FOR_DEC INSTRUCTIONS endFor CLOSE_SCOPE                                            { let (id, lb, ub) = $2 in Ast.For id lb ub (reverse $3) }
 
 FOR_DEC :: { (Ast.Id, Ast.Expression, Ast.Expression) }
-    : for id type int '.' forLB EXPR forUB EXPR '.'                                                {% do
+    : for id type int '.' forLB EXPR forUB EXPR '.'                                                 {% do
                                                                                                         sc <- ST.currentScope
 
                                                                                                         let name  = Tk.cleanedString $2
@@ -477,7 +477,7 @@ EXPR :: { Ast.Expression }
     | id                                                                                            {% do
                                                                                                         let name = Tk.cleanedString $1
                                                                                                             pos  = Tk.position $1
-                                                                                                            
+
                                                                                                         symT <- get
                                                                                                         mInfo <- ST.lookup name
 
@@ -520,8 +520,8 @@ parseError :: [Tk.Token] -> ST.MonadParser a -- OJO
 parseError []     = do ST.insertError $ Err.PE Err.SyntaxErrEOF
                        fail "Parse error at EOF."
 parseError (tk:_) = do ST.insertError $ Err.PE (Err.SyntaxErr tk)
-                       fail $ "error: parse error with: \"" ++ Tk.cleanedString tk 
-                             ++ "\" at position " ++ show (Tk.position tk) 
+                       fail $ "error: parse error with: \"" ++ Tk.cleanedString tk
+                             ++ "\" at position " ++ show (Tk.position tk)
                              ++ "related to token: " ++ show (Tk.aToken tk)
 
 
@@ -614,6 +614,6 @@ checkFunctionCall tkPar tkId exprs = do
         Just info ->
             case ST.category info of
                 ST.Function -> return ()
-                c -> ST.insertError $ Err.PE (Err.ExpectedFunction (show c) name pos) 
+                c -> ST.insertError $ Err.PE (Err.ExpectedFunction (show c) name pos)
     return $ createExpression tkPar $ Ast.FuncCall name exprs
 }
