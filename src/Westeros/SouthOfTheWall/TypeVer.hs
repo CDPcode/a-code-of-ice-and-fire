@@ -1,6 +1,5 @@
 module Westeros.SouthOfTheWall.TypeVer where
 
-import qualified Westeros.SouthOfTheWall.Error as Err (TypeError(..))
 import qualified Westeros.SouthOfTheWall.Symtable as ST
 
 import Control.Monad.RWS
@@ -22,6 +21,7 @@ data Type
     | PointerT Type
 
     | NullT
+    | VoidT
 
     | TypeError
     deriving (Eq, Show)
@@ -78,4 +78,3 @@ notTypeError (TupleT xs)  = all notTypeError xs
 notTypeError (PointerT e) = notTypeError e
 notTypeError TypeError    = False
 notTypeError _            = True
-

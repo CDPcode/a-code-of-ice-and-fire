@@ -177,7 +177,7 @@ comment         { Tk.Token { Tk.aToken=Tk.TknComment }  }
 -- Program --
 PROGRAM :: {}
     : HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                         {}
-    | ALIASES HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                             {}
+    | ALIASES HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                 {}
 
 HEADER :: {}
     : programStart programName                                                      {}
@@ -193,7 +193,7 @@ FUNCTION_NAMES :: { () }
     | FUNCTION_NAMES item id paramNumber                                            {% do
                                                                                         symT <- get
                                                                                         let name  = Tk.cleanedString $3
-                                                                                            params = read Tk.cleanedString $4 :: Int
+                                                                                            params = read $ Tk.cleanedString $4
                                                                                         function <- ST.lookupFunction name params
                                                                                         case function of
                                                                                             Nothing    -> put $ ST.insertST symT $ ST.functionDecEntry name params
@@ -226,11 +226,11 @@ FUNCTION :: { () }
                                                                                         let functionId = Tk.cleanedString $1
                                                                                         let nParams = length $2
                                                                                         if ST.checkExisting symT functionId then do
-                                                                                            decEntry <- findFunctionDeclaration functionId nParams
+                                                                                            decEntry <- ST.findFunctionDec functionId nParams
                                                                                             case decEntry of
                                                                                                 Left entry -> do
-                                                                                                    let newEntry = updateFunctionInfo entry $2 $3
-                                                                                                        newSymT = ST.searchAndReplaceSymbol symT (functionId, entry) newEntry
+                                                                                                    newEntry <- ST.updateFunctionInfo entry $2 $3
+                                                                                                    let newSymT = ST.searchAndReplaceSymbol symT (functionId, entry) newEntry
                                                                                                     put newSymT
                                                                                                 Right defined -> do
                                                                                                     if defined
@@ -286,35 +286,42 @@ PRIMITIVE_TYPE :: { ST.Type }
 
 COMPOSITE_TYPE :: { ST.Type }
     : beginArray naturalLit TYPE endArray                                           {% do
-                                                                                        name <- genTypeSymbol
-                                                                                        let info = ST.DopeVector $2 $3
-                                                                                        ST.insertType name info
+                                                                                        name <- ST.genTypeSymbol
+                                                                                        let dim = read $ Tk.cleanedString $2
+                                                                                            info = ST.DopeVector $3 dim
+                                                                                            typeInfo = ST.TypeInfo {ST.width = (dim+1) * 4, ST.align = 4}
+                                                                                        ST.insertType name info typeInfo
                                                                                     }
     | string                                                                        {% do
-                                                                                        name <- genTypeSymbol
-                                                                                        let info = ST.DopeVector 1 ST.char
-                                                                                        ST.insertType name info
+                                                                                        name <- ST.genTypeSymbol
+                                                                                        let info = ST.DopeVector ST.char 1
+                                                                                            typeInfo = ST.TypeInfo {ST.width = 2 * 4, ST.align = 4}
+                                                                                        ST.insertType name info typeInfo
                                                                                     }
     | pointerType TYPE                                                              {% do
-                                                                                        name <- genTypeSymbol
+                                                                                        name <- ST.genTypeSymbol
                                                                                         let info = ST.PointedType $2
-                                                                                        ST.insertType name info
+                                                                                            typeInfo = ST.TypeInfo {ST.width = 4, ST.align = 4}
+                                                                                        ST.insertType name info typeInfo
                                                                                     }
     | beginStruct OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endStruct              {% do
-                                                                                        name <- genTypeSymbol
+                                                                                        name <- ST.genTypeSymbol
                                                                                         let info = ST.StructScope $2
-                                                                                        ST.insertType name info
+                                                                                        typeInfo <- ST.getTupleTypeInfo $ reverse $3
+                                                                                        ST.insertType name info typeInfo
                                                                                     }
 
     | beginUnion OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endUnion                {% do
-                                                                                        name <- genTypeSymbol
+                                                                                        name <- ST.genTypeSymbol
                                                                                         let info = ST.UnionScope $2
-                                                                                        ST.insertType name info
+                                                                                        typeInfo <- ST.getUnionTypeInfo $3
+                                                                                        ST.insertType name info typeInfo
                                                                                     }
     | beginTuple TUPLE_TYPES endTuple                                               {% do
-                                                                                        name <- genTypeSymbol
+                                                                                        name <- ST.genTypeSymbol
                                                                                         let info = ST.TupleTypes $2
-                                                                                        ST.insertType name info
+                                                                                        typeInfo <- ST.getTupleTypeInfo $2
+                                                                                        ST.insertType name info typeInfo
                                                                                     }
 OPEN_SCOPE :: { ST.Scope }
     :  {- empty -}                                                                  {% do
@@ -332,45 +339,39 @@ TUPLE_TYPES :: { [ST.Type] }
 -- Alias Declaration --
 
 DECLARATIONS :: {}
-    : {- empty -}                                                                   {}
-    | DECLARATIONS DECLARATION                                                      {}
-    | DECLARATIONS comment                                                          {}
+    : {- empty -}                                                                   { }
+    | DECLARATIONS DECLARATION                                                      { }
+    | DECLARATIONS comment                                                          { }
 
 DECLARATION :: {}
-    : SIMPLE_DECLARATION '.'                                                        {}
-    | SIMPLE_DECLARATION ':=' EXPR '.'                                              {}
-    | SIMPLE_DECLARATION ':==' EXPR '.'                                             {}
-    | CONST_DECLARATION '.'                                                         {}
+    : SIMPLE_DECLARATION '.'                                                        { }
+    | SIMPLE_DECLARATION ':=' EXPR '.'                                              { }
+    | SIMPLE_DECLARATION ':==' EXPR '.'                                             { }
+    | CONST_DECLARATION '.'                                                         { }
 
-SIMPLE_DECLARATIONS :: { }
-    : SIMPLE_DECLARATION                                                            { }
-    | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION                                    { }
+SIMPLE_DECLARATIONS :: { [ST.Type] }
+    : SIMPLE_DECLARATION                                                            { [$1] }
+    | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION                                    { $3 : $1 }
 
-SIMPLE_DECLARATION :: {  }
-    : PRIMITIVE_DECLARATION                                                         { }
-    | COMPOSITE_DECLARATION                                                         { }
+SIMPLE_DECLARATION :: { ST.Type }
+    : PRIMITIVE_DECLARATION                                                         { $1 }
+    | COMPOSITE_DECLARATION                                                         { $1 }
 
-PRIMITIVE_DECLARATION :: { }
-    : var id type TYPE                                                              { }
+PRIMITIVE_DECLARATION :: { ST.Type }
+    : var id type TYPE                                                              { $4 }
 
-COMPOSITE_DECLARATION :: {  }
-    : beginCompTypeId var id endCompTypeId TYPE                                     { }
-    | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz              { }
-    | beginCompTypeId pointerVar id endCompTypeId TYPE                              { }
-    | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz       { }
+COMPOSITE_DECLARATION :: { ST.Type }
+    : beginCompTypeId var id endCompTypeId TYPE                                     { $5 }
+    | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz              { $5 }
+    | beginCompTypeId pointerVar id endCompTypeId TYPE                              { $5 }
+    | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz       { $5 }
 --
-CONST_DECLARATION :: {}
-    : const id type TYPE constValue EXPR                                            {}
-    | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                   {}
+CONST_DECLARATION :: { ST.Type }
+    : const id type TYPE constValue EXPR                                            { $4 }
+    | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                   { $5 }
 
 ALIAS_DECLARATION :: { () }
-    : beginAlias id ALIAS_TYPE TYPE '.'                                             {% do
-                                                                                        symT <- get
-                                                                                        let name = Tk.cleanedString $2
-                                                                                        case ST.findSymbol symT name of
-                                                                                                Nothing -> put $ ST.insertST symT (createAliasEntry name $3 $4)
-                                                                                                Just _  -> ST.insertError $ Err.PE (Err.RepeatedAliasName name (Tk.position $2))
-                                                                                    }
+    : beginAlias id ALIAS_TYPE TYPE '.'                                             {% ST.insertAlias $2 (Tk.cleanedString $2) $3 $4 }
 
 ALIAS_TYPE :: { ST.AliasType }
     : strongAlias                                                                   { ST.ByName }
@@ -427,7 +428,7 @@ WHILE :: {}
 
 -- Expresions --
 
-EXPR :: { AST.Expression }
+EXPR :: { }
     : EXPR '+' EXPR                                                                 { }
     | EXPR '-' EXPR                                                                 { }
     | EXPR '*' EXPR                                                                 { }
@@ -463,20 +464,20 @@ EXPR :: { AST.Expression }
     | id                                                                            { }
     | null                                                                          { }
 
-FUNCTIONCALL :: { AST.Expression }
+FUNCTIONCALL :: { }
     : id '((' procCallArgs EXPRLIST '))'                                            { }
     | id '((' procCallArgs void '))'                                                { }
     | id '(('  '))'                                                                 { }
 
-ARRAYLIT :: { AST.Expression }
+ARRAYLIT :: { }
     : '{{' EXPRLIST '}}'                                                            { }
     | '{{' '}}'                                                                     { }
 
-TUPLELIT :: { AST.Expression }
+TUPLELIT :: { }
     : '[[' EXPRLIST ']]'                                                            { }
     | '[[' ']]'                                                                     { }
 
-EXPRLIST :: { [AST.Expression] }
+EXPRLIST :: { }
     : EXPR                                                                          { }
     | EXPRLIST ',' EXPR                                                             { }
 

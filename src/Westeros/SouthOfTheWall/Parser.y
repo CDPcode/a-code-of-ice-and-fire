@@ -451,73 +451,57 @@ WHILE :: { AST.Instruction }
 -- Expresions --
 
 EXPR :: { AST.Expression }
-    : EXPR '+' EXPR                                                                                 { createExpression $2 $ AST.BinOp AST.Sum $1 $3 }
-    | EXPR '-' EXPR                                                                                 { createExpression $2 $ AST.BinOp AST.Sub $1 $3 }
-    | EXPR '*' EXPR                                                                                 { createExpression $2 $ AST.BinOp AST.Prod $1 $3 }
-    | EXPR '/' EXPR                                                                                 { createExpression $2 $ AST.BinOp AST.Div $1 $3 }
-    | EXPR '%' EXPR                                                                                 { createExpression $2 $ AST.BinOp AST.Mod $1 $3 }
-    | EXPR '=' EXPR                                                                                 { createExpression $2 $ AST.BinOp AST.Eq $1 $3 }
-    | EXPR '!=' EXPR                                                                                { createExpression $2 $ AST.BinOp AST.Neq $1 $3 }
-    | EXPR '<' EXPR                                                                                 { createExpression $2 $ AST.BinOp AST.Lt $1 $3 }
-    | EXPR '>' EXPR                                                                                 { createExpression $2 $ AST.BinOp AST.Gt $1 $3 }
-    | EXPR '<=' EXPR                                                                                { createExpression $2 $ AST.BinOp AST.Leq $1 $3 }
-    | EXPR '>=' EXPR                                                                                { createExpression $2 $ AST.BinOp AST.Geq $1 $3 }
-    | EXPR and EXPR                                                                                 { createExpression $2 $ AST.BinOp AST.And $1 $3 }
-    | EXPR or EXPR                                                                                  { createExpression $2 $ AST.BinOp AST.Or $1 $3 }
-    | EXPR '~'                                                                                      { createExpression $2 $ AST.UnOp AST.Neg $1 }
-    | deref EXPR                                                                                    { createExpression $1 $ AST.UnOp AST.Deref $2 }
-    | '[' EXPRLIST ']' EXPR                                                                         { createExpression $3 $ AST.AccesIndex $4 (reverse $2) }
-    | id '<-' EXPR                                                                                  { createExpression $2 $ AST.AccesField $3 (Tk.cleanedString $1) }
-    | EXPR '->' id                                                                                  { createExpression $2 $ AST.AccesField $1 (Tk.cleanedString $3) }
-    | EXPR '?' id                                                                                   { createExpression $2 $ AST.ActiveField $1 (Tk.cleanedString $3) }
-    | '[(' naturalLit ']' EXPR                                                                      { createExpression $3 $ AST.TupleIndex $4 ((read $ Tk.cleanedString $2) :: Int) }
---    | EXPR cast TYPE                                                                                { createExpression $2 $ AST.Cast $1 $3 }
-    | '(' EXPR ')'                                                                                  { $2 }
-    | ARRAYLIT                                                                                      { $1 }
-    | TUPLELIT                                                                                      { $1 }
-    | FUNCTIONCALL                                                                                  { $1 }
-    | intLit                                                                                        { createExpression $1 $ AST.IntLit ((read $ Tk.cleanedString $1) :: Int) }
-    | floatLit                                                                                      { createExpression $1 $ AST.FloatLit ((read $ Tk.cleanedString $1) :: Float) }
-    | charLit                                                                                       { createExpression $1 $ AST.CharLit $ head $ Tk.cleanedString $1 }
-    | atomLit                                                                                       { createExpression $1 $ AST.AtomLit $ Tk.cleanedString $1 }
-    | stringLit                                                                                     { createExpression $1 $ AST.StringLit $ Tk.cleanedString $1 }
-    | true                                                                                          { createExpression $1 $ AST.TrueLit }
-    | false                                                                                         { createExpression $1 $ AST.FalseLit }
-    | null                                                                                          { createExpression $1 $ AST.NullLit }
-    | id                                                                                            {% do
-                                                                                                        let name = Tk.cleanedString $1
-                                                                                                            pos  = Tk.position $1
-
-                                                                                                        symT <- get
-                                                                                                        mInfo <- ST.lookup name
-
-                                                                                                        case mInfo of
-                                                                                                            Nothing -> ST.insertError $ Err.PE (Err.UndefinedVar name pos)
-                                                                                                            Just info ->
-                                                                                                                case ST.category info of
-                                                                                                                    ST.Constant  -> return ()
-                                                                                                                    ST.Variable  -> return ()
-                                                                                                                    ST.Parameter -> return ()
-                                                                                                                    c -> ST.insertError $ Err.PE (Err.InvalidVar (show c) name pos)
-                                                                                                        return $ createExpression $1 $ AST.IdExpr $ Tk.cleanedString $1
-                                                                                                    }
+    : EXPR '+' EXPR              {% T.buildAndCheckExpr $2 $ AST.BinOp AST.Sub $1 $3 }
+    | EXPR '-' EXPR              {% T.buildAndCheckExpr $2 $ AST.BinOp AST.Sub $1 $3 }
+    | EXPR '*' EXPR              {% T.buildAndCheckExpr $2 $ AST.BinOp AST.Prod $1 $3 }
+    | EXPR '/' EXPR              {% T.buildAndCheckExpr $2 $ AST.BinOp AST.Div $1 $3 }
+    | EXPR '%' EXPR              {% T.buildAndCheckExpr $2 $ AST.BinOp AST.Mod $1 $3 }
+    | EXPR '=' EXPR              {% T.buildAndCheckExpr $2 $ AST.BinOp AST.Eq $1 $3 }
+    | EXPR '!=' EXPR             {% T.buildAndCheckExpr $2 $ AST.BinOp AST.Neq $1 $3 }
+    | EXPR '<' EXPR              {% T.buildAndCheckExpr $2 $ AST.BinOp AST.Lt $1 $3 }
+    | EXPR '>' EXPR              {% T.buildAndCheckExpr $2 $ AST.BinOp AST.Gt $1 $3 }
+    | EXPR '<=' EXPR             {% T.buildAndCheckExpr $2 $ AST.BinOp AST.Leq $1 $3 }
+    | EXPR '>=' EXPR             {% T.buildAndCheckExpr $2 $ AST.BinOp AST.Geq $1 $3 }
+    | EXPR and EXPR              {% T.buildAndCheckExpr $2 $ AST.BinOp AST.And $1 $3 }
+    | EXPR or EXPR               {% T.buildAndCheckExpr $2 $ AST.BinOp AST.Or $1 $3 }
+    | EXPR '~'                   {% T.buildAndCheckExpr $2 $ AST.UnOp AST.Neg $1 }
+    | deref EXPR                 {% T.buildAndCheckExpr $1 $ AST.UnOp AST.Deref $2 }
+    | '[' EXPRLIST ']' EXPR      {% T.buildAndCheckExpr $3 $ AST.AccesIndex $4 (reverse $2) }
+    | id '<-' EXPR               {% T.buildAndCheckExpr $2 $ AST.AccesField $3 (Tk.cleanedString $1) }
+    | EXPR '->' id               {% T.buildAndCheckExpr $2 $ AST.AccesField $1 (Tk.cleanedString $3) }
+    | EXPR '?' id                {% T.buildAndCheckExpr $2 $ AST.ActiveField $1 (Tk.cleanedString $3) }
+    | '[(' naturalLit ']' EXPR   {% T.buildAndCheckExpr $3 $ AST.TupleIndex $4 ((read $ Tk.cleanedString $2) :: Int) }
+    | EXPR cast TYPE             {% T.buildAndCheckExpr $2 $ AST.Cast $1 $3 }
+    | '(' EXPR ')'               { $2 }
+    | ARRAYLIT                   { $1 }
+    | TUPLELIT                   { $1 }
+    | FUNCTIONCALL               { $1 }
+    | intLit                     {% buildAndCheckExpr $1 $ AST.IntLit ((read $ Tk.cleanedString $1) :: Int) }
+    | floatLit                   {% buildAndCheckExpr $1 $ AST.FloatLit ((read $ Tk.cleanedString $1) :: Float) }
+    | charLit                    {% buildAndCheckExpr $1 $ AST.CharLit $ head $ Tk.cleanedString $1 }
+    | atomLit                    {% buildAndCheckExpr $1 $ AST.AtomLit $ Tk.cleanedString $1 }
+    | stringLit                  {% buildAndCheckExpr $1 $ AST.StringLit $ Tk.cleanedString $1 }
+    | true                       {% buildAndCheckExpr $1 $ AST.TrueLit }
+    | false                      {% buildAndCheckExpr $1 $ AST.FalseLit }
+    | null                       {% buildAndCheckExpr $1 $ AST.NullLit }
+    | id                         {% buildAndCheckExpr $1 $ AST.IdExpr $1 }
 
 FUNCTIONCALL :: { AST.Expression }
-    : id '((' procCallArgs EXPRLIST '))'                                                            {% checkFunctionCall $2 $1 (reverse $4) }
-    | id '((' procCallArgs void '))'                                                                {% checkFunctionCall $2 $1 [] }
-    | id '(('  '))'                                                                                 {% checkFunctionCall $2 $1 [] }
+    : id '((' procCallArgs EXPRLIST '))'   {% buildAndCheckExpr $1 $ FuncCall $1 (reverse $4) }
+    | id '((' procCallArgs void '))'       {% buildAndCheckExpr $1 $ FuncCall $1 [] }
+    | id '(('  '))'                        {% buildAndCheckExpr $1 $ FuncCall $1 [] }
 
 ARRAYLIT :: { AST.Expression }
-    : '{{' EXPRLIST '}}'                                                                            { createExpression $1 $ AST.ArrayLit $ reverse $2 }
-    | '{{' '}}'                                                                                     { createExpression $1 $ AST.ArrayLit [] }
+    : '{{' EXPRLIST '}}'                   {% buildAndCheckExpr $1 $ AST.ArrayLit $ reverse $2 }
+    | '{{' '}}'                            {% buildAndCheckExpr $1 $ AST.ArrayLit [] }
 
 TUPLELIT :: { AST.Expression }
-    : '[[' EXPRLIST ']]'                                                                            { createExpression $1 $ AST.TupleLit $ reverse $2 }
-    | '[[' ']]'                                                                                     { createExpression $1 $ AST.TupleLit [] }
+    : '[[' EXPRLIST ']]'                   {% buildAndCheckExpr $1 $ AST.TupleLit $ reverse $2 }
+    | '[[' ']]'                            {% buildAndCheckExpr $1 $ AST.TupleLit [] }
 
 EXPRLIST :: { [AST.Expression] }
-    : EXPR                                                                                          { [$1] }
-    | EXPRLIST ',' EXPR                                                                             { $3 : $1 }
+    : EXPR                                 { [$1] }
+    | EXPRLIST ',' EXPR                    { $3 : $1 }
 
 
 OPEN_SCOPE :: { Int }
