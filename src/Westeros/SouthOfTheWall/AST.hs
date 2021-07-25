@@ -158,7 +158,6 @@ instance T.Typeable Expr where
             Just function -> do
                 case ST.additional function of
                     
-                    Nothing                         -> return T.TypeError
                     Just (ST.FunctionMetaData info) -> do
                         let params = ST.parameters info
 
@@ -168,14 +167,26 @@ instance T.Typeable Expr where
                             cond2 = and $ zipWith (==) paramTypes types
 
                         if cond1 && cond2 then do
+
                             let functionType = ST.symbolType function
                             case functionType of
                                 Just typeName -> T.getTypeFromString typeName
                                 Nothing -> return T.VoidT -- Ojo, esto está mal. Hay que implementar un tipo para las funciones
+
                         else return T.TypeError
+
+                    Nothing                         -> do
+                        let error = Err.FunctionWithoutMD id
+                        ST.insertError $ Err.TE error 
+                        return T.TypeError
+
                     _ -> return T.TypeError
 
-            Nothing -> return T.TypeError
+            Nothing -> do
+                let error = Err.NotAFunction id
+                ST.insertError $ Err.TE error 
+                return T.TypeError
+                
 
     typeQuery (BinOp op a b)  = binOpCheck op a b
 
@@ -376,6 +387,16 @@ binOpCheck bop a b = do
             ST.insertError $ Err.TE error
             return T.TypeError 
 
+
+buildAndCheckExpr :: Tk.Token -> Expr -> ST.MonadParser Expression
+buildAndCheckExpr tk expr = do
+    exprType <- typeQuery expr
+
+    return $ Expression { 
+           getToken = tk,
+           getExpr  = expr, 
+           getType  = exprType
+        }
 
 -- Pretty print AST
 putStrIdent :: Int -> String -> IO ()

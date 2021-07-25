@@ -71,4 +71,9 @@ data TypeError
     | IdNotFound String 
     | UnTypedId String
 
+    {- Function -}
+
+    | NotAFunction String
+    | FunctionWithoutMD String
+
     deriving (Show, Eq)
