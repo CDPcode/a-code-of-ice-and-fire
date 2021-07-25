@@ -175,7 +175,7 @@ comment         { Tk.Token { Tk.aToken=Tk.TknComment }  }
 -- Program --
 PROGRAM :: { Ast.Program }
     : HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                                         { Ast.Program $1 $2 $3 $4 $5 [] }
-    | HEADER CONTENTS GLOBAL FUNCTIONS MAIN ALIASES                                                 { Ast.Program $1 $2 $3 $4 $5 $6 }
+    | ALIASES HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                                 { Ast.Program $2 $3 $4 $5 $6 $1 }
 
 HEADER :: { Ast.Header }
     : programStart programName                                                                      { Tk.cleanedString $2 }
@@ -192,10 +192,10 @@ FUNCTION_NAMES :: { Ast.FunctionNames }
                                                                                                         let name = Tk.cleanedString $3
                                                                                                         let params = read (Tk.cleanedString $4) :: Int
                                                                                                         let pos = Tk.position $3
-                                                                                                        
+
                                                                                                         function <- ST.lookupFunction name params
                                                                                                         case function of
-                                                                                                            Nothing -> ST.insertError $ Err.PE (Err.UndefinedFunction name pos) 
+                                                                                                            Nothing -> ST.insertError $ Err.PE (Err.UndefinedFunction name pos)
                                                                                                             Just info -> case ST.discriminant $ ST.getFunctionMD info of
                                                                                                                 True -> return ()
                                                                                                                 False -> ST.insertError $ Err.PE (Err.UndefinedFunction name pos)
@@ -447,7 +447,7 @@ EXPR :: { Ast.Expression }
     | id                                                                                            {% do
                                                                                                         let name = Tk.cleanedString $1
                                                                                                             pos  = Tk.position $1
-                                                                                                            
+
                                                                                                         symT <- get
                                                                                                         mInfo <- ST.lookup name
 
@@ -490,8 +490,8 @@ parseError :: [Tk.Token] -> ST.MonadParser a -- OJO
 parseError []     = do ST.insertError $ Err.PE Err.SyntaxErrEOF
                        fail "Parse error at EOF."
 parseError (tk:_) = do ST.insertError $ Err.PE (Err.SyntaxErr tk)
-                       fail $ "error: parse error with: \"" ++ Tk.cleanedString tk 
-                             ++ "\" at position " ++ show (Tk.position tk) 
+                       fail $ "error: parse error with: \"" ++ Tk.cleanedString tk
+                             ++ "\" at position " ++ show (Tk.position tk)
                              ++ "related to token: " ++ show (Tk.aToken tk)
 
 
@@ -584,6 +584,6 @@ checkFunctionCall tkPar tkId exprs = do
         Just info ->
             case ST.category info of
                 ST.Function -> return ()
-                c -> ST.insertError $ Err.PE (Err.ExpectedFunction (show c) name pos) 
+                c -> ST.insertError $ Err.PE (Err.ExpectedFunction (show c) name pos)
     return $ createExpression tkPar $ Ast.FuncCall name exprs
 }

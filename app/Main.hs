@@ -4,7 +4,7 @@ import Westeros.SouthOfTheWall.AST          (prettyPrintProgram)
 import Westeros.SouthOfTheWall.Lexer        (scanTokens)
 import Westeros.SouthOfTheWall.Parser       (parse)
 import Westeros.SouthOfTheWall.PreParser    (preParse)
-import Westeros.SouthOfTheWall.PrettyPrint  (pretty) 
+import Westeros.SouthOfTheWall.PrettyPrint  (pretty)
 
 import qualified Westeros.SouthOfTheWall.Symtable as ST
 
@@ -25,7 +25,7 @@ testLexer = do
     str <- getContents
     let(errors, tokens) = scanTokens str
     case errors of
-        [] -> mapM_ pretty tokens 
+        [] -> mapM_ pretty tokens
         _  -> mapM_ print errors
 
 testPreParser :: IO ()

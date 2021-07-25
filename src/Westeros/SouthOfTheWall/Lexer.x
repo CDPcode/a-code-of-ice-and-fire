@@ -342,7 +342,7 @@ scanTokens :: String -> ([Error], [Token])
 scanTokens str =
     case runAlex str alexMonadScan of
         Left  err -> ([Error $ "Alex error: " ++ show err], [])
-        Right ust -> (reverse $ lexerErrors ust, reverse $ map postProcess $ lexerTokens ust)
+        Right ust -> (reverse $ lexerErrors ust, rearrangeAliases $ reverse $ map postProcess $ lexerTokens ust)
 
 postProcess :: Token -> Token
 postProcess (Token TknCharLit s _ p) = Token TknCharLit s (processCharLit s) p
@@ -387,5 +387,11 @@ processArgNumber str = show $ (parseRomanNumeral str) - 1
     parseRomanNumeral ('D':xs) = 500 + parseRomanNumeral xs
     parseRomanNumeral ('M':xs) = 1000 + parseRomanNumeral xs
     parseRomanNumeral [] = 0
+
+rearrangeAliases :: [Token] -> [Token]
+rearrangeAliases toks = (dropWhile isNotAppendix toks) ++ (takeWhile isNotAppendix toks)
+  where
+    isNotAppendix Token{aToken = TknAliasDec} = False
+    isNotAppendix _ = True
 
 }
