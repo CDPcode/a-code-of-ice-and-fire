@@ -76,4 +76,8 @@ data TypeError
     | NotAFunction String
     | FunctionWithoutMD String
 
+    {- Cast -}
+
+    | NonCasteableTypes String String Tk.Position
+
     deriving (Show, Eq)

@@ -47,7 +47,7 @@ data Expr
     | ActiveField Expression Id
     | AccesIndex  Expression [Expression]
     | TupleIndex  Expression Int
-    -- | Cast        Expression Type
+    | Cast        Expression String
     | IdExpr      Id
     deriving (Show, Eq)
 
@@ -337,6 +337,20 @@ instance T.Typeable Expr where
                     return T.TypeError
             else return T.TypeError
 
+    typeQuery (Cast expr id) = do
+        destType <- T.getTypeFromString id
+        exprType <- typeQuery $ getExpr expr
+
+        if isCasteable exprType destType
+            then return destType
+            else do
+                let position = Tk.position $ getToken expr
+                    error    = Err.NonCasteableTypes (show exprType) (show destType) position
+
+                ST.insertError $ Err.TE error 
+                return T.TypeError
+
+
     typeQuery (IdExpr id)       = do
         symT <- get
 
@@ -357,6 +371,9 @@ instance T.Typeable Expr where
 
                 return T.TypeError
 
+isCasteable :: T.Type -> T.Type -> Bool 
+isCasteable source dest = source `elem` simpleType && dest `elem` simpleType 
+    where simpleType = [T.IntT,T.BoolT,T.CharT,T.FloatT]
 
 binOpCheck :: BinOp -> Expression -> Expression -> ST.MonadParser T.Type
 binOpCheck bop a b = do

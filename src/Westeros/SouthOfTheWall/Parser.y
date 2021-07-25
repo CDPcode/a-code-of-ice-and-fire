@@ -458,7 +458,7 @@ EXPR :: { AST.Expression }
     | EXPR '->' id               {% T.buildAndCheckExpr $2 $ AST.AccesField $1 (Tk.cleanedString $3) }
     | EXPR '?' id                {% T.buildAndCheckExpr $2 $ AST.ActiveField $1 (Tk.cleanedString $3) }
     | '[(' naturalLit ']' EXPR   {% T.buildAndCheckExpr $3 $ AST.TupleIndex $4 ((read $ Tk.cleanedString $2) :: Int) }
---    | EXPR cast TYPE             { createExpression $2 $ AST.Cast $1 $3 }
+    | EXPR cast TYPE             {% T.buildAndCheckExpr $2 $ AST.Cast $1 $3 }
     | '(' EXPR ')'               { $2 }
     | ARRAYLIT                   { $1 }
     | TUPLELIT                   { $1 }
@@ -476,7 +476,7 @@ EXPR :: { AST.Expression }
 FUNCTIONCALL :: { AST.Expression }
     : id '((' procCallArgs EXPRLIST '))'   {% buildAndCheckExpr $1 $ FuncCall $1 (reverse $4) }
     | id '((' procCallArgs void '))'       {% buildAndCheckExpr $1 $ FuncCall $1 [] }
-    | id '(('  '))'                        {% buildAndCheckExpr $2 $ FuncCall $1 [] }
+    | id '(('  '))'                        {% buildAndCheckExpr $1 $ FuncCall $1 [] }
 
 ARRAYLIT :: { AST.Expression }
     : '{{' EXPRLIST '}}'                   {% buildAndCheckExpr $1 $ AST.ArrayLit $ reverse $2 }
