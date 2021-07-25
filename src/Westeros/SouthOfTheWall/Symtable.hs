@@ -164,7 +164,8 @@ lookupFunction sym params = do
 
 findFunction :: Int -> [SymbolInfo] -> Maybe SymbolInfo
 findFunction params [] = Nothing
-findFunction params bucket = find (\e -> numberOfParams (getFunctionMetaData e) == params) bucket
+findFunction params bucket = find (\e -> category e == Function 
+                                      && numberOfParams (getFunctionMetaData e) == params) bucket
 
 currentScope :: MonadParser Int
 currentScope = do

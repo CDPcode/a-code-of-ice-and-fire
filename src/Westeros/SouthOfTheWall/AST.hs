@@ -4,6 +4,7 @@ import Control.Monad        (replicateM_)
 
 import Westeros.SouthOfTheWall.Tokens as Tk
 import Westeros.SouthOfTheWall.Error as Err (TypeError(..))
+import Westeros.SouthOfTheWall.TypeVer as T
 
 -- AST
 data Program = Program Global FunctionDeclarations Main deriving (Show, Eq)
@@ -16,6 +17,7 @@ type FunctionDeclaration = [Instruction]
 
 data Expression = Expression
        { getExpr :: Expr
+       , getType :: T.Type
        , getToken :: Tk.Token
        } deriving (Show, Eq)
 

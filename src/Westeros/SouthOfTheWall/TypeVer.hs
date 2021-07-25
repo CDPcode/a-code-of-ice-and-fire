@@ -47,29 +47,50 @@ instance Typeable AST.Expr where
     typeQuery AST.NullLit       = return NullT
 
     typeQuery (AST.ArrayLit array@(x:xs)) = do 
-           let asExpr = map AST.getExpr array
 
-           types   <- mapM typeQuery asExpr
-           
-           let arrType = head types
-               cond1   = all notTypeError types
-               cond2   = foldl (\acc b -> arrType == b && acc ) True types 
+        types <- mapM (typeQuery . AST.getExpr) array           
+        
+        let arrType = head types
+            cond1   = all notTypeError types
+            cond2   = foldl (\acc b -> arrType == b && acc ) True types 
 
-           if cond1 && cond2 
-               then return $ ArrayT (head types) (length array)
-               else return TypeError 
-    typeQuery (AST.ArrayLit [])           = error "Empty literal array not supported"
+        if cond1 && cond2 
+            then return $ ArrayT arrType (length array)
+            else return TypeError 
+    
+    typeQuery (AST.ArrayLit []) = error "Empty literal array not supported"
 
-    typeQuery (AST.TupleLit parts)   = do 
-        types <- mapM (typeQuery . AST.getExpr) parts
+    typeQuery (AST.TupleLit parts) = do
+
+        types <- mapM (typeQuery . AST.getExpr) array
 
         let res = TupleT types
 
-        if notTypeError res 
-            then return res 
+        if notTypeError res
+            then return res
             else return TypeError
 
-    typeQuery (AST.FuncCall   _ _) = undefined 
+    typeQuery (AST.FuncCall id args) = do
+
+        types <- mapM (typeQuery . AST.getExpr) args
+        symT <- get
+
+        entry <- lookupFunction id $ length args
+        case entry of
+            Nothing -> return TypeError
+            Just function -> do
+                let params = parameters . fromJust . additional $ function
+                    paramTypes = mapM getTypeFromString params
+                    cond1 = all notTypeError args
+                    cond2 = all $ zipWith (==) paramTypes types 
+
+                    if cond1 && cond2
+                        then do 
+                            let functionType = symbolType function 
+                            case functionType of
+                                Just typeName -> return $ getTypeFromString typeName
+                                Nothing -> return TypeError -- Ojo, esto está mal. Hay que implementar un tipo para las funciones
+
 
     typeQuery (AST.BinOp AST.Sum a b)  = arithmeticBinOpCheck a b
     typeQuery (AST.BinOp AST.Sub a b)  = arithmeticBinOpCheck a b
@@ -88,11 +109,11 @@ instance Typeable AST.Expr where
     typeQuery (AST.BinOp AST.Or a b)  = boolBinOpCheck a b
 
     typeQuery (AST.UnOp AST.Neg a) = do 
-            x <- typeQuery (AST.getExpr a)
+        x <- typeQuery (AST.getExpr a)
 
-            if x `elem` [IntT, FloatT] 
-               then return x
-               else return TypeError 
+        if x `elem` [IntT, FloatT] 
+            then return x
+            else return TypeError 
 
     typeQuery (AST.UnOp AST.Deref p) = do
         mustBePtr <- typeQuery (AST.getExpr p)
@@ -120,7 +141,7 @@ instance Typeable AST.Expr where
                         Just strType -> getTypeFromString strType
                         Nothing      -> return TypeError
 
-                    _             -> return TypeError 
+                    Nothing          -> return TypeError 
             (UnionT scope) -> do -- ! OJO
                 symT <- get
 
@@ -134,7 +155,7 @@ instance Typeable AST.Expr where
                         Just strType -> getTypeFromString strType
                         Nothing      -> return TypeError
 
-                    _             -> return TypeError 
+                    Nothing          -> return TypeError 
 
             _              -> return TypeError
         
@@ -237,22 +258,22 @@ notTypeError _            = True
 
 arithmeticBinOpCheck :: AST.Expression -> AST.Expression -> ST.MonadParser Type
 arithmeticBinOpCheck a b = do 
-      x <- typeQuery (AST.getExpr a) 
-      d <- typeQuery (AST.getExpr b)
+    x <- typeQuery (AST.getExpr a) 
+    d <- typeQuery (AST.getExpr b)
 
-      if x == d && x `elem` [IntT, FloatT]
-          then return x 
-          else return TypeError 
+    if x == d && x `elem` [IntT, FloatT]
+        then return x 
+        else return TypeError 
 
 
 comparisonBinOpCheck :: AST.Expression -> AST.Expression -> ST.MonadParser Type 
 comparisonBinOpCheck a b = do 
-     x <- typeQuery (AST.getExpr a) 
-     d <- typeQuery (AST.getExpr b) 
+    x <- typeQuery (AST.getExpr a) 
+    d <- typeQuery (AST.getExpr b) 
 
-     let typeList = [IntT, BoolT, FloatT, CharT] 
+    let typeList = [IntT, BoolT, FloatT, CharT] 
 
-     if x == d && x `elem` typeList
+    if x == d && x `elem` typeList
         then return BoolT 
         else return TypeError 
 
