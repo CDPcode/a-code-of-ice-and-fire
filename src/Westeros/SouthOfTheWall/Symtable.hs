@@ -16,6 +16,17 @@ type Symbol = String
 
 type Scope = Int
 
+type Offset = Int
+
+type Width = Int
+
+type Alignment = Int
+
+data TypeInfo = TypeInfo
+    { width :: Width
+    , align :: Alignment
+    } deriving (Show, Eq)
+
 type SymAlias = Int
 
 type Entry = (Symbol, SymbolInfo)
@@ -43,7 +54,9 @@ data SymbolInfo = SymbolInfo
     , scope         :: Scope
     , symbolType    :: Maybe Type
     , additional    :: Maybe AdditionalInfo
-} deriving Eq
+    , offset        :: Maybe Offset         -- Only for variables/constants
+    , typeInfo      :: Maybe TypeInfo       -- Only for types
+    } deriving Eq
 
 data AdditionalInfo
     = AliasMetaData AliasType Type
@@ -67,6 +80,7 @@ data SymbolTable = SymbolTable
     { table         :: Dictionary
     , scopeStack    :: [Scope]
     , nextScope     :: Scope
+    , offsetStack   :: [Offset]
     , nextSymAlias  :: SymAlias
     }
 
@@ -168,44 +182,58 @@ lookupFunction sym params = do
 
 findFunction :: Int -> [SymbolInfo] -> Maybe SymbolInfo
 findFunction params [] = Nothing
-findFunction params bucket = find (\e -> category e == Function 
+findFunction params bucket = find (\e -> category e == Function
                                       && numberOfParams (getFunctionMetaData e) == params) bucket
 
 findFunctionDec :: Symbol -> Int -> MonadParser (Either SymbolInfo Bool)
 findFunctionDec sym params = do
     symT <- get
     function <- lookupFunction sym params
-    case function of 
+    case function of
         Nothing -> return $ Right False
         Just entry -> do
-            if not $ defined $ getFunctionMetaData entry 
+            if not $ defined $ getFunctionMetaData entry
                 then return $ Left entry
-                else return $ Right True 
+                else return $ Right True
 
 updateFunctionInfo :: SymbolInfo -> [Type] -> [Type] -> MonadParser SymbolInfo
-updateFunctionInfo info params returns = do 
+updateFunctionInfo info params returns = do
     symT <- get
     let oldMetadata = getFunctionMetaData info
-        newAdditional = Just $ FunctionMetaData oldMetadata { 
+        newAdditional = Just $ FunctionMetaData oldMetadata {
             numberOfParams = length params,
             parameters = params,
             returnTypes = returns,
             defined = True
         }
-    
-    case params of 
-        []            -> return $ info {symbolType = Nothing, additional = newAdditional}  
-        [singleType]  -> return $ info {symbolType = Just singleType, additional = newAdditional}  
-        _            -> do 
+
+    case params of
+        []            -> return $ info {symbolType = Nothing, additional = newAdditional}
+        [singleType]  -> return $ info {symbolType = Just singleType, additional = newAdditional}
+        _            -> do
             name <- genTypeSymbol
-            let typeInfo = TupleTypes returns
-            insertType name typeInfo
+            let additionalInfo = TupleTypes returns
+            tInfo <- getTupleTypeInfo returns
+            insertType name additionalInfo tInfo
             return $ info {symbolType = Just name, additional = newAdditional}
 
 currentScope :: MonadParser Int
 currentScope = do
-    SymbolTable { scopeStack = (s:_)} <- get
+    SymbolTable { scopeStack = (s:_) } <- get
     return s
+
+currentOffset :: MonadParser Int
+currentOffset = do
+    SymbolTable { offsetStack = (o:_) } <- get
+    return o
+
+setCurrentOffset :: Offset -> MonadParser ()
+setCurrentOffset newOffset = do
+    symT <- get
+    let (_:rest) = offsetStack symT
+        newOffsetStack = newOffset : rest
+
+    put $ symT { offsetStack = newOffsetStack }
 
 getNextSymAlias :: MonadParser Int
 getNextSymAlias = do
@@ -217,6 +245,32 @@ getNextSymAlias = do
 insertError :: Err.Error -> MonadParser ()
 insertError msg = tell [msg]
 
+{- Offsets, widths and alignments -}
+
+getAlignedOffset :: Offset -> Alignment -> Offset
+getAlignedOffset offs alignment = ceilDiv * alignment
+  where
+    ceilDiv = (offs + alignment - 1) `div` alignment
+
+getTypeInfo :: Symbol -> MonadParser TypeInfo
+getTypeInfo id = do
+    mInfo <- lookupST id
+    case mInfo of
+        Nothing -> fail $ "Somehow type with id " ++ id ++ " has not been inserted in symbols table"
+        Just info ->
+            case typeInfo info of
+                Nothing -> fail $ "Somehow type with id " ++ id ++ " doesn't have width and alignment"
+                Just tInfo -> return tInfo
+
+getTupleTypeInfo :: [Type] -> MonadParser TypeInfo
+getTupleTypeInfo tps = do
+    tInfos <- mapM getTypeInfo tps
+    let aligns = map align tInfos
+        a = foldr max 0 aligns
+        w = foldl' sumTypeInfo 0 tInfos
+    return $ TypeInfo {width = w, align = a}
+  where
+    sumTypeInfo acc info = getAlignedOffset acc (align info) + width info
 
 {- Constants -}
 
@@ -226,29 +280,6 @@ globalScope  = 1
 
 
 {- Initial types -}
-
-
-initialTypes :: [Symbol]
-initialTypes = ["_int","_float","_char","_bool","_atom","_string", "_pointer"] --array, union, struct, tuple, alias
-
-initialST :: SymbolTable
-initialST = foldl' insertST st entries
-  where
-    entries = zip initialTypes (repeat typesSymbolInfo)
-    st = SymbolTable {
-        table      = M.empty :: M.Map Symbol [SymbolInfo],
-        scopeStack = [0],
-        nextScope  = 1,
-        nextSymAlias = 0
-    }
-
-typesSymbolInfo :: SymbolInfo
-typesSymbolInfo = SymbolInfo {
-    category   = Type,
-    scope      = pervasiveScope,
-    symbolType = Nothing,
-    additional = Nothing
-}
 
 int :: String
 int = "_int"
@@ -260,19 +291,39 @@ bool :: String
 bool = "_bool"
 atom :: String
 atom = "_atom"
-string :: String
-string = "_string"
-pointer :: String 
-pointer = "_ptr"
-array :: String 
-array = "_array"
-tError :: String 
+tError :: String
 tError = "_type_error"
 
+initialTypes :: [Symbol]
+initialTypes = [int, float, char, bool, atom] --array, union, struct, tuple, alias
 
-initializedST :: SymbolTable
-initializedST = foldl insertST initialST entries 
-    where entries = zip initialTypes (repeat typesSymbolInfo)
+initialTypesInfo :: [TypeInfo]
+initialTypesInfo = zipWith TypeInfo initWidths initWidths
+  where
+    initWidths = [4, 8, 4, 1, 4]
+
+initialST :: SymbolTable
+initialST = foldl' insertST st entries
+  where
+    entries = zip initialTypes infos
+    infos = map typesSymbolInfo initialTypesInfo
+    st = SymbolTable
+        { table           = M.empty
+        , scopeStack      = [0,1]
+        , nextScope       = 2
+        , offsetStack     = [0]
+        , nextSymAlias    = 0
+        }
+
+typesSymbolInfo :: TypeInfo -> SymbolInfo
+typesSymbolInfo info = SymbolInfo
+    { category   = Type
+    , scope      = pervasiveScope
+    , symbolType = Nothing
+    , additional = Nothing
+    , offset     = Nothing
+    , typeInfo   = Just info
+    }
 
 
 -- Most generic insertion function
@@ -281,29 +332,33 @@ regularEntry:: Symbol
             -> Category
             -> Maybe Type
             -> Maybe AdditionalInfo
+            -> Maybe Offset
+            -> Maybe TypeInfo
             -> Entry
-regularEntry name sc ctg tp add = (name, symInfo)
+regularEntry name sc ctg tp add mOffset mInfo = (name, symInfo)
   where
-    symInfo = SymbolInfo {
-        category = ctg,
-        scope = sc,
-        symbolType = tp,
-        additional = add
-    }
+    symInfo = SymbolInfo
+        { category      = ctg
+        , scope         = sc
+        , symbolType    = tp
+        , additional    = add
+        , offset        = mOffset
+        , typeInfo      = mInfo
+        }
 
-idEntry :: Symbol -> Scope -> Category -> Type -> Entry
-idEntry name sc ctg tp = regularEntry name sc ctg (Just tp) Nothing
+idEntry :: Symbol -> Scope -> Category -> Type -> Offset -> Entry
+idEntry name sc ctg tp offs = regularEntry name sc ctg (Just tp) Nothing (Just offs) Nothing
 
-typeEntry :: Symbol -> AdditionalInfo -> Entry
-typeEntry name info = regularEntry name pervasiveScope Type Nothing (Just info)
+typeEntry :: Symbol -> AdditionalInfo -> TypeInfo -> Entry
+typeEntry name info tInfo = regularEntry name globalScope Type Nothing (Just info) Nothing (Just tInfo)
 
 aliasEntry :: Symbol -> AliasType -> Type -> Entry
-aliasEntry name aliasType pointedType = 
-    regularEntry name globalScope Alias Nothing (Just $ AliasMetaData aliasType pointedType)
+aliasEntry name aliasType pointedType =
+    regularEntry name globalScope Alias Nothing (Just $ AliasMetaData aliasType pointedType) Nothing Nothing
 
 functionDecEntry :: Symbol -> Int -> Entry
 functionDecEntry name params =
-    regularEntry name globalScope Function Nothing additional
+    regularEntry name globalScope Function Nothing additional Nothing Nothing
     where
         additional = Just $ FunctionMetaData (
             FunctionInfo {
@@ -317,27 +372,33 @@ functionDecEntry name params =
 insertId :: Tk.Token -> Category -> Type -> MonadParser ()
 insertId tk ctg tp = do
     sc <- currentScope
+    currOffset <- currentOffset
+    tInfo <- getTypeInfo tp
 
-    let name  = Tk.cleanedString tk
-        entry = idEntry name sc ctg tp
+    let offs = getAlignedOffset currOffset (align tInfo)
+        name  = Tk.cleanedString tk
+        entry = idEntry name sc ctg tp offs
+        newOffset = offs + width tInfo
 
     symT  <- get
     mInfo <- lookupST name
 
     case mInfo of
         Nothing -> put $ insertST symT entry
-        Just info -> if checkNotRepeated info sc
-                        then put $ insertST symT entry
-                        else let pos = Tk.position tk
-                             in insertError $ Err.PE (Err.RedeclaredVar name pos)
+        Just info ->
+            if checkNotRepeated info sc
+            then do
+                put $ insertST symT entry
+                setCurrentOffset newOffset
+            else insertError $ Err.PE (Err.RedeclaredVar name $ Tk.position tk)
 
 -- ^ To insert entries on ST for id's of types
-insertType :: Symbol -> AdditionalInfo -> MonadParser Type
-insertType name additional = do
+insertType :: Symbol -> AdditionalInfo -> TypeInfo -> MonadParser Type
+insertType name additional tInfo = do
     symT <- get
     if not $ checkExisting symT name
         then do
-            let entry = typeEntry name additional
+            let entry = typeEntry name additional tInfo
             put $ insertST symT entry
             return name
     else return name
