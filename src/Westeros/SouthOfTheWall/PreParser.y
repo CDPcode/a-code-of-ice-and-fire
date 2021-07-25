@@ -192,20 +192,19 @@ FUNCTION_NAMES :: { () }
     : {- empty -}                                                                   { () }
     | FUNCTION_NAMES item id paramNumber                                            {% do 
                                                                                         symT <- get
+                                                                                        
                                                                                         let name  = Tk.cleanedString $3
-                                                                                            entry = createFunctionDeclarationEntry name $ read Tk.cleanedString $4 :: Int
-                                                                                            
-                                                                                        case ST.findSymbol symT name of
-                                                                                            Nothing      -> put $ ST.insertST ( symT { ST.nextScope = succ (ST.nextScope symT) } ) entry
-                                                                                            Just entries -> do
+                                                                                            entry = ST.functionDecEntry name $ read Tk.cleanedString $4 :: Int
 
+                                                                                        case ST.findSymbol symT name of
+                                                                                            Nothing      -> put $ ST.insertST symT entry
+                                                                                            Just entries -> do
                                                                                                 let actualFunctions  = filter (\e -> ST.category e == ST.Function) entries
                                                                                                     functionsEntries = map ST.getFunctionMetaData actualFunctions
                                                                                                     params           = map ST.numberOfParams functionsEntries
                                                                                                     currentParams    = ST.numberOfParams ( ST.getFunctionMetaData (snd entry) )
-
                                                                                                 if currentParams `notElem` params then
-                                                                                                    put $ ST.insertST ( symT { ST.nextScope = succ (ST.nextScope symT) } ) entry
+                                                                                                    put $ ST.insertST symT entry
                                                                                                     else ST.insertError $ Err.PE (Err.FRepeatedDeclarations name (Tk.position $3)) 
                                                                                     }
 
@@ -232,26 +231,19 @@ FUNCTIONS :: {}
 FUNCTION :: { () }
     : id FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY                          {% do
                                                                                         symT <- get
-                                                                                        let functionId = (Tk.cleanedString $1)
+                                                                                        let functionId = Tk.cleanedString $1
+                                                                                        let nParams = length $2
                                                                                         if ST.checkExisting symT functionId then do
-                                                                                            -- match found
-                                                                                            let entries         = fromJust $ ST.findSymbol symT functionId            
-                                                                                                actualFunctions = filter (\e-> ST.category e == ST.Function) entries 
-                                                                                                -- ^ Bring all definitions for functionId name
-                                                                                                -- ^ Filter those defined as functions
-                                                                                                notAlreadyDefined fEntry = not $ ST.defined (ST.getFunctionMetaData fEntry)
-                                                                                                sameNParams fEntry       = ST.numberOfParams  (ST.getFunctionMetaData fEntry) == length $2
-                                                                                                -- ^ Choose the function entry that matches the requirements:
-                                                                                                --    + is a Function that hasn't been validated (.i.e: discriminant is false)
-                                                                                                --    + is a Function with the same number of parameters
-                                                                                            case (filter notAlreadyDefined actualFunctions) of 
-                                                                                                [] -> ST.insertError $ Err.PE (Err.FRepeatedDefinitions functionId (Tk.position $1)) 
-                                                                                                xs -> case find sameNParams xs of
-                                                                                                    Nothing -> ST.insertError $ Err.PE (Err.InvalidNArgsDef functionId (length $2) (Tk.position $1) )
-                                                                                                    Just e  -> do
-                                                                                                        let newAdditional = (ST.getFunctionMetaData e) { ST.defined = True, ST.parameters = $2 , ST.returnTypes = $3 }
-                                                                                                            newSymT = ST.searchAndReplaceSymbol symT (functionId,e) $ (e { ST.additional = Just (ST.FunctionMetaData newAdditional) })
-                                                                                                        put newSymT
+                                                                                            decEntry <- findFunctionDeclaration functionId nParams
+                                                                                            case decEntry of
+                                                                                                Left entry -> do
+                                                                                                    let newEntry = updateFunctionInfo entry $2 $3 
+                                                                                                        newSymT = ST.searchAndReplaceSymbol symT (functionId, entry) newEntry
+                                                                                                    put newSymT
+                                                                                                Right defined -> do
+                                                                                                    if defined 
+                                                                                                        then ST.insertError $ Err.PE (Err.FRepeatedDefinitions functionId (Tk.position $1))
+                                                                                                        else ST.insertError $ Err.PE (Err.InvalidNArgsDef functionId nParams (Tk.position $1))
                                                                                         else ST.insertError $ Err.PE (Err.FDefinitionWithoutDeclaration functionId (Tk.position $1))
                                                                                     }
 
@@ -288,11 +280,10 @@ FUNCTION_BODY :: {}
     : '{' INSTRUCTIONS '}'                                                          {}
 
 -- Types ---
-
 TYPE :: { ST.Type }
-    : PRIMITIVE_TYPE                                                                { return $1 }
-    | COMPOSITE_TYPE                                                                { return $1 }
-    | id                                                                            { Tk.cleanedString $1 } -- TODO habria que verificar que este alias esté en la tabla (?)
+    : PRIMITIVE_TYPE                                                                { $1 }
+    | COMPOSITE_TYPE                                                                { $1 }
+    | id                                                                            { Tk.cleanedString $1 }
 
 PRIMITIVE_TYPE :: { ST.Type }
     : int                                                                           { ST.int }
@@ -301,20 +292,43 @@ PRIMITIVE_TYPE :: { ST.Type }
     | bool                                                                          { ST.bool }
     | atom                                                                          { ST.atom }
 
--- TODO
 COMPOSITE_TYPE :: { ST.Type }
-    : beginArray naturalLit TYPE endArray                                           { }
-    | string                                                                        { }
-    | pointerType TYPE                                                              { }
-    | beginStruct OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endStruct                                     { }
-    | beginUnion OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endUnion                                       { }
-    | beginTuple TUPLE_TYPES endTuple                                               { }
+    : beginArray naturalLit TYPE endArray                                           {% do
+                                                                                        name <- genTypeSymbol
+                                                                                        let info = ST.DopeVector $2 $3
+                                                                                        ST.insertType name info
+                                                                                    }
+    | string                                                                        {% do
+                                                                                        name <- genTypeSymbol
+                                                                                        let info = ST.DopeVector 1 ST.char
+                                                                                        ST.insertType name info
+                                                                                    }
+    | pointerType TYPE                                                              {% do
+                                                                                        name <- genTypeSymbol
+                                                                                        let info = ST.PointedType $2
+                                                                                        ST.insertType name info
+                                                                                    }
+    | beginStruct OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endStruct              {% do
+                                                                                        name <- genTypeSymbol
+                                                                                        let info = ST.StructScope $2
+                                                                                        ST.insertType name info 
+                                                                                    }
+    
+    | beginUnion OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endUnion                {% do
+                                                                                        name <- genTypeSymbol
+                                                                                        let info = ST.UnionScope $2
+                                                                                        ST.insertType name info
+                                                                                    }
+    | beginTuple TUPLE_TYPES endTuple                                               {% do 
+                                                                                        name <- genTypeSymbol
+                                                                                        let info = ST.TupleTypes $2
+                                                                                        ST.insertType name info
+                                                                                    }
+OPEN_SCOPE :: { ST.Scope } 
+    :  {- empty -}                                                                  { ST.currentScope } 
 
-OPEN_SCOPE :: { Int } 
-    :  {- empty -}                                                                   { } 
-
-CLOSE_SCOPE :: { () } 
-    :  {- empty -}                                                                   { }
+CLOSE_SCOPE :: { } 
+    :  {- empty -}                                                                  { }
 
 TUPLE_TYPES :: { [ST.Type] }
     : {- empty -}                                                                   { [] }
@@ -481,29 +495,5 @@ parseError (tk:_) = error $ "error: parse error with: \"" ++ Tk.cleanedString tk
 createExpression :: Tk.Token -> Ast.Expr -> Ast.Expression
 createExpression tk expr = Ast.Expression { Ast.getToken = tk, Ast.getExpr = expr, Ast.getType = Ast.AliasT "undefined" }
 
-createAliasEntry :: String -> ST.AliasType -> ST.Type -> ST.Entry
-createAliasEntry name aliasType pointedType = (name,info)
-    where
-        info = ST.SymbolInfo { 
-            ST.category   = ST.Alias,
-            ST.scope      = ST.pervasiveScope,
-            ST.symbolType = Nothing,
-            ST.additional = Just $ ST.AliasMetaData aliasType pointedType
-        }
 
-createFunctionDeclarationEntry :: String -> Int -> ST.Entry
-createFunctionDeclarationEntry sym params = (symbol, info)
-    where
-        symbol = sym
-        info   = ST.SymbolInfo {
-            ST.category   = ST.Function,
-            ST.scope      = ST.functionScope,
-            ST.symbolType = Nothing,
-            ST.additional = Just $ ST.FunctionMetaData (ST.FunctionInfo {
-                ST.numberOfParams = params,
-                ST.parameters =  [],
-                ST.returnTypes = [],
-                ST.defined = False
-            })
-        }
 }

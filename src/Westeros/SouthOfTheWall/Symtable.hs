@@ -16,6 +16,8 @@ type Symbol = String
 
 type Scope = Int
 
+type SymAlias = Int
+
 type Entry = (Symbol, SymbolInfo)
 
 type Dictionary = M.Map Symbol [SymbolInfo]
@@ -47,7 +49,8 @@ data AdditionalInfo
     = AliasMetaData AliasType Type
     | DopeVector Type Int
     | PointedType Type
-    | NestedScope Scope
+    | StructScope Scope
+    | UnionScope Scope
     | TupleTypes [Type]
     | FunctionMetaData FunctionInfo
     | ParameterType ParameterType
@@ -64,6 +67,7 @@ data SymbolTable = SymbolTable
     { table         :: Dictionary
     , scopeStack    :: [Scope]
     , nextScope     :: Scope
+    , nextSymAlias  :: SymAlias
     }
 
 
@@ -166,10 +170,48 @@ findFunction :: Int -> [SymbolInfo] -> Maybe SymbolInfo
 findFunction params [] = Nothing
 findFunction params bucket = find (\e -> numberOfParams (getFunctionMetaData e) == params) bucket
 
+findFunctionDec :: Symbol -> Int -> MonadParser (Either SymbolInfo Bool)
+findFunctionDec sym params = do
+    symT <- get
+    function <- lookupFunction sym params
+    case function of 
+        Nothing -> return $ Right False
+        Just entry -> do
+            if not $ defined $ getFunctionMetaData entry 
+                then return $ Left entry
+                else return $ Right True 
+
+updateFunctionInfo :: SymbolInfo -> [Type] -> [Type] -> MonadParser SymbolInfo
+updateFunctionInfo info params returns = do 
+    symT <- get
+    let oldMetadata = getFunctionMetaData info
+        newAdditional = Just $ FunctionMetaData oldMetadata { 
+            numberOfParams = length params,
+            parameters = params,
+            returnTypes = returns,
+            defined = True
+        }
+    
+    case params of 
+        []            -> return $ info {symbolType = Nothing, additional = newAdditional}  
+        [singleType]  -> return $ info {symbolType = Just singleType, additional = newAdditional}  
+        _            -> do 
+            name <- genTypeSymbol
+            let typeInfo = TupleTypes returns
+            insertType name typeInfo
+            return $ info {symbolType = Just name, additional = newAdditional}
+
 currentScope :: MonadParser Int
 currentScope = do
     SymbolTable { scopeStack = (s:_)} <- get
     return s
+
+getNextSymAlias :: MonadParser Int
+getNextSymAlias = do
+    symT <- get
+    let sa = nextSymAlias symT
+    put $ symT { nextSymAlias = succ sa }
+    return sa
 
 insertError :: Err.Error -> MonadParser ()
 insertError msg = tell [msg]
@@ -177,10 +219,9 @@ insertError msg = tell [msg]
 
 {- Constants -}
 
-pervasiveScope, functionScope :: Scope
-
+pervasiveScope, globalScope :: Scope
 pervasiveScope = 0
-functionScope  = 1
+globalScope  = 1
 
 
 {- Initial types -}
@@ -206,7 +247,8 @@ initialST = foldl' insertST st entries
     st = SymbolTable {
         table      = M.empty :: M.Map Symbol [SymbolInfo],
         scopeStack = [0],
-        nextScope  = 1
+        nextScope  = 1,
+        nextSymAlias = 0
     }
 
 typesSymbolInfo :: SymbolInfo
@@ -217,8 +259,7 @@ typesSymbolInfo = SymbolInfo {
     additional = Nothing
 }
 
-
--- Most generic insertion function
+-- Entry constructors
 regularEntry:: Symbol
             -> Scope
             -> Category
@@ -234,13 +275,27 @@ regularEntry name sc ctg tp add = (name, symInfo)
         additional = add
     }
 
--- ^ Insertion function for symbols with simple types.
 idEntry :: Symbol -> Scope -> Category -> Type -> Entry
 idEntry name sc ctg tp = regularEntry name sc ctg (Just tp) Nothing
 
-typeEntry :: Symbol -> Scope -> Category -> AdditionalInfo -> Entry
-typeEntry name sc ctg add = regularEntry name sc ctg Nothing (Just add)
+typeEntry :: Symbol -> AdditionalInfo -> Entry
+typeEntry name info = regularEntry name pervasiveScope Type Nothing (Just info)
 
+aliasEntry :: Symbol -> AliasType -> Type -> Entry
+aliasEntry name aliasType pointedType = 
+    regularEntry name globalScope Alias Nothing (Just $ AliasMetaData aliasType pointedType)
+
+functionDecEntry :: Symbol -> Int -> Entry
+functionDecEntry name params =
+    regularEntry name globalScope Function Nothing additional
+    where
+        additional = Just $ FunctionMetaData (
+            FunctionInfo {
+                numberOfParams = params,
+                parameters =  [],
+                returnTypes = [],
+                defined = False
+            })
 
 -- ^ To insert entries for id's of things that are not a type.
 insertId :: Tk.Token -> Category -> Type -> MonadParser ()
@@ -261,44 +316,20 @@ insertId tk ctg tp = do
                              in insertError $ Err.PE (Err.RedeclaredVar name pos)
 
 -- ^ To insert entries on ST for id's of types
--- ^ Special cases:
--- ^    + Array
--- ^    + Structs
--- ^    + Unions
--- ^    + Tuples (?)
--- ^    + Aliases (?)
-insertType :: Symbol -> Bool -> AdditionalInfo -> MonadParser Type
-insertType name isNested additional = do
+insertType :: Symbol -> AdditionalInfo -> MonadParser Type
+insertType name additional = do
     symT <- get
-
-    let entry = typeEntry name pervasiveScope Type additional
-
     if not $ checkExisting symT name
         then do
+            let entry = typeEntry name additional
             put $ insertST symT entry
             return name
-        else error "TODO"
+    else return name
 
-
--- ^ This is for inserting structs/unions
-insertNestedType :: Scope -> Bool -> MonadParser Type
-insertNestedType sc isStruct = do
-
-    let definedScope = NestedScope (succ sc)
-        tpName
-            | isStruct  = getAnonymousType sc "_struct_"
-            | otherwise = getAnonymousType sc "_union_"
-        typeEntry    = compoundTypeEntry tpName pervasiveScope Type Nothing definedScope
-
-    symT  <- get
-    put $ insertST symT typeEntry
-
-    return tpName
-
-getAnonymousType sc preName = preName ++ show (succ sc)
-
-getArrayType tp dim = array ++ '_' : tp ++ '_' : show dim
-
+genTypeSymbol :: MonadParser Type
+genTypeSymbol = do
+    next <- getNextSymAlias
+    return $ "a_" ++ show next
 
 checkNotRepeated :: SymbolInfo -> Scope -> Bool
 checkNotRepeated symInf sc

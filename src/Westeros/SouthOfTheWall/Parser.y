@@ -253,60 +253,67 @@ PARAMETER :: { Ast.Parameter }
                                                                                                     }
 
 PARAMETER_TYPE :: { Ast.ParamType }
-    : valueArg                                                                                      { Ast.Value }
-    | refArg                                                                                        { Ast.Ref }
+    : valueArg                                                                      { Ast.Value }
+    | refArg                                                                        { Ast.Ref }
 
 FUNCTION_RETURN :: { [ST.Type] }
-    : beginReturnVals RETURN_TYPES endReturnVals                                                    { $2 }
+    : beginReturnVals RETURN_TYPES endReturnVals                                    { $2 }
 
 RETURN_TYPES :: { [ST.Type] }
-    : void                                                                                          { [] }
-    | TYPES                                                                                         { reverse $1 }
+    : void                                                                          { [] }
+    | TYPES                                                                         { reverse $1 }
 
 TYPES :: { [ST.Type] }
-    : TYPE                                                                                          { [$1] }
-    | TYPES ',' TYPE                                                                                { $3 : $1 }
+    : TYPE                                                                          { [$1] }
+    | TYPES ',' TYPE                                                                { $3 : $1 }
 
 FUNCTION_BODY :: { [Ast.Instruction] }
-    : '{' INSTRUCTIONS '}'                                                                          { reverse $2 }
+    : '{' INSTRUCTIONS '}'                                                          { reverse $2 }
 
 TYPE :: { ST.Type }
-    : PRIMITIVE_TYPE                                                                                { $1 }
-    | COMPOSITE_TYPE                                                                                { $1 }
-    | id                                                                                            { (Tk.cleanedString $1) }
+    : PRIMITIVE_TYPE                                                                { $1 }
+    | COMPOSITE_TYPE                                                                { $1 }
+    | id                                                                            { Tk.cleanedString $1 }
 
 PRIMITIVE_TYPE :: { ST.Type }
-    : int                                                                                           {% return ST.int }
-    | float                                                                                         {% return ST.float }
-    | char                                                                                          {% return ST.char }
-    | bool                                                                                          {% return ST.bool }
-    | atom                                                                                          {% return ST.atom }
+    : int                                                                           { ST.int }
+    | float                                                                         { ST.float }
+    | char                                                                          { ST.char }
+    | bool                                                                          { ST.bool }
+    | atom                                                                          { ST.atom }
 
 COMPOSITE_TYPE :: { ST.Type }
-    : beginArray naturalLit TYPE endArray                                                           {% do
-                                                                                                        symT <- get
-                                                                                                        let dim        = $1
-                                                                                                            tp         = $2
-                                                                                                            arrTpName  = ST.getArrayType tp dim
-                                                                                                            additional = Just $ ST.DopeVector tp dim
-                                                                                                            typeEntry  = ST.compoundTypeEntry arrTpName ST.pervasive Type Nothing additional
-                                                                                                        if not $ checkExisting symT arrTpName
-                                                                                                            then return arrTpName
-                                                                                                            else do
-                                                                                                                ST.insertST symT typeEntry
-                                                                                                                return arrTpName
-                                                                                                    }
-    | string                                                                                        {% return ST.string}
-    | pointerType TYPE                                                                              {% return ST.pointer}
-    | beginStruct OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endStruct                              {% do
-                                                                                                        let typeScope = $2
-                                                                                                        ST.insertNestedType typeScope True
-                                                                                                    }
-    | beginUnion OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endUnion                                {% do
-                                                                                                        let typeScope = $2
-                                                                                                        ST.insertNestedType typeScope False
-                                                                                                    }
-    | beginTuple TUPLE_TYPES endTuple                                                               {% }
+    : beginArray naturalLit TYPE endArray                                           {% do
+                                                                                        name <- genTypeSymbol
+                                                                                        let info = ST.DopeVector $2 $3
+                                                                                        ST.insertType name info
+                                                                                    }
+    | string                                                                        {% do
+                                                                                        name <- genTypeSymbol
+                                                                                        let info = ST.DopeVector 1 ST.char
+                                                                                        ST.insertType name info
+                                                                                    }
+    | pointerType TYPE                                                              {% do
+                                                                                        name <- genTypeSymbol
+                                                                                        let info = ST.PointedType $2
+                                                                                        ST.insertType name info
+                                                                                    }
+    | beginStruct OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endStruct              {% do
+                                                                                        name <- genTypeSymbol
+                                                                                        let info = ST.StructScope $2
+                                                                                        ST.insertType name info 
+                                                                                    }
+    
+    | beginUnion OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endUnion                {% do
+                                                                                        name <- genTypeSymbol
+                                                                                        let info = ST.UnionScope $2
+                                                                                        ST.insertType name info
+                                                                                    }
+    | beginTuple TUPLE_TYPES endTuple                                               {% do 
+                                                                                        name <- genTypeSymbol
+                                                                                        let info = ST.TupleTypes $2
+                                                                                        ST.insertType name info
+                                                                                    }
 
 OPEN_SCOPE :: { Int }
     :  {- empty -}                                                                                  {% do

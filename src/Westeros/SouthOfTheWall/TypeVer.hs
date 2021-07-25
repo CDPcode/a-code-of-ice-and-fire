@@ -16,8 +16,8 @@ data Type
     | StringT 
     | ArrayT Type Int 
     | TupleT [Type]
-    | StructT [Type]
-    | UnionT [Type]
+    | StructT Int
+    | UnionT Int
     | PointerT Type
 
     | TypeError
@@ -55,14 +55,6 @@ instance Typeable AST.Expr where
 
     typeQuery (AST.TupleIndex _ _) = undefined 
     typeQuery (AST.IdExpr _) = undefined
-
-
-
-
-
-
-
-
 
 
 {-
