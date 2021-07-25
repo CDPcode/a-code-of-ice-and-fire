@@ -168,7 +168,8 @@ lookupFunction sym params = do
 
 findFunction :: Int -> [SymbolInfo] -> Maybe SymbolInfo
 findFunction params [] = Nothing
-findFunction params bucket = find (\e -> numberOfParams (getFunctionMetaData e) == params) bucket
+findFunction params bucket = find (\e -> category e == Function 
+                                      && numberOfParams (getFunctionMetaData e) == params) bucket
 
 findFunctionDec :: Symbol -> Int -> MonadParser (Either SymbolInfo Bool)
 findFunctionDec sym params = do
@@ -226,16 +227,6 @@ globalScope  = 1
 
 {- Initial types -}
 
-int, float, char, bool, atom, string, pointer, array :: Symbol
-int     = "_int"
-float   = "_float"
-char    = "_char"
-bool    = "_bool"
-atom    = "_atom"
-string  = "_string"
-pointer = "_ptr"
-array   = "_array"
-
 
 initialTypes :: [Symbol]
 initialTypes = ["_int","_float","_char","_bool","_atom","_string", "_pointer"] --array, union, struct, tuple, alias
@@ -259,7 +250,32 @@ typesSymbolInfo = SymbolInfo {
     additional = Nothing
 }
 
--- Entry constructors
+int :: String
+int = "_int"
+float :: String
+float = "_float"
+char :: String
+char = "_char"
+bool :: String
+bool = "_bool"
+atom :: String
+atom = "_atom"
+string :: String
+string = "_string"
+pointer :: String 
+pointer = "_ptr"
+array :: String 
+array = "_array"
+tError :: String 
+tError = "_type_error"
+
+
+initializedST :: SymbolTable
+initializedST = foldl insertST initialST entries 
+    where entries = zip initialTypes (repeat typesSymbolInfo)
+
+
+-- Most generic insertion function
 regularEntry:: Symbol
             -> Scope
             -> Category
@@ -336,66 +352,3 @@ checkNotRepeated symInf sc
     | cond      = True
     | otherwise = False
     where cond = scope symInf /= sc && category symInf `notElem` [Function,Alias]
-
-{-
-struct {
-    int a;
-    int b;
-    struct {
-        bool a;
-        bool b;
-    } my_struct_2;
-} my_struct_1;
-
-
-|   "_struct0" -> category = Type,
-|                 scope = a,
-|                 type = Nothing,
-|                 additional = Just (NestedScope $ succ a)
-|
-|   "my_struct_1" -> category = Var,
-|                    scope = a,
-|                    type = "_struct0",
-|                    additional = Nothing
-|
-|   "a" -> category = Var,
-|          scope = succ a,
-|          type = "_int",
-|          additional = Nothing
-|
-|   "b" -> category = Var,
-|          scope = succ a,
-|          type = "_int",
-|          additional = Nothing
-|
-|
-| | "_struct1" -> category = Type,
-| |               scope = succ a ,
-| |               type = Nothing,
-| |               additional = Just (NestedScope $ succ $ succ a)
-| |
-| | "my_struct_2" -> category = Var,
-| |                  scope = succ a,
-| |                  type = "_struct1",
-| |                  additional = Nothing
-| |
-| | "a" -> category = Var,
-| |        scope = succ $ succ a,
-| |        type = "_bool",
-| |        additional = Nothing
-| |
-| | "b" -> category = Var,
-| |        scope = succ $ succ a,
-| |        type = "_bool",
-| |        additional = Nothing
-
-nested types saving:
-
-create an entry in ST for the indexed type (["_struct","_union"]"$i"), with NestedScope = succ currentScope
-create an entry in ST with name, scope (=currentScope), saved nested type and additionalInfo if applies
-
-for each of the ("name","type") pairs:
-    if type is Struct -> call nested types saving.
-    else -> save it as usual, with adjusted scope
-
--}
