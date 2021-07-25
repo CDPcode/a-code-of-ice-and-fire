@@ -3,8 +3,6 @@ cabal-version: 1.12
 -- This file has been generated from package.yaml by hpack version 0.34.4.
 --
 -- see: https://github.com/sol/hpack
---
--- hash: ef5e522c15acda0b28609354dd845a3c21d572390aaa748c63e69c954b091e24
 
 name:           acif
 version:        0.1.0.0
@@ -33,8 +31,10 @@ library
       Westeros.SouthOfTheWall.Lexer
       Westeros.SouthOfTheWall.Parser
       Westeros.SouthOfTheWall.PreParser
+      Westeros.SouthOfTheWall.PrettyPrint
       Westeros.SouthOfTheWall.Symtable
       Westeros.SouthOfTheWall.Tokens
+      Westeros.SouthOfTheWall.TypeVer
   other-modules:
       Paths_acif
   hs-source-dirs:
@@ -45,8 +45,12 @@ library
   build-depends:
       array
     , base >=4.7 && <5
+    , bifunctors
+    , bytestring
     , containers
     , mtl
+    , rainbow
+    , text
   default-language: Haskell2010
 
 executable acif-exe
@@ -55,13 +59,17 @@ executable acif-exe
       Paths_acif
   hs-source-dirs:
       app
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall -Wcompat -Widentities -Wincomplete-uni-patterns -Wincomplete-record-updates -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wmissing-deriving-strategies -Wunused-packages
   build-depends:
       acif
     , array
     , base >=4.7 && <5
+    , bifunctors
+    , bytestring
     , containers
     , mtl
+    , rainbow
+    , text
   default-language: Haskell2010
 
 test-suite acif-test
@@ -71,11 +79,15 @@ test-suite acif-test
       Paths_acif
   hs-source-dirs:
       test
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall -Wcompat -Widentities -Wincomplete-uni-patterns -Wincomplete-record-updates -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wmissing-deriving-strategies -Wunused-packages
   build-depends:
       acif
     , array
     , base >=4.7 && <5
+    , bifunctors
+    , bytestring
     , containers
     , mtl
+    , rainbow
+    , text
   default-language: Haskell2010

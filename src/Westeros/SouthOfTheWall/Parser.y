@@ -301,35 +301,24 @@ COMPOSITE_TYPE :: { ST.Type }
     | beginStruct OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endStruct              {% do
                                                                                         name <- genTypeSymbol
                                                                                         let info = ST.StructScope $2
-                                                                                        ST.insertType name info 
+                                                                                        ST.insertType name info
                                                                                     }
-    
+
     | beginUnion OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endUnion                {% do
                                                                                         name <- genTypeSymbol
                                                                                         let info = ST.UnionScope $2
                                                                                         ST.insertType name info
                                                                                     }
-    | beginTuple TUPLE_TYPES endTuple                                               {% do 
+    | beginTuple TUPLE_TYPES endTuple                                               {% do
                                                                                         name <- genTypeSymbol
                                                                                         let info = ST.TupleTypes $2
                                                                                         ST.insertType name info
                                                                                     }
 
-OPEN_SCOPE :: { Int }
-    :  {- empty -}                                                                                  {% do
-                                                                                                        cachedScope <- ST.currentScope
-                                                                                                        ST.openScope
-
-                                                                                                        return cachedScope
-                                                                                                    }
-
-CLOSE_SCOPE :: { () }
-    :  {- empty -}                                                                                  {% ST.closeScope }
-
 TUPLE_TYPES :: { [Ast.Type] }
     : {- empty -}                                                                                   { [] }
     | TYPES                                                                                         { reverse $1 }
-    
+
 
 -- Alias Declaration --
 
@@ -468,7 +457,7 @@ EXPR :: { Ast.Expression }
     | EXPR '->' id                                                                                  { createExpression $2 $ Ast.AccesField $1 (Tk.cleanedString $3) }
     | EXPR '?' id                                                                                   { createExpression $2 $ Ast.ActiveField $1 (Tk.cleanedString $3) }
     | '[(' naturalLit ']' EXPR                                                                      { createExpression $3 $ Ast.TupleIndex $4 ((read $ Tk.cleanedString $2) :: Int) }
-    | EXPR cast TYPE                                                                                { createExpression $2 $ Ast.Cast $1 $3 }
+--    | EXPR cast TYPE                                                                                { createExpression $2 $ Ast.Cast $1 $3 }
     | '(' EXPR ')'                                                                                  { $2 }
     | ARRAYLIT                                                                                      { $1 }
     | TUPLELIT                                                                                      { $1 }
@@ -516,11 +505,15 @@ EXPRLIST :: { [Ast.Expression] }
     : EXPR                                                                                          { [$1] }
     | EXPRLIST ',' EXPR                                                                             { $3 : $1 }
 
-OPEN_SCOPE :: { () }
-    : {- empty -}                                                                                   {% ST.openScope }
+
+OPEN_SCOPE :: { Int }
+    :  {- empty -}                                                                                  {% do
+                                                                                                        ST.openScope
+                                                                                                        ST.currentScope
+                                                                                                    }
 
 CLOSE_SCOPE :: { () }
-    : {- empty -}                                                                                   {% ST.closeScope }
+    :  {- empty -}                                                                                  {% ST.closeScope }
 
 {
 parseError :: [Tk.Token] -> ST.MonadParser a -- OJO

@@ -1,26 +1,25 @@
 module Westeros.SouthOfTheWall.TypeVer where
 
-import qualified Westeros.SouthOfTheWall.AST as AST
 import qualified Westeros.SouthOfTheWall.Error as Err (TypeError(..))
-import qualified Westeros.SouthOfTheWall.Symtable as ST 
+import qualified Westeros.SouthOfTheWall.Symtable as ST
 
 import Control.Monad.RWS
 
 data Type
-    = IntT 
+    = IntT
     | FloatT
     | CharT
     | BoolT
-    | AtomT 
+    | AtomT
 
-    | AliasT String 
+    | AliasT String
 
-    | StringT 
-    | ArrayT Type Int 
+    | StringT
+    | ArrayT Type Int
     | TupleT [Type]
     | StructT Int
     | UnionT Int
-    | PointerT Type 
+    | PointerT Type
 
     | NullT
 
@@ -32,195 +31,19 @@ data Type
 -- The propper way to use it is to implement exhaustive instances for everything in
 -- the language susceptible of having a type and then performing type queries when
 -- necessary.
-class Typeable a where 
+class Typeable a where
     typeQuery :: a -> ST.MonadParser Type
-
-instance Typeable AST.Expr where
-    typeQuery (AST.IntLit    _) = return IntT 
-    typeQuery (AST.CharLit   _) = return CharT
-    typeQuery (AST.FloatLit  _) = return FloatT 
-    typeQuery (AST.AtomLit   _) = return AtomT 
-    typeQuery (AST.StringLit _) = return StringT 
-    typeQuery AST.TrueLit       = return BoolT 
-    typeQuery AST.FalseLit      = return BoolT 
-
-    typeQuery AST.NullLit       = return NullT
-
-    typeQuery (AST.ArrayLit array@(x:xs)) = do 
-
-        types <- mapM (typeQuery . AST.getExpr) array           
-        
-        let arrType = head types
-            cond1   = all notTypeError types
-            cond2   = foldl (\acc b -> arrType == b && acc ) True types 
-
-        if cond1 && cond2 
-            then return $ ArrayT arrType (length array)
-            else return TypeError 
-    
-    typeQuery (AST.ArrayLit []) = error "Empty literal array not supported"
-
-    typeQuery (AST.TupleLit parts) = do
-
-        types <- mapM (typeQuery . AST.getExpr) array
-
-        let res = TupleT types
-
-        if notTypeError res
-            then return res
-            else return TypeError
-
-    typeQuery (AST.FuncCall id args) = do
-
-        types <- mapM (typeQuery . AST.getExpr) args
-        symT <- get
-
-        entry <- lookupFunction id $ length args
-        case entry of
-            Nothing -> return TypeError
-            Just function -> do
-                let params = parameters . fromJust . additional $ function
-                    paramTypes = mapM getTypeFromString params
-                    cond1 = all notTypeError args
-                    cond2 = all $ zipWith (==) paramTypes types 
-
-                    if cond1 && cond2
-                        then do 
-                            let functionType = symbolType function 
-                            case functionType of
-                                Just typeName -> return $ getTypeFromString typeName
-                                Nothing -> return TypeError -- Ojo, esto está mal. Hay que implementar un tipo para las funciones
-
-
-    typeQuery (AST.BinOp AST.Sum a b)  = arithmeticBinOpCheck a b
-    typeQuery (AST.BinOp AST.Sub a b)  = arithmeticBinOpCheck a b
-    typeQuery (AST.BinOp AST.Prod a b) = arithmeticBinOpCheck a b
-    typeQuery (AST.BinOp AST.Mod a b)  = arithmeticBinOpCheck a b
-    typeQuery (AST.BinOp AST.Div a b)  = arithmeticBinOpCheck a b
-
-    typeQuery (AST.BinOp AST.Eq a b)  = comparisonBinOpCheck  a b
-    typeQuery (AST.BinOp AST.Neq a b) = comparisonBinOpCheck a b
-    typeQuery (AST.BinOp AST.Lt a b)  = comparisonBinOpCheck a b
-    typeQuery (AST.BinOp AST.Gt a b)  = comparisonBinOpCheck a b
-    typeQuery (AST.BinOp AST.Leq a b) = comparisonBinOpCheck a b
-    typeQuery (AST.BinOp AST.Geq a b) = comparisonBinOpCheck a b
- 
-    typeQuery (AST.BinOp AST.And a b) = boolBinOpCheck a b
-    typeQuery (AST.BinOp AST.Or a b)  = boolBinOpCheck a b
-
-    typeQuery (AST.UnOp AST.Neg a) = do 
-        x <- typeQuery (AST.getExpr a)
-
-        if x `elem` [IntT, FloatT] 
-            then return x
-            else return TypeError 
-
-    typeQuery (AST.UnOp AST.Deref p) = do
-        mustBePtr <- typeQuery (AST.getExpr p)
-
-        case mustBePtr of
-            PointerT e 
-                | e == TypeError -> return TypeError
-                | otherwise      -> return e
-            _          -> return TypeError
-
-    typeQuery (AST.AccesField expr id) = do
-        structExpr <- typeQuery $ AST.getExpr expr
-        
-        case structExpr of  
-            (StructT scope) -> do -- ! OJO
-                symT <- get
-
-                let inScope         = ST.filterByScopeST symT scope
-                    possibleEntries = ST.findDictionary inScope id
-
-                case possibleEntries of 
-
-                    Just [entry] -> case ST.symbolType entry of                            
-
-                        Just strType -> getTypeFromString strType
-                        Nothing      -> return TypeError
-
-                    Nothing          -> return TypeError 
-            (UnionT scope) -> do -- ! OJO
-                symT <- get
-
-                let inScope         = ST.filterByScopeST symT scope
-                    possibleEntries = ST.findDictionary inScope id
-
-                case possibleEntries of 
-
-                    Just [entry] -> case ST.symbolType entry of                            
-
-                        Just strType -> getTypeFromString strType
-                        Nothing      -> return TypeError
-
-                    Nothing          -> return TypeError 
-
-            _              -> return TypeError
-        
-    typeQuery (AST.ActiveField expr id) = do
-        structExpr <- typeQuery $ AST.getExpr expr
-        
-        case structExpr of 
-            (UnionT scope) -> do                    
-                symT <- get
-
-                let inScope         = ST.filterByScopeST symT scope
-                    possibleEntries = ST.findDictionary inScope id
-
-                case possibleEntries of 
-
-                    Just [entry] -> case ST.symbolType entry of                            
-
-                        Just _       -> return BoolT  -- ! The type just indicates that the field is a correct field from struct
-                        Nothing      -> return TypeError
-
-                    _             -> return TypeError 
-
-            _              -> return TypeError
-
-    typeQuery (AST.AccesIndex arr ind)  = do
-        arrType  <- typeQuery (AST.getExpr arr) 
-        indTypes <- mapM (typeQuery . AST.getExpr) ind
-
-        let cond1 = notTypeError arrType
-            cond2 = all notTypeError indTypes
-            cond3 = foldl (\acc b -> IntT == b && acc ) True indTypes 
-        
-        if cond1 && cond2 && cond3 
-            then return $ ArrayT arrType (length indTypes)
-            else return TypeError
-
-    typeQuery (AST.TupleIndex tupleExpr ind) = do
-        tupleType <- typeQuery (AST.getExpr tupleExpr)
-        
-        if notTypeError tupleType then 
-            case tupleType of
-                TupleT xs -> return $ xs !! ind
-                _         -> return TypeError
-            else return TypeError
-
-    typeQuery (AST.IdExpr id)       = do           
-        symT <- get
-
-        idType <- ST.lookupST id
-
-        case idType of
-            Just entry -> case ST.symbolType entry of
-                            Just tp -> getTypeFromString tp 
-                            Nothing -> return TypeError
-            Nothing    -> return TypeError
 
 
 getTypeFromString :: ST.Type -> ST.MonadParser Type
-getTypeFromString base = case base of 
-    "_int"     -> return IntT 
+getTypeFromString base = case base of
+    "_int"     -> return IntT
     "_float"   -> return FloatT
     "_char"    -> return CharT
     "_bool"    -> return BoolT
-    "_atom"    -> return AtomT 
-    "_string"  -> return StringT 
+    "_atom"    -> return AtomT
+    "_string"  -> return StringT
+
     otherType  -> do
         espType <- ST.lookupST otherType
 
@@ -236,7 +59,8 @@ getTypeFromString base = case base of
                     ST.PointedType tp            -> do
                         ptrType <- getTypeFromString tp
                         return $ PointerT ptrType
-                    ST.NestedScope scope         -> return $ StructT scope 
+                    ST.StructScope scope         -> return $ StructT scope
+                    ST.UnionScope  scope         -> return $ UnionT scope
                     ST.TupleTypes xs             -> do
                         types <- mapM getTypeFromString xs
                         return $ TupleT types
@@ -249,42 +73,12 @@ getTypeFromString base = case base of
 
 
 -- ^ Use to check if recursive types have some leave with a type error.
-notTypeError :: Type -> Bool 
+notTypeError :: Type -> Bool
 notTypeError (TupleT xs)  = all notTypeError xs
 notTypeError (PointerT e) = notTypeError e
 notTypeError TypeError    = False
 notTypeError _            = True
 
-
-arithmeticBinOpCheck :: AST.Expression -> AST.Expression -> ST.MonadParser Type
-arithmeticBinOpCheck a b = do 
-    x <- typeQuery (AST.getExpr a) 
-    d <- typeQuery (AST.getExpr b)
-
-    if x == d && x `elem` [IntT, FloatT]
-        then return x 
-        else return TypeError 
-
-
-comparisonBinOpCheck :: AST.Expression -> AST.Expression -> ST.MonadParser Type 
-comparisonBinOpCheck a b = do 
-    x <- typeQuery (AST.getExpr a) 
-    d <- typeQuery (AST.getExpr b) 
-
-    let typeList = [IntT, BoolT, FloatT, CharT] 
-
-    if x == d && x `elem` typeList
-        then return BoolT 
-        else return TypeError 
-
-boolBinOpCheck :: AST.Expression -> AST.Expression -> ST.MonadParser Type
-boolBinOpCheck a b = do 
-    x <- typeQuery (AST.getExpr a)
-    d <- typeQuery (AST.getExpr b)
-    
-    if x == d && x == BoolT
-        then return BoolT 
-        else return TypeError
 
 {-
 data Expr
@@ -314,8 +108,8 @@ data Expr
 
 {-
 AST.Expression
-AST.Declaration 
-AST.VariableDeclaration 
+AST.Declaration
+AST.VariableDeclaration
 
 -}
 
@@ -326,99 +120,99 @@ Tipos -> Literales -> Expresiones -> Instrucciones -> Funciones
 ------------------------------------------------------------- EXPRESSIONS
 
 Operators
-    ops(int,float): 
-        + | - | * | / | -. | 
-    ops(int): 
-        % 
-    ops(int,bool,float,char): 
+    ops(int,float):
+        + | - | * | / | -. |
+    ops(int):
+        %
+    ops(int,bool,float,char):
         == | /= | < | > | <= | >=
-    ops(bool): 
+    ops(bool):
         && | ||
-    ops(all): 
+    ops(all):
         */type cast
 
 Parser.y:413
 EXPR :: { Ast.Expression }
-    : EXPR '+' EXPR       
-    | EXPR '-' EXPR       
-    | EXPR '*' EXPR       
-    | EXPR '/' EXPR       
-    | EXPR '%' EXPR       
-    | EXPR '=' EXPR       
-    | EXPR '!=' EXPR      
-    | EXPR '<' EXPR       
-    | EXPR '>' EXPR       
-    | EXPR '<=' EXPR      
-    | EXPR '>=' EXPR      
-    | EXPR and EXPR       
-    | EXPR or EXPR        
-    | EXPR '~'            
+    : EXPR '+' EXPR
+    | EXPR '-' EXPR
+    | EXPR '*' EXPR
+    | EXPR '/' EXPR
+    | EXPR '%' EXPR
+    | EXPR '=' EXPR
+    | EXPR '!=' EXPR
+    | EXPR '<' EXPR
+    | EXPR '>' EXPR
+    | EXPR '<=' EXPR
+    | EXPR '>=' EXPR
+    | EXPR and EXPR
+    | EXPR or EXPR
+    | EXPR '~'
 
-    | deref EXPR          
+    | deref EXPR
     | '[' EXPRLIST ']' EXP
-    | id '<-' EXPR        
-    | EXPR '->' id        
-    | EXPR '?' id         
+    | id '<-' EXPR
+    | EXPR '->' id
+    | EXPR '?' id
 
-    | '[(' naturalLit ']' 
-    | EXPR cast TYPE      
-    | '(' EXPR ')'        
-    
-    | ARRAYLIT            
-    | TUPLELIT            
-    | FUNCTIONCALL        
+    | '[(' naturalLit ']'
+    | EXPR cast TYPE
+    | '(' EXPR ')'
 
-    | intLit              
-    | floatLit            
-    | charLit             
-    | atomLit             
-    | stringLit           
-    | true                
-    | false               
-    | null                
-    | id                  
+    | ARRAYLIT
+    | TUPLELIT
+    | FUNCTIONCALL
+
+    | intLit
+    | floatLit
+    | charLit
+    | atomLit
+    | stringLit
+    | true
+    | false
+    | null
+    | id
 
 Parser.y:478
 EXPRLIST :: { [Ast.Expression] }
-    : EXPR                      
-    | EXPRLIST ',' EXPR         
-    
+    : EXPR
+    | EXPRLIST ',' EXPR
+
 ------------------------------------------------------------- DECLARATION
 
 Parser.y:304
-DECLARATION :: { Ast.Declaration } -- # 
-    : SIMPLE_DECLARATION '.'                                                 
-    | SIMPLE_DECLARATION ':=' EXPR '.'                                       
-    | SIMPLE_DECLARATION ':==' EXPR '.'                                      
-    | CONST_DECLARATION '.'                                                  
+DECLARATION :: { Ast.Declaration } -- #
+    : SIMPLE_DECLARATION '.'
+    | SIMPLE_DECLARATION ':=' EXPR '.'
+    | SIMPLE_DECLARATION ':==' EXPR '.'
+    | CONST_DECLARATION '.'
 
 SIMPLE_DECLARATIONS :: { [Ast.VariableDeclaration] }
-    : SIMPLE_DECLARATION                                                     
-    | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION                             
+    : SIMPLE_DECLARATION
+    | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION
 
 SIMPLE_DECLARATION :: { Ast.VariableDeclaration } -- #
-    : PRIMITIVE_DECLARATION                                                  
-    | COMPOSITE_DECLARATION                                                  
+    : PRIMITIVE_DECLARATION
+    | COMPOSITE_DECLARATION
 
 PRIMITIVE_DECLARATION :: { Ast.VariableDeclaration } -- #
-    : var id type TYPE                                                       
+    : var id type TYPE
 
 COMPOSITE_DECLARATION :: { Ast.VariableDeclaration } -- #
-    : beginCompTypeId var id endCompTypeId TYPE                              
-    | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz       
-    | beginCompTypeId pointerVar id endCompTypeId TYPE                       
+    : beginCompTypeId var id endCompTypeId TYPE
+    | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz
+    | beginCompTypeId pointerVar id endCompTypeId TYPE
     | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz
 
 CONST_DECLARATION :: { Ast.Declaration } -- #
-    : const id type TYPE constValue EXPR                                     
-    | beginCompTypeId const id endCompTypeId TYPE constValue EXPR            
+    : const id type TYPE constValue EXPR
+    | beginCompTypeId const id endCompTypeId TYPE constValue EXPR
 
 ALIAS_DECLARATION :: { Ast.AliasDeclaration }
-    : beginAlias id ALIAS_TYPE TYPE '.'                                      
+    : beginAlias id ALIAS_TYPE TYPE '.'
 
 ALIAS_TYPE :: { Ast.AliasType }
-    : strongAlias                                                            
-    | weakAlias                                                              
+    : strongAlias
+    | weakAlias
 
 ------------------------------------------------------------- TYPES
 
@@ -426,28 +220,28 @@ Simples: Lanninteger/int | Freyt/float | Boolton/bool | Starkhar/char | Barathom
 
 Parser.y:273
 TYPE :: { Ast.Type }
-    : PRIMITIVE_TYPE                           
-    | COMPOSITE_TYPE                           
-    | id                                       
+    : PRIMITIVE_TYPE
+    | COMPOSITE_TYPE
+    | id
 
 PRIMITIVE_TYPE :: { Ast.Type }
-    : int                                      
-    | float                                    
-    | char                                     
-    | bool                                     
-    | atom                                     
+    : int
+    | float
+    | char
+    | bool
+    | atom
 
 COMPOSITE_TYPE :: { Ast.Type }
-    : beginArray naturalLit TYPE endArray      
-    | string                                   
-    | pointerType TYPE                         
+    : beginArray naturalLit TYPE endArray
+    | string
+    | pointerType TYPE
     | beginStruct SIMPLE_DECLARATIONS endStruct
-    | beginUnion SIMPLE_DECLARATIONS endUnion  
-    | beginTuple TUPLE_TYPES endTuple          
+    | beginUnion SIMPLE_DECLARATIONS endUnion
+    | beginTuple TUPLE_TYPES endTuple
 
 TUPLE_TYPES :: { [Ast.Type] }
-    : {- empty -}                              
-    | TYPES                                    
+    : {- empty -}
+    | TYPES
 
 ------------------------------------------------------------- INSTRUCTIONS
 
@@ -461,50 +255,50 @@ TUPLE_TYPES :: { [Ast.Type] }
 
 Parser.y:348
 INSTRUCTION :: { Ast.Instruction }
-    : EXPR ':=' EXPR '.'                    -- #                                     
-    | EXPRLIST ':==' EXPR '.'               -- #                                  
-    | void ':=' EXPR '.'                    -- # |                                   
-    | void ':==' EXPR '.'                   -- # |                                  
-    | pass '.'                                                                   
-    | beginExit programName endExit '.'                                          
-    | read EXPR '.'                                                              
-    | print EXPR '.'                                                             
-    | EXPR new '.'                                                               
-    | EXPR free '.'                                                              
-    | continue '.'                                                               
-    | break '.'                                                                  
-    | returnOpen EXPRLIST returnClose                                            
-    | returnOpen returnClose                                                     
+    : EXPR ':=' EXPR '.'                    -- #
+    | EXPRLIST ':==' EXPR '.'               -- #
+    | void ':=' EXPR '.'                    -- # |
+    | void ':==' EXPR '.'                   -- # |
+    | pass '.'
+    | beginExit programName endExit '.'
+    | read EXPR '.'
+    | print EXPR '.'
+    | EXPR new '.'
+    | EXPR free '.'
+    | continue '.'
+    | break '.'
+    | returnOpen EXPRLIST returnClose
+    | returnOpen returnClose
     | IF '.'                                -- #
-    | SWITCHCASE '.'                        -- #                                  
-    | FOR '.'                               -- #                                     
-    | WHILE '.'                             -- #                                     
-    | DECLARATION                           -- #                                     
+    | SWITCHCASE '.'                        -- #
+    | FOR '.'                               -- #
+    | WHILE '.'                             -- #
+    | DECLARATION                           -- #
 
 IF :: { Ast.IfInst }                        -- #
-    : if EXPR then CODE_BLOCK endif                                              
-    | if EXPR then CODE_BLOCK else CODE_BLOCK endif                              
+    : if EXPR then CODE_BLOCK endif
+    | if EXPR then CODE_BLOCK else CODE_BLOCK endif
 
 SWITCHCASE :: { Ast.Instruction }           -- #
-    : switch EXPR switchDec '.' CASES endSwitch                                  
+    : switch EXPR switchDec '.' CASES endSwitch
 
 CASES :: { [Ast.Case] }                     -- #
-    : CASE                                                                       
-    | CASES CASE                                                                 
+    : CASE
+    | CASES CASE
 
 CASE :: { Ast.Case }                        -- #
-    : case atomLit '.' CODE_BLOCK                                                
-    | case nothing '.' CODE_BLOCK                                                
+    : case atomLit '.' CODE_BLOCK
+    | case nothing '.' CODE_BLOCK
 
 FOR :: { Ast.Instruction }                  -- #
-    : OPEN_SCOPE FOR_DEC INSTRUCTIONS endFor CLOSE_SCOPE                         
+    : OPEN_SCOPE FOR_DEC INSTRUCTIONS endFor CLOSE_SCOPE
 
 FOR_DEC :: { (Ast.Id, Ast.Expression, Ast.Expression) } -- #
-    : for id type int '.' forLB EXPR forUB EXPR '.'                              
-                                                                                 
+    : for id type int '.' forLB EXPR forUB EXPR '.'
+
 WHILE :: { Ast.Instruction }                -- #
-    : while EXPR whileDec CODE_BLOCK endWhile                                    
-                                                                                 
+    : while EXPR whileDec CODE_BLOCK endWhile
+
 ------------------------------------------------------------- FUNCTIONS
 
 Function definition
@@ -512,42 +306,42 @@ Function call
 
 Parser.y:219
 FUNCTIONS :: { [Ast.FunctionDeclaration] }
-    : {- empty -}                                                                
-    | FUNCTIONS FUNCTION                                                         
+    : {- empty -}
+    | FUNCTIONS FUNCTION
 
 FUNCTION :: { Ast.FunctionDeclaration }
     : id OPEN_SCOPE FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY CLOSE_SCOPE
 
 FUNCTION_PARAMETERS :: { [Ast.Parameter] }
-    : beginFuncParams PARAMETER_LIST endFuncParams                               
+    : beginFuncParams PARAMETER_LIST endFuncParams
 
 PARAMETER_LIST :: { [Ast.Parameter] }
-    : void                                                                       
-    | PARAMETERS                                                                 
+    : void
+    | PARAMETERS
 
 PARAMETERS :: { [Ast.Parameter] }
-    : PARAMETER                                                                  
-    | PARAMETERS ',' PARAMETER                                                   
+    : PARAMETER
+    | PARAMETERS ',' PARAMETER
 
 PARAMETER :: { Ast.Parameter }
-    : PARAMETER_TYPE id type TYPE                                                
+    : PARAMETER_TYPE id type TYPE
 
 PARAMETER_TYPE :: { Ast.ParamType }
-    : valueArg                                                                   
-    | refArg                                                                     
+    : valueArg
+    | refArg
 
 FUNCTION_RETURN :: { [Ast.Type] }
-    : beginReturnVals RETURN_TYPES endReturnVals                                 
+    : beginReturnVals RETURN_TYPES endReturnVals
 
 RETURN_TYPES :: { [Ast.Type]}
-    : void                                                                       
-    | TYPES                                                                      
+    : void
+    | TYPES
 
 Parser.y:465
 FUNCTIONCALL :: { Ast.Expression } -- #
     : id '((' procCallArgs EXPRLIST '))'
-    | id '((' procCallArgs void '))'    
-    | id '(('  '))'                     
+    | id '((' procCallArgs void '))'
+    | id '(('  '))'
 
 -}
 

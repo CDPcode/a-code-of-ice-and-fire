@@ -1,10 +1,11 @@
 {
 module Westeros.SouthOfTheWall.PreParser (preParse) where
 
-import qualified Westeros.SouthOfTheWall.AST as Ast
-import qualified Westeros.SouthOfTheWall.Error as Err
-import qualified Westeros.SouthOfTheWall.Symtable as ST
-import qualified Westeros.SouthOfTheWall.Tokens as Tk
+import qualified Westeros.SouthOfTheWall.AST        as Ast
+import qualified Westeros.SouthOfTheWall.Error      as Err
+import qualified Westeros.SouthOfTheWall.Symtable   as ST
+import qualified Westeros.SouthOfTheWall.Tokens     as Tk
+import qualified Westeros.SouthOfTheWall.TypeVer    as T
 
 import Control.Monad.RWS
 import Data.List (find)
@@ -187,17 +188,17 @@ CONTENTS :: {}
 
 FUNCTION_DECLARATIONS :: {}
     : item globalDec FUNCTION_NAMES item main                                       {}
- 
+
 FUNCTION_NAMES :: { () }
     : {- empty -}                                                                   { () }
-    | FUNCTION_NAMES item id paramNumber                                            {% do 
+    | FUNCTION_NAMES item id paramNumber                                            {% do
                                                                                         symT <- get
                                                                                         let name  = Tk.cleanedString $3
                                                                                             params = read Tk.cleanedString $4 :: Int
                                                                                         function <- ST.lookupFunction name params
                                                                                         case function of
                                                                                             Nothing    -> put $ ST.insertST symT $ ST.functionDecEntry name params
-                                                                                            Just entry -> ST.insertError $ Err.PE (Err.FRepeatedDeclarations name (Tk.position $3)) 
+                                                                                            Just entry -> ST.insertError $ Err.PE (Err.FRepeatedDeclarations name (Tk.position $3))
                                                                                     }
 
 
@@ -216,7 +217,7 @@ ALIAS_DECLARATIONS :: {}
 
 -- Subrutines --
 
-FUNCTIONS :: {} 
+FUNCTIONS :: {}
     : {- empty -}                                                                   {}
     | FUNCTIONS FUNCTION                                                            {}
 
@@ -229,11 +230,11 @@ FUNCTION :: { () }
                                                                                             decEntry <- findFunctionDeclaration functionId nParams
                                                                                             case decEntry of
                                                                                                 Left entry -> do
-                                                                                                    let newEntry = updateFunctionInfo entry $2 $3 
+                                                                                                    let newEntry = updateFunctionInfo entry $2 $3
                                                                                                         newSymT = ST.searchAndReplaceSymbol symT (functionId, entry) newEntry
                                                                                                     put newSymT
                                                                                                 Right defined -> do
-                                                                                                    if defined 
+                                                                                                    if defined
                                                                                                         then ST.insertError $ Err.PE (Err.FRepeatedDefinitions functionId (Tk.position $1))
                                                                                                         else ST.insertError $ Err.PE (Err.InvalidNArgsDef functionId nParams (Tk.position $1))
                                                                                         else ST.insertError $ Err.PE (Err.FDefinitionWithoutDeclaration functionId (Tk.position $1))
@@ -303,23 +304,23 @@ COMPOSITE_TYPE :: { ST.Type }
     | beginStruct OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endStruct              {% do
                                                                                         name <- genTypeSymbol
                                                                                         let info = ST.StructScope $2
-                                                                                        ST.insertType name info 
+                                                                                        ST.insertType name info
                                                                                     }
-    
+
     | beginUnion OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endUnion                {% do
                                                                                         name <- genTypeSymbol
                                                                                         let info = ST.UnionScope $2
                                                                                         ST.insertType name info
                                                                                     }
-    | beginTuple TUPLE_TYPES endTuple                                               {% do 
+    | beginTuple TUPLE_TYPES endTuple                                               {% do
                                                                                         name <- genTypeSymbol
                                                                                         let info = ST.TupleTypes $2
                                                                                         ST.insertType name info
                                                                                     }
-OPEN_SCOPE :: { ST.Scope } 
-    :  {- empty -}                                                                  { ST.currentScope } 
+OPEN_SCOPE :: { ST.Scope }
+    :  {- empty -}                                                                  { ST.currentScope }
 
-CLOSE_SCOPE :: { } 
+CLOSE_SCOPE :: { }
     :  {- empty -}                                                                  { }
 
 TUPLE_TYPES :: { [ST.Type] }
@@ -362,8 +363,8 @@ CONST_DECLARATION :: {}
     | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                   {}
 
 ALIAS_DECLARATION :: { () }
-    : beginAlias id ALIAS_TYPE TYPE '.'                                             {% do 
-                                                                                        symT <- get 
+    : beginAlias id ALIAS_TYPE TYPE '.'                                             {% do
+                                                                                        symT <- get
                                                                                         let name = Tk.cleanedString $2
                                                                                         case ST.findSymbol symT name of
                                                                                                 Nothing -> put $ ST.insertST symT (createAliasEntry name $3 $4)
@@ -446,7 +447,7 @@ EXPR :: { Ast.Expression }
     | EXPR '->' id                                                                  { createExpression $2 $ Ast.AccesField $1 (Tk.cleanedString $3) }
     | EXPR '?' id                                                                   { createExpression $2 $ Ast.ActiveField $1 (Tk.cleanedString $3) }
     | '[(' naturalLit ']' EXPR                                                      { createExpression $3 $ Ast.TupleIndex $4 ((read $ Tk.cleanedString $2) :: Int) }
-    | EXPR cast TYPE                                                                { createExpression $2 $ Ast.Cast $1 $3 }
+--    | EXPR cast TYPE                                                                { createExpression $2 $ Ast.Cast $1 $3 }
     | '(' EXPR ')'                                                                  { $2 }
     | ARRAYLIT                                                                      { $1 }
     | TUPLELIT                                                                      { $1 }
@@ -480,12 +481,12 @@ EXPRLIST :: { [Ast.Expression] }
 
 {
 parseError [] = error "Parse error at EOF."
-parseError (tk:_) = error $ "error: parse error with: \"" ++ Tk.cleanedString tk 
-                             ++ "\" at position " ++ show (Tk.position tk) 
+parseError (tk:_) = error $ "error: parse error with: \"" ++ Tk.cleanedString tk
+                             ++ "\" at position " ++ show (Tk.position tk)
                              ++ "related to token: " ++ show (Tk.aToken tk)
 
 createExpression :: Tk.Token -> Ast.Expr -> Ast.Expression
-createExpression tk expr = Ast.Expression { Ast.getToken = tk, Ast.getExpr = expr, Ast.getType = Ast.AliasT "undefined" }
+createExpression tk expr = Ast.Expression { Ast.getToken = tk, Ast.getExpr = expr, Ast.getType = T.AliasT "undefined" }
 
 
 }
