@@ -423,7 +423,7 @@ INSTRUCTION :: { AST.Instruction }
                             case ptrType of 
                                 T.PointerT _ -> return ()
                                 _            -> do 
-                                    let error = Err.InvalidNew (show ptrType) $2  
+                                    let error = Err.InvalidNew (show ptrType) (Tk.position $2)
                                     ST.insertError $ Err.TE error
  
                             return $ AST.New $1 
@@ -434,7 +434,7 @@ INSTRUCTION :: { AST.Instruction }
                             case ptrType of 
                                 T.PointerT _ -> return ()
                                 _            -> do 
-                                    let error = Err.InvalidFree (show ptrType) $2  
+                                    let error = Err.InvalidFree (show ptrType) (Tk.position $2)
                                     ST.insertError $ Err.TE error
 
                             return $ AST.Free $1 
@@ -455,7 +455,7 @@ IF :: { AST.IfInst }
 
                                                             when ( exprType /=T.BoolT ) $ do
                                                                 let exprType = AST.getType $2
-                                                                    error    = Err.InvalidIfTykpe (show exprType) (Tk.position $1)
+                                                                    error    = Err.InvalidIfType (show exprType) (Tk.position $1)
                                                                 ST.insertError $ Err.TE error
                                                           
                                                             AST.IfThen $2 (reverse $4) 
@@ -507,7 +507,7 @@ FOR_DEC :: { (AST.Id, AST.Expression, AST.Expression) }
                                                                
                                                                 let lb    = show lbType
                                                                     ub    = show ubType
-                                                                    error = Err.MismatchingForBounds lb ub (Tk.position $1)
+                                                                    error = Err.WrongForBoundType lb ub (Tk.position $1)
                                               
                                                                 ST.insertError $ Err.TE error
                                               

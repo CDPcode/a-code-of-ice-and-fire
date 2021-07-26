@@ -34,7 +34,7 @@ data ParserError
 
 data TypeError
     {- Arrays -}
-    = HeterogeneusArrayType String Tk.Position
+    = HeterogeneusArrayType Tk.Position
     | InvalidIndexType String String Tk.Position
         -- ^ Invalid Type
         -- ^ Expression cleaned String
@@ -47,6 +47,7 @@ data TypeError
         -- ^ Type of Operands
         -- ^ List of correct types
         -- ^ Position of first operand
+
     | InvalidTypesBinOp String (String, String) [String] Tk.Position
     | InvalidTypeUnOp String String [String] Tk.Position
         -- ^ Operation
@@ -60,7 +61,7 @@ data TypeError
 
     | RecordFieldNotFound String Int Tk.Position
     | RepeatedRecordField String Int Tk.Position
-    | UnTypedRecordField String Int Tk.Position
+    | UnTypedRecordField String Tk.Position
     | NotARecordType String Tk.Position
     | NotAnUnion String Tk.Position
 

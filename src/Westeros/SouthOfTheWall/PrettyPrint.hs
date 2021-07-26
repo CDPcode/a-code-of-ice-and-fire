@@ -8,6 +8,7 @@ import Data.Text (pack)
 import Rainbow
     ( fore,
       blue,
+      brightCyan,
       brightBlue,
       brightRed,
       green,
@@ -15,7 +16,7 @@ import Rainbow
       chunksToByteStrings,
       toByteStringsColors256,
       chunk,
-      Chunk )
+      Chunk, brightWhite )
 
 import qualified Data.ByteString.Lazy.Char8 as BS
 import qualified Data.Map as M (toList)
@@ -92,87 +93,240 @@ instance Pretty Error where
 {- Pretty printing for parse errors -}
 
 instance Pretty ParserError where
-    pretty pe =  BS.putStrLn . chunksToLazyBS
-                    ( (parseErrorHead :) . errorChunks ) $ pe
+    pretty = BS.putStrLn . chunksToLazyBS
+                    ( (parseErrorHead :) . parseErrorChunks )
 
 
-errorChunks :: ParserError -> [Chunk]
-errorChunks (FRepeatedDeclarations fName pos) =
+parseErrorChunks :: ParserError -> [Chunk]
+parseErrorChunks (FRepeatedDeclarations fName pos) =
     [ chunk "Redeclared function "
     , chunkFromStr fName & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-errorChunks (FRepeatedDefinitions fName pos) =
+parseErrorChunks (FRepeatedDefinitions fName pos) =
     [ chunk "Redefined function "
     , chunkFromStr fName
     , chunk "."
     ] ++ positionChunks pos
-errorChunks (InvalidNArgsDef fName nArgs pos) =
+parseErrorChunks (InvalidNArgsDef fName nArgs pos) =
     [ chunk "Undeclared function "
     , chunkFromStr fName & fore brightBlue
     , chunkFromStr (" with " ++ show nArgs ++ " parameters.")
     ] ++ positionChunks pos
-errorChunks (FDefinitionWithoutDeclaration fName pos) =
+parseErrorChunks (FDefinitionWithoutDeclaration fName pos) =
     [ chunk "Function "
     , chunkFromStr fName & fore brightBlue
     , chunk " defined, but not declared."
     ] ++ positionChunks pos
-errorChunks (RepeatedAliasName aName pos) =
+parseErrorChunks (RepeatedAliasName aName pos) =
     [ chunk "Redeclared symbol "
     , chunkFromStr aName & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
+parseErrorChunks (UndefinedType name pos) = 
+    [ chunk "Undefined type "
+    , chunkFromStr name & fore brightBlue 
+    , chunk "."
+    ] ++ positionChunks pos
 
-errorChunks (UndefinedFunction fName pos) =
+parseErrorChunks (UndefinedFunction fName pos) =
     [ chunk "Undefined function "
     , chunkFromStr fName & fore brightBlue
     , chunk "."
     ]  ++ positionChunks pos
-errorChunks (RedeclaredParameter parName pos) =
+parseErrorChunks (RedeclaredParameter parName pos) =
     [ chunk "Redeclared parameter "
     , chunkFromStr parName & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-errorChunks (RedeclaredName name pos) =
+parseErrorChunks (RedeclaredName name pos) =
     [ chunk "Redeclared name: "
     , chunkFromStr name & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-errorChunks (UndefinedVar name pos) =
+parseErrorChunks (UndefinedVar name pos) =
     [ chunk "Undefined variable: "
     , chunkFromStr name & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-errorChunks (InvalidVar category unexpectedSym pos) =
+parseErrorChunks (InvalidVar category unexpectedSym pos) =
     [ chunkFromStr ("Expected variable, found " ++ show category ++ " ")
     , chunkFromStr unexpectedSym & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-errorChunks (RedeclaredVar name pos) =
+parseErrorChunks (RedeclaredVar name pos) =
     [ chunk "Redeclared variable: "
     , chunkFromStr name & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-errorChunks (RedeclaredConstant name pos) =
+parseErrorChunks (RedeclaredConstant name pos) =
     [ chunk "Redeclared constant: "
     , chunkFromStr name & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-errorChunks (ExpectedFunction category name pos) =
+parseErrorChunks (ExpectedFunction category name pos) =
     [ chunkFromStr ("Expected function, foound " ++ category ++ " ")
     , chunkFromStr name & fore brightBlue
     , chunk "."
     ]
-errorChunks (SyntaxErr tk) =
+parseErrorChunks (NonCallableExpression pos) = 
+    chunk "Non callable expression found" : positionChunks pos 
+parseErrorChunks (SyntaxErr tk) =
     [ chunk "Syntax error related to: "
     , chunkFromStr (show (Tk.aToken tk)) & fore brightBlue
     ] ++ positionChunks (Tk.position tk)
-errorChunks SyntaxErrEOF =
+parseErrorChunks SyntaxErrEOF =
     [ chunk "Syntax error at End Of File"]
-
 
 parseErrorHead :: Chunk
 parseErrorHead = chunk "Parser Error: " & fore red
+
+
+
+{- Pretty printing for type errors -}
+
+instance Pretty TypeError where
+    pretty = BS.putStrLn . chunksToLazyBS ( (typeErrorHead :) . typeErrorChunks)
+
+
+typeErrorChunks :: TypeError -> [Chunk]
+typeErrorChunks (HeterogeneusArrayType pos) = 
+    chunk "Found heterogeneus array." : positionChunks pos
+typeErrorChunks (InvalidIndexType errorTp exprString pos) = 
+    [ chunk "Invalid Index type "
+    , chunkFromStr (truncateType errorTp) & fore brightBlue 
+    , chunk " for expression " 
+    , chunkFromStr exprString & fore brightCyan
+    , chunk "."
+    ] ++ positionChunks pos
+typeErrorChunks (InconsistentTypesBinOp op (a,b) actualTypes pos) = 
+    [ chunk "Inconsistent types for binary operation "
+    , chunkFromStr op & fore brightCyan, chunk " .Found " 
+    , chunkFromStr (truncateType a) & fore brightBlue, chunk " and " 
+    , chunkFromStr (truncateType b) & fore brightCyan
+    , chunk " but both types must be one of " 
+    , chunkFromStr (unwords actualTypes) 
+    , chunk "."
+    ] ++ positionChunks pos
+typeErrorChunks (InvalidTypesBinOp op (a,b) actualTypes pos) = 
+    [ chunk "Invalid type for binary operation "
+    , chunkFromStr op & fore brightCyan, chunk " .Found "
+    , chunkFromStr (truncateType a) & fore brightBlue, chunk " and "
+    , chunkFromStr (truncateType b) & fore brightBlue
+    , chunk " but expected one of " 
+    , chunkFromStr (unwords actualTypes)
+    , chunk "."
+    ] ++ positionChunks pos
+typeErrorChunks (InvalidTypeUnOp op errType actualTypes pos) = 
+    [ chunk "Invalid type for unary operation " 
+    , chunkFromStr op & fore brightCyan, chunk " .Found "
+    , chunkFromStr (truncateType errType) & fore brightBlue
+    , chunk " but expected one of ", chunkFromStr (unwords actualTypes)
+    , chunk "." 
+    ] ++ positionChunks pos
+typeErrorChunks (InvalidDereference tp pos) = 
+    [ chunk " Expected a pointer but found "
+    , chunkFromStr (truncateType tp) & fore brightBlue
+    , chunk "."
+    ] ++ positionChunks pos
+typeErrorChunks (RecordFieldNotFound id scope pos) = 
+    [ chunk "Not a field "
+    , chunkFromStr id & fore brightBlue
+    , chunk " defined whithin scope "
+    , chunkFromStr (show scope) & fore brightRed 
+    , chunk "."
+    ] ++ positionChunks pos
+typeErrorChunks (RepeatedRecordField id scope pos) = 
+    [ chunk " Existing record field "
+    , chunkFromStr id & fore brightBlue 
+    , chunk " defined whithin scope "
+    , chunkFromStr (show scope)
+    , chunk "."
+    ] ++ positionChunks pos
+typeErrorChunks (UnTypedRecordField id pos) = 
+    [ chunk " Record field "
+    , chunkFromStr id & fore brightBlue 
+    , chunk " has no type."
+    ] ++ positionChunks pos
+typeErrorChunks (NotARecordType typeName pos) = 
+    [ chunkFromStr typeName & fore brightBlue 
+    , chunk " is not a record type."
+    ] ++ positionChunks pos
+typeErrorChunks (NotAnUnion typeName pos) = 
+    [ chunkFromStr typeName & fore brightBlue 
+    , chunk " is not an Union type."
+    ] ++ positionChunks pos
+typeErrorChunks (NotATupleType err pos) = 
+    [ chunkFromStr (truncateType err) & fore brightBlue 
+    , chunk " is not a propper tuple type."
+    ] ++ positionChunks pos
+typeErrorChunks (IdNotFound id) = 
+    [ chunk " Id "
+    , chunkFromStr id & fore brightBlue
+    , chunk " not found."
+    ] 
+typeErrorChunks (UnTypedId name) = 
+    [ chunk " Id ", chunkFromStr name & fore brightBlue 
+    , chunk " has no type."
+    ]
+typeErrorChunks (NotAFunction name) = 
+    [ chunkFromStr name & fore brightBlue 
+    , chunk " is not a function."
+    ]
+typeErrorChunks (FunctionWithoutMD name) = 
+    [ chunk " Function "
+    , chunkFromStr name & fore brightBlue 
+    , chunk " has no metadata."
+    ]
+typeErrorChunks (NonCasteableTypes source dest pos) = 
+    [ chunk "Cannot cast "
+    , chunkFromStr (truncateType source) & fore brightBlue 
+    , chunk " and "
+    , chunkFromStr (truncateType dest) & fore brightBlue
+    , chunk "." 
+    ] ++ positionChunks pos
+typeErrorChunks (InvalidWhileType typeName pos) = 
+    [ chunk "Found "
+    , chunkFromStr (truncateType typeName) & fore brightBlue 
+    , chunk " but expected Int for while expression." 
+    ] ++ positionChunks pos
+typeErrorChunks (WrongForBoundType lb ub pos) = 
+    [ chunk "Expected Int as bounds but found "
+    , chunkFromStr (truncateType lb) & fore brightBlue
+    , chunk " and " 
+    , chunkFromStr (truncateType ub) & fore brightBlue 
+    , chunk "."
+    ]
+typeErrorChunks (WrongSwitchType exprType pos) = 
+    [ chunk "Switch expression must be Atom but found "
+    , chunkFromStr (truncateType exprType) 
+    , chunk "."
+    ] ++ positionChunks pos
+typeErrorChunks (InvalidIfType exprType pos) = 
+    [ chunk "If must be Bool but found "
+    , chunkFromStr (truncateType exprType)
+    , chunk "."
+    ] ++ positionChunks pos
+typeErrorChunks (InvalidNew ptrType pos) = 
+    [ chunk "Expected pointer type but found "
+    , chunkFromStr (truncateType ptrType) & fore brightBlue 
+    , chunk "."
+    ] ++ positionChunks pos
+typeErrorChunks (InvalidFree ptrType pos) = 
+    [ chunk "Expected pointer type but found "
+    , chunkFromStr (truncateType ptrType) & fore brightBlue 
+    , chunk "."
+    ] ++ positionChunks pos
+typeErrorChunks (NonReadable tp pos) = 
+    [ chunkFromStr (truncateType tp) & fore brightBlue 
+    , chunk " is not a readable type."
+    ] ++ positionChunks pos
+typeErrorChunks (NonPrintable tp pos) = 
+    [ chunkFromStr (truncateType tp) & fore brightBlue 
+    , chunk " is not a printable type."
+    ] ++ positionChunks pos
+typeErrorHead  :: Chunk 
+typeErrorHead = chunk "Type Error: " & fore red
 
 positionChunks :: Tk.Position -> [Chunk]
 positionChunks Tk.Position{ Tk.row = r , Tk.col = c } =
@@ -183,11 +337,15 @@ positionChunks Tk.Position{ Tk.row = r , Tk.col = c } =
     , chunkFromStr (show c) & fore brightRed
     ]
 
+truncateType :: String -> String 
+truncateType tp 
+    | length tp < 10 = tp 
+    | otherwise      = pfx ++ trail
+    where 
+        pfx = take sz tp
+        sz  = 10 
+        trail = "..."
 
-{- Pretty printing for type errors -}
-
-instance Pretty TypeError where
-    pretty te = undefined
 
 {-
 :set -XOverloadedStrings

@@ -127,10 +127,9 @@ instance T.Typeable Expr where
                     let Just errorInd = findIndex (/= arrType) types
                         errorExpr     = array !! errorInd
                         errorTk       = getToken errorExpr
-                        str           = Tk.cleanedString errorTk
                         pos           = Tk.position errorTk
 
-                    ST.insertError $ Err.TE (Err.HeterogeneusArrayType str pos) 
+                    ST.insertError $ Err.TE (Err.HeterogeneusArrayType pos) 
                     return T.TypeError
             else return T.TypeError
 
@@ -238,7 +237,7 @@ instance T.Typeable Expr where
 
                         Just strType -> T.getTypeFromString strType
                         Nothing      -> do
-                            let error = Err.UnTypedRecordField id scope position
+                            let error = Err.UnTypedRecordField id position
                             ST.insertError $ Err.TE error
                             return T.TypeError
 
@@ -275,7 +274,7 @@ instance T.Typeable Expr where
 
                         Just _       -> return T.BoolT  
                         Nothing      -> do 
-                            let error = Err.UnTypedRecordField id scope position
+                            let error = Err.UnTypedRecordField id position
                             ST.insertError $ Err.TE error
                             return T.TypeError
 
@@ -329,7 +328,7 @@ instance T.Typeable Expr where
             case tupleType of
                 T.TupleT xs -> return $ xs !! ind
                 _           -> do
-                    let invalidType = show tupleType 
+                    let invalidType = Tk.cleanedString $ getToken tupleExpr 
                         pos         = Tk.position $ getToken tupleExpr
                         error       = Err.NotATupleType invalidType pos
                     ST.insertError $ Err.TE error
