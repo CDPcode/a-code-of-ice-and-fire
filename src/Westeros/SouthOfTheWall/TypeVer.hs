@@ -51,6 +51,11 @@ isArrayType :: Type -> Bool
 isArrayType (ArrayT _ _) = True 
 isArrayType _ = False 
 
+isStringType :: Type -> Bool 
+isStringType (ArrayT CharT 1) = True 
+isStringType _ = False 
+
+
 isPointerType :: Type -> Bool
 isPointerType (PointerT _) = True
 isPointerType _ = False 
@@ -90,11 +95,12 @@ getTypeFromString base = case base of
             Just entry  -> case ST.additional entry of
 
                 Just info -> case info of
-                    ST.AliasMetaData _ aliasName -> return $ AliasT aliasName
-                    ST.DopeVector tp scope       -> do
+                    ST.AliasMetaData ST.ByName _ -> return $ AliasT otherType
+                    ST.AliasMetaData ST.ByStructure pointedType -> getTypeFromString pointedType
+                    ST.DopeVector tp dim -> do
                         arrType <- getTypeFromString tp
-                        return $ ArrayT arrType scope
-                    ST.PointedType tp            -> do
+                        return $ ArrayT arrType dim
+                    ST.PointedType tp -> do
                         ptrType <- getTypeFromString tp
                         return $ PointerT ptrType
                     ST.StructScope scope         -> return $ StructT scope

@@ -216,7 +216,7 @@ updateFunctionInfo info params returns = do
             defined = True
         }
 
-    case params of
+    case returns of
         []            -> return $ info {symbolType = Nothing, additional = newAdditional}
         [singleType]  -> return $ info {symbolType = Just singleType, additional = newAdditional}
         _            -> do

@@ -225,22 +225,22 @@ FUNCTION :: { AST.FunctionDeclaration }
                                                                                         -- ST.updateFunctionInfo potencialmente crea
                                                                                         -- una entrada en la tabla de simbolos para el tipo
                                                                                         -- del retorno de la funcion si este es un retorno multivalor
-                                                                                        when ($3 > 1) $ do 
+                                                                                        when ($4 > 1) $ do 
                                                                                             ST.genTypeSymbol
                                                                                             return ()
                                                                                         return $5
                                                                                     }
 
-FUNCTION_PARAMETERS :: { Int }
-    : beginFuncParams PARAMETER_LIST endFuncParams                                  { $2 }
+FUNCTION_PARAMETERS :: { }
+    : beginFuncParams PARAMETER_LIST endFuncParams                                  { }
 
-PARAMETER_LIST :: { Int }
-    : void                                                                          { 0 }
-    | PARAMETERS                                                                    { $1 }
+PARAMETER_LIST :: { }
+    : void                                                                          { }
+    | PARAMETERS                                                                    { }
 
-PARAMETERS :: { Int }
-    : PARAMETER                                                                     { 1 }
-    | PARAMETERS ',' PARAMETER                                                      { $1 + 1 }
+PARAMETERS :: { }
+    : PARAMETER                                                                     { }
+    | PARAMETERS ',' PARAMETER                                                      { }
 
 PARAMETER :: { () }
     : PARAMETER_TYPE id type TYPE                                                   {% ST.insertParam $2 $4 $1 }
@@ -249,12 +249,12 @@ PARAMETER_TYPE :: { ST.ParameterType }
     : valueArg                                                                      { ST.Value }
     | refArg                                                                        { ST.Reference }
 
-FUNCTION_RETURN :: { [ST.Type] }
+FUNCTION_RETURN :: { Int }
     : beginReturnVals RETURN_TYPES endReturnVals                                    { $2 }
 
-RETURN_TYPES :: { [ST.Type] }
-    : void                                                                          { [] }
-    | TYPES                                                                         { reverse $1 }
+RETURN_TYPES :: { Int }
+    : void                                                                          { 0 }
+    | TYPES                                                                         { length $1 }
 
 TYPES :: { [ST.Type] }
     : TYPE                                                                          { [$1] }
@@ -266,7 +266,25 @@ FUNCTION_BODY :: { [AST.Instruction] }
 TYPE :: { ST.Type }
     : PRIMITIVE_TYPE                                                                { $1 }
     | COMPOSITE_TYPE                                                                { $1 }
-    | id                                                                            { Tk.cleanedString $1 }
+    | id                                                                            {% do
+                                                                                        let alias = Tk.cleanedString $1 
+                                                                                        maybeInfo <- ST.lookupST alias
+                                                                                        case maybeInfo of
+                                                                                            Nothing -> do
+                                                                                                let err = Err.IdNotFound alias
+                                                                                                ST.insertError $ Err.TE err
+                                                                                                return alias
+                                                                                            Just info -> do
+                                                                                                case ST.additional info of
+                                                                                                    Just (ST.AliasMetaData ST.ByName _) ->
+                                                                                                        return alias
+                                                                                                    Just (ST.AliasMetaData ST.ByStructure tp) -> 
+                                                                                                        return tp 
+                                                                                                    _ ->  do 
+                                                                                                        let err = Err.IdNotFound alias
+                                                                                                        ST.insertError $ Err.TE err
+                                                                                                        return alias
+                                                                                    }
 
 PRIMITIVE_TYPE :: { ST.Type }
     : int                                                                           { ST.int }
@@ -399,10 +417,8 @@ INSTRUCTION :: { AST.Instruction }
     | pass '.'                                                                      {% return AST.EmptyInst }
     | beginExit programName endExit '.'                                             {% return $ AST.ExitInst (Tk.cleanedString $3) }
     | read EXPR '.'                                                                 {% do
-                                                                                        let simpleType = [T.IntT, T.BoolT, T.FloatT, T.CharT, T.AtomT] 
-                                                                                            toPrintTp = AST.getType $2 
-
-                                                                                        when (toPrintTp `notElem` ((T.ArrayT T.CharT 1) : simpleType)  ) $ do
+                                                                                        let toPrintTp = AST.getType $2 
+                                                                                        unless (T.isPrimitiveType toPrintTp || T.isStringType toPrintTp) $ do
                                                                                             let err = Err.NonReadable (show toPrintTp) (Tk.position $1) 
                                                                                             ST.insertError $ Err.TE err
                                                                                                         
@@ -410,10 +426,8 @@ INSTRUCTION :: { AST.Instruction }
 
                                                                                     }
     | print EXPR '.'                                                                {% do 
-                                                                                        let simpleType = [T.IntT, T.BoolT, T.FloatT, T.CharT, T.AtomT] 
-                                                                                            toPrintTp = AST.getType $2 
-
-                                                                                        when (toPrintTp `notElem` ((T.ArrayT T.CharT 1) : simpleType)  ) $ do
+                                                                                        let toPrintTp = AST.getType $2 
+                                                                                        unless (T.isPrimitiveType toPrintTp || T.isStringType toPrintTp) $ do
                                                                                             let err = Err.NonPrintable (show toPrintTp) (Tk.position $1) 
                                                                                             ST.insertError $ Err.TE err
                                                                                                         
@@ -421,9 +435,10 @@ INSTRUCTION :: { AST.Instruction }
                                                                                     }
     | EXPR new '.'                                                                  {% do 
                                                                                         let ptrType = AST.getType $1 
-
                                                                                         case ptrType of 
-                                                                                            T.PointerT _ -> return ()
+                                                                                            T.PointerT _ -> do
+                                                                                                unless (AST.isValidLValue $1) $ do
+                                                                                                    ST.insertError $ Err.TE $ Err.InvalidLValue (Tk.cleanedString $2) (Tk.position $2) 
                                                                                             _            -> do 
                                                                                                 let error = Err.InvalidNew (show ptrType) (Tk.position $2)  
                                                                                                 ST.insertError $ Err.TE error
@@ -434,7 +449,9 @@ INSTRUCTION :: { AST.Instruction }
                                                                                         let ptrType = AST.getType $1 
 
                                                                                         case ptrType of 
-                                                                                            T.PointerT _ -> return ()
+                                                                                            T.PointerT _ -> do
+                                                                                                unless (AST.isValidLValue $1) $ do
+                                                                                                    ST.insertError $ Err.TE $ Err.InvalidLValue (Tk.cleanedString $2) (Tk.position $2) 
                                                                                             _            -> do 
                                                                                                 let error = Err.InvalidFree (show ptrType) (Tk.position $2)  
                                                                                                 ST.insertError $ Err.TE error
@@ -458,7 +475,7 @@ IF :: { AST.IfInst }
     : if EXPR then CODE_BLOCK endif                                                 {% do 
                                                                                         let exprType = AST.getType $2
 
-                                                                                        when ( exprType /=T.BoolT ) $ do
+                                                                                        when ( exprType /= T.BoolT ) $ do
                                                                                             let exprType = AST.getType $2
                                                                                                 err    = Err.InvalidIfType (show exprType) (Tk.position $1)
                                                                                             ST.insertError $ Err.TE err
@@ -469,7 +486,7 @@ IF :: { AST.IfInst }
 
                                                                                         let exprType = AST.getType $2
 
-                                                                                        when ( exprType /=T.BoolT ) $ do
+                                                                                        when ( exprType /= T.BoolT ) $ do
                                                                                             let exprType = AST.getType $2
                                                                                                 err    = Err.InvalidIfType (show exprType) (Tk.position $1)
                                                                                             ST.insertError $ Err.TE err
