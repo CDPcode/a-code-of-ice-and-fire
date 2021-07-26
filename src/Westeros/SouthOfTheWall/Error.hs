@@ -92,4 +92,7 @@ data TypeError
     | InvalidNew String Tk.Position 
     | InvalidFree String Tk.Position 
 
+    | NonReadable String Tk.Position
+    | NonPrintable String Tk.Position
+
     deriving (Show, Eq)

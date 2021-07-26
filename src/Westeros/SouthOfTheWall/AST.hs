@@ -1,9 +1,8 @@
 module Westeros.SouthOfTheWall.AST where
 
 import Control.Monad                    (replicateM_)
-import Control.Monad.RWS                ( MonadState(put, get) )
+import Control.Monad.RWS                ( MonadState(get) )
 import Data.Foldable                    (foldl')
-import Data.Maybe                       (fromJust)
 
 import Westeros.SouthOfTheWall.TypeVer  ( typeQuery )
 
@@ -100,24 +99,6 @@ data IfInst
     = IfThen     Expression [Instruction]
     | IfThenElse Expression [Instruction] [Instruction]
     deriving (Show, Eq)
-
-isValidLValue :: Expression -> Bool
-isValidLValue = isValidLValue' . getExpr
-
-isValidLValue' :: Expr -> Bool
-isValidLValue' IdExpr{}         = True
-isValidLValue' AccesField{}     = True
-isValidLValue' TupleIndex{}     = True
-isValidLValue' AccesIndex{}     = True
-isValidLValue' (UnOp Deref _)   = True
-isValidLValue' _                = False
-
-isFunctionCall :: Expression -> Bool
-isFunctionCall = isFunctionCall' . getExpr
-
-isFunctionCall' :: Expr -> Bool
-isFunctionCall' FuncCall{}  = True
-isFunctionCall' _           = False
 
 -- Type Checking
 instance T.Typeable Expr where
