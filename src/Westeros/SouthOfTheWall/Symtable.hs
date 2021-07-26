@@ -327,6 +327,9 @@ atom = "_atom"
 tError :: String
 tError = "_type_error"
 
+tErrorInfo :: TypeInfo
+tErrorInfo = TypeInfo { width = 0, align = 1 }
+
 initialTypes :: [Symbol]
 initialTypes = [int, float, char, bool, atom] --array, union, struct, tuple, alias
 
@@ -336,10 +339,11 @@ initialTypesInfo = zipWith TypeInfo initWidths initWidths
     initWidths = [4, 8, 4, 1, 4]
 
 initialST :: SymbolTable
-initialST = foldl' insertST st entries
+initialST = foldl' insertST st (tErrorEntry:entries)
   where
     entries = zip initialTypes infos
     infos = map typesSymbolInfo initialTypesInfo
+    tErrorEntry = (tError, typesSymbolInfo tErrorInfo)
     st = SymbolTable
         { table           = M.empty
         , scopeStack      = [0,1]
@@ -431,11 +435,11 @@ insertId tk ctg tp = do
 
 insertParam :: Tk.Token -> Type -> ParameterType -> MonadParser ()
 insertParam tk tp paramType = do
-    
+
     sc <- currentScope
     let name  = Tk.cleanedString tk
         entry = paramEntry name sc tp $ ParameterType paramType
-    
+
     symT  <- get
     mInfo <- lookupST name
     case mInfo of
@@ -466,7 +470,7 @@ insertAlias tk name aliasType tp = do
         case findSymbolInScope symT tp globalScope of
             Nothing -> case findSymbolInScope symT tp pervasiveScope of
                 Nothing -> insertError $ Err.PE (Err.UndefinedType name (Tk.position tk))
-                Just info -> do 
+                Just info -> do
                     let realType = case category info of
                             Alias ->
                                 case getAliasMetaData info of
@@ -484,6 +488,6 @@ insertAlias tk name aliasType tp = do
                         _ -> tp
                 let entry = aliasEntry name aliasType realType
                 put $ insertST symT entry
-                
+
 checkNotRepeated :: SymbolInfo -> Scope -> Bool
 checkNotRepeated symInf sc = scope symInf /= sc && category symInf `notElem` [Function, Alias]

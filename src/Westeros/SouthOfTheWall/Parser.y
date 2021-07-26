@@ -273,7 +273,7 @@ TYPE :: { ST.Type }
                                                                                             Nothing -> do
                                                                                                 let err = Err.IdNotFound alias
                                                                                                 ST.insertError $ Err.TE err
-                                                                                                return alias
+                                                                                                return ST.tError
                                                                                             Just info -> do
                                                                                                 case ST.additional info of
                                                                                                     Just (ST.AliasMetaData ST.ByName _) ->
@@ -283,7 +283,7 @@ TYPE :: { ST.Type }
                                                                                                     _ ->  do
                                                                                                         let err = Err.IdNotFound alias
                                                                                                         ST.insertError $ Err.TE err
-                                                                                                        return alias
+                                                                                                        return ST.tError
                                                                                     }
 
 PRIMITIVE_TYPE :: { ST.Type }
