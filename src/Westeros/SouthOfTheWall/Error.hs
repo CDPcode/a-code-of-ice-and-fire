@@ -91,5 +91,8 @@ data TypeError
 
     | InvalidNew String Tk.Position 
     | InvalidFree String Tk.Position 
-
+    
+    | UnexpectedType String Tk.Position
+    | InvalidAssignment String String Tk.Position
+    | InvalidLValue String Tk.Position
     deriving (Show, Eq)
