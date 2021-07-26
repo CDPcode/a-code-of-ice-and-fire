@@ -95,4 +95,8 @@ data TypeError
     | UnexpectedType String Tk.Position
     | InvalidAssignment String String Tk.Position
     | InvalidLValue String Tk.Position
+
+    | NonReadable String Tk.Position
+    | NonPrintable String Tk.Position
+
     deriving (Show, Eq)

@@ -170,6 +170,7 @@ errorChunks (SyntaxErr tk) =
 errorChunks SyntaxErrEOF =
     [ chunk "Syntax error at End Of File"]
 
+
 parseErrorHead :: Chunk
 parseErrorHead = chunk "Parser Error: " & fore red
 

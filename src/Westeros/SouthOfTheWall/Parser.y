@@ -194,9 +194,9 @@ FUNCTION_NAMES :: { }
                                                                                         function <- ST.lookupFunction name params
                                                                                         case function of
                                                                                             Nothing -> ST.insertError $ Err.PE (Err.UndefinedFunction name pos)
-                                                                                            Just info -> do if ST.defined $ ST.getFunctionMetaData info
-                                                                                                then return ()
-                                                                                                else ST.insertError $ Err.PE (Err.UndefinedFunction name pos)
+                                                                                            Just info -> case ST.defined $ ST.getFunctionMetaData info of
+                                                                                                True -> return ()
+                                                                                                False -> ST.insertError $ Err.PE (Err.UndefinedFunction name pos)
                                                                                     }
 
 GLOBAL :: { [AST.Instruction] }
@@ -266,12 +266,37 @@ PRIMITIVE_TYPE :: { ST.Type }
     | atom                                                                          { ST.atom }
 
 COMPOSITE_TYPE :: { ST.Type }
-    : beginArray naturalLit TYPE endArray                                           { genTypeSymbol }
-    | string                                                                        { genTypeSymbol }
-    | pointerType TYPE                                                              { genTypeSymbol }
-    | beginStruct OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endStruct              { genTypeSymbol }
-    | beginUnion OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endUnion                { genTypeSymbol }
-    | beginTuple TUPLE_TYPES endTuple                                               { genTypeSymbol }
+    : beginArray naturalLit TYPE endArray                                           {% do
+                                                                                        name <- genTypeSymbol
+                                                                                        let info = ST.DopeVector $2 $3
+                                                                                        ST.insertType name info
+                                                                                    }
+    | string                                                                        {% do
+                                                                                        name <- genTypeSymbol
+                                                                                        let info = ST.DopeVector 1 ST.char
+                                                                                        ST.insertType name info
+                                                                                    }
+    | pointerType TYPE                                                              {% do
+                                                                                        name <- genTypeSymbol
+                                                                                        let info = ST.PointedType $2
+                                                                                        ST.insertType name info
+                                                                                    }
+    | beginStruct OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endStruct              {% do
+                                                                                        name <- genTypeSymbol
+                                                                                        let info = ST.StructScope $2
+                                                                                        ST.insertType name info
+                                                                                    }
+
+    | beginUnion OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endUnion                {% do
+                                                                                        name <- genTypeSymbol
+                                                                                        let info = ST.UnionScope $2
+                                                                                        ST.insertType name info
+                                                                                    }
+    | beginTuple TUPLE_TYPES endTuple                                               {% do
+                                                                                        name <- genTypeSymbol
+                                                                                        let info = ST.TupleTypes $2
+                                                                                        ST.insertType name info
+                                                                                    }
 
 TUPLE_TYPES :: { }
     : {- empty -}                                                                   { [] }
@@ -343,9 +368,8 @@ COMPOSITE_DECLARATION :: { AST.Expression }
                                                                                         return expr
                                                                                     }
 
-CONST_DECLARATION :: { AST.Instruction }
-    : const id type TYPE constValue EXPR                                            {% do
-                                                                                        ST.insertId $2 ST.Constant $4
+CONST_DECLARATION :: { }
+    : const id type TYPE constValue EXPR                                            {% do 
                                                                                         let symbol = Tk.cleanedString $2
                                                                                         expr <- buildAndCheckExpr $2 $ AST.IdExpr symbol
                                                                                         checkAssignment $5 expr $6 True
@@ -388,8 +412,31 @@ INSTRUCTION :: { AST.Instruction }
     | void ':==' EXPR '.'                                                           {% checkFunctionCall $2 $3 }
     | pass '.'                                                                      {% return AST.EmptyInst }
     | beginExit programName endExit '.'                                             {% return $ AST.ExitInst (Tk.cleanedString $3) }
-    | read EXPR '.'                                                                 { AST.Read $2 }
-    | print EXPR '.'                                                                { AST.Print $2}
+    | read EXPR '.'             {% do
+                                    let simpleType = [T.IntT, T.BoolT, T.FloatT, T.CharT, T.AtomT] 
+
+                                    toPrintTp <- AST.getType $2 
+
+                                    when (toPrintTp `notElem` (T.StringT : simpleType)  ) $ do
+                                        error = Err.NonReadable (show toPrintTp) (Tk.position $1) 
+
+                                        ST.insertError $ Err.TE error
+                                                    
+                                    return $ AST.Read $2
+
+                                }
+    | print EXPR '.'            {% do 
+                                    let simpleType = [T.IntT, T.BoolT, T.FloatT, T.CharT, T.AtomT] 
+
+                                    toPrintTp <- AST.getType $2 
+
+                                    when (toPrintTp `notElem` (T.StringT : simpleType)  ) $ do
+                                        error = Err.NonPrintable (show toPrintTp) (Tk.position $1) 
+
+                                        ST.insertError $ Err.TE error
+                                                    
+                                    return $ AST.Print $2 
+                                }
     | EXPR new '.'                                                                  {% do 
                                                                                         ptrType = AST.getType $1 
 
