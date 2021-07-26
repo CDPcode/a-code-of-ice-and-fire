@@ -100,4 +100,6 @@ data TypeError
     | NonReadable String Tk.Position
     | NonPrintable String Tk.Position
 
+    | DimMissmatch String String Tk.Position
+    | InvalidIndexedType String Tk.Position
     deriving (Show, Eq)

@@ -192,13 +192,12 @@ lookupFunction sym params = do
         Just bucket -> return $ findFunction params bucket
 
 findFunction :: Int -> [SymbolInfo] -> Maybe SymbolInfo
-findFunction params [] = Nothing
+findFunction _ [] = Nothing
 findFunction params bucket = find (\e -> category e == Function
                                       && numberOfParams (getFunctionMetaData e) == params) bucket
 
 findFunctionDec :: Symbol -> Int -> MonadParser (Either SymbolInfo Bool)
 findFunctionDec sym params = do
-    symT <- get
     function <- lookupFunction sym params
     case function of
         Nothing -> return $ Right False
@@ -209,7 +208,6 @@ findFunctionDec sym params = do
 
 updateFunctionInfo :: SymbolInfo -> [Type] -> [Type] -> MonadParser SymbolInfo
 updateFunctionInfo info params returns = do
-    symT <- get
     let oldMetadata = getFunctionMetaData info
         newAdditional = Just $ FunctionMetaData oldMetadata {
             numberOfParams = length params,
@@ -464,8 +462,19 @@ insertAlias tk name aliasType tp = do
     if checkExisting symT name
     then insertError $ Err.PE (Err.RepeatedAliasName name (Tk.position tk))
     else do
+        -- Esto es un delito pero hay que hacer que funcione
         case findSymbolInScope symT tp globalScope of
-            Nothing -> insertError $ Err.PE (Err.UndefinedType name (Tk.position tk))
+            Nothing -> case findSymbolInScope symT tp pervasiveScope of
+                Nothing -> insertError $ Err.PE (Err.UndefinedType name (Tk.position tk))
+                Just info -> do 
+                    let realType = case category info of
+                            Alias ->
+                                case getAliasMetaData info of
+                                    (ByStructure, rType) -> rType
+                                    _ -> tp
+                            _ -> tp
+                    let entry = aliasEntry name aliasType realType
+                    put $ insertST symT entry
             Just info -> do
                 let realType = case category info of
                         Alias ->

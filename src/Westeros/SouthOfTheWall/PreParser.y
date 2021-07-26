@@ -224,14 +224,13 @@ FUNCTION :: { () }
     : id FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY                          {% do
                                                                                         symT <- get
                                                                                         let functionId = Tk.cleanedString $1
-                                                                                        let nParams = length $2
+                                                                                            nParams = length $2
                                                                                         if ST.checkExisting symT functionId then do
                                                                                             decEntry <- ST.findFunctionDec functionId nParams
                                                                                             case decEntry of
                                                                                                 Left entry -> do
                                                                                                     newEntry <- ST.updateFunctionInfo entry $2 $3
-                                                                                                    let newSymT = ST.searchAndReplaceSymbol symT (functionId, entry) newEntry
-                                                                                                    put newSymT
+                                                                                                    put $  ST.searchAndReplaceSymbol symT (functionId, entry) newEntry
                                                                                                 Right defined -> do
                                                                                                     if defined
                                                                                                         then ST.insertError $ Err.PE (Err.FRepeatedDefinitions functionId (Tk.position $1))
@@ -486,5 +485,4 @@ parseError [] = error "Parse error at EOF."
 parseError (tk:_) = error $ "error: parse error with: \"" ++ Tk.cleanedString tk
                              ++ "\" at position " ++ show (Tk.position tk)
                              ++ "related to token: " ++ show (Tk.aToken tk)
-
 }

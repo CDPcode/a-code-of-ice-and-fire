@@ -114,5 +114,6 @@ getTypeFromString base = case base of
 notTypeError :: Type -> Bool
 notTypeError (TupleT xs)  = all notTypeError xs
 notTypeError (PointerT e) = notTypeError e
+notTypeError (ArrayT tp _) = notTypeError tp
 notTypeError TypeError    = False
 notTypeError _            = True
