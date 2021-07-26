@@ -219,18 +219,28 @@ FUNCTIONS :: { [AST.FunctionDeclaration] }
     | FUNCTIONS FUNCTION                                                            { $2 : $1 }
 
 FUNCTION :: { AST.FunctionDeclaration }
-    : id OPEN_SCOPE FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY CLOSE_SCOPE   { $5 }
+    : id OPEN_SCOPE FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY CLOSE_SCOPE   {% do
+                                                                                        -- PQC
+                                                                                        -- En el preparser, la funcion
+                                                                                        -- ST.updateFunctionInfo potencialmente crea
+                                                                                        -- una entrada en la tabla de simbolos para el tipo
+                                                                                        -- del retorno de la funcion si este es un retorno multivalor
+                                                                                        when ($3 > 1) $ do 
+                                                                                            ST.genTypeSymbol
+                                                                                            return ()
+                                                                                        return $5
+                                                                                    }
 
-FUNCTION_PARAMETERS :: { }
-    : beginFuncParams PARAMETER_LIST endFuncParams                                  { }
+FUNCTION_PARAMETERS :: { Int }
+    : beginFuncParams PARAMETER_LIST endFuncParams                                  { $2 }
 
-PARAMETER_LIST :: { }
-    : void                                                                          { }
-    | PARAMETERS                                                                    { }
+PARAMETER_LIST :: { Int }
+    : void                                                                          { 0 }
+    | PARAMETERS                                                                    { $1 }
 
-PARAMETERS :: { }
-    : PARAMETER                                                                     { }
-    | PARAMETERS ',' PARAMETER                                                      { }
+PARAMETERS :: { Int }
+    : PARAMETER                                                                     { 1 }
+    | PARAMETERS ',' PARAMETER                                                      { $1 + 1 }
 
 PARAMETER :: { () }
     : PARAMETER_TYPE id type TYPE                                                   {% ST.insertParam $2 $4 $1 }

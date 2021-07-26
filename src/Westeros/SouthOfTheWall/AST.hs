@@ -290,12 +290,12 @@ instance T.Typeable Expr where
                             then return tp
                             else do
                                 let pos = Tk.position $ getToken arr 
-                                ST.insertError $ Err.DimMissmatch (show dim) (show $ length inds) pos
+                                ST.insertError $ Err.TE $ Err.DimMissmatch (show dim) (show $ length inds) pos
                                 return T.TypeError
                     _ -> do 
                             let errorTp = show arrType
                                 pos = Tk.position $ getToken arr
-                            ST.insertError $ Err.InvalidIndexedType errorTp pos
+                            ST.insertError $ Err.TE $ Err.InvalidIndexedType errorTp pos
                             return T.TypeError
                 else do
                     let errorInd      = fromJust $ findIndex (/=T.IntT) indTypes
@@ -308,9 +308,9 @@ instance T.Typeable Expr where
                     return T.TypeError
             else return T.TypeError
 
+    -- check if ind is in the range
     typeQuery (TupleIndex tupleExpr ind) = do
         tupleType <- typeQuery (getExpr tupleExpr)
-
         if T.notTypeError tupleType then
             case tupleType of
                 T.TupleT xs -> return $ xs !! ind
@@ -334,7 +334,6 @@ instance T.Typeable Expr where
 
                 ST.insertError $ Err.TE err 
                 return T.TypeError
-
 
     typeQuery (IdExpr symbol) = do
 

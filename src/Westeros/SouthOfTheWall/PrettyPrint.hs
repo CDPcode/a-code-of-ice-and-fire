@@ -361,6 +361,19 @@ typeErrorChunks (InvalidLValue name pos ) =
     , chunkFromStr name & fore brightBlue 
     , chunk " is not a valid lvalue."
     ] ++ positionChunks pos
+typeErrorChunks (DimMissmatch dim1 dim2 pos ) = 
+    [ chunk "Number of dimentions missmatch in indexation: expected "
+    , chunkFromStr dim1 & fore brightBlue
+    , chunk "but "
+    , chunkFromStr dim2 & fore brightBlue
+    , chunk "were given."
+    ] ++ positionChunks pos
+typeErrorChunks (InvalidIndexedType tp pos ) = 
+    [ chunk "Type "
+    , chunkFromStr tp & fore brightBlue
+    , chunk " is not indexable."
+    ] ++ positionChunks pos
+
 typeErrorHead  :: Chunk 
 typeErrorHead = chunk "Type Error: " & fore red
 

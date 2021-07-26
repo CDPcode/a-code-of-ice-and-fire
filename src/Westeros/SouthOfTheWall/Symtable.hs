@@ -2,9 +2,9 @@ module Westeros.SouthOfTheWall.Symtable where
 
 import Data.Bifunctor       (second)
 import Data.Foldable        (foldl')
-import Control.Monad.RWS    ( MonadState(put, get), MonadWriter(tell), RWST, when )
-import Data.List            (intercalate, find)
-import Data.Maybe           (fromJust, isJust)
+import Control.Monad.RWS    ( MonadState(put, get), MonadWriter(tell), RWST)
+import Data.List            (find)
+import Data.Maybe           (fromJust)
 
 import qualified Data.Map.Strict as M
 import qualified Westeros.SouthOfTheWall.Error as Err
@@ -105,7 +105,7 @@ insertST :: SymbolTable -> Entry -> SymbolTable
 insertST st entry = st { table = insertDictionary (table st) entry }
 
 searchAndReplaceSymbol :: SymbolTable -> Entry -> SymbolInfo -> SymbolTable
-searchAndReplaceSymbol st entry@(name,info) newInfo = st { table = newDictionary }
+searchAndReplaceSymbol st (name,info) newInfo = st { table = newDictionary }
   where
     newDictionary = M.insert name (fromJust newList) (table st)
     newList = do
@@ -168,7 +168,7 @@ closeScope = do
     put $ symT { scopeStack = newStack }
 
 findBest :: [SymbolInfo] -> [Int] -> Maybe SymbolInfo
-findBest entries [] = Nothing
+findBest _ [] = Nothing
 findBest entries (s:ss) = case filter (\e -> scope e == s) entries of
     [] -> findBest entries ss
     [a] -> Just a
@@ -223,7 +223,7 @@ updateFunctionInfo info params returns = do
             name <- genTypeSymbol
             let additionalInfo = TupleTypes returns
             tInfo <- getTupleTypeInfo returns
-            insertType name additionalInfo tInfo
+            _ <- insertType name additionalInfo tInfo
             return $ info {symbolType = Just name, additional = newAdditional}
 
 currentScope :: MonadParser Int
@@ -273,18 +273,18 @@ getAlignedOffset offs alignment = ceilDiv * alignment
     ceilDiv = (offs + alignment - 1) `div` alignment
 
 getTypeInfo :: Symbol -> MonadParser TypeInfo
-getTypeInfo id = do
-    mInfo <- lookupST id
+getTypeInfo symbol = do
+    mInfo <- lookupST symbol
     case mInfo of
-        Nothing -> fail $ "Somehow type with id " ++ id ++ " has not been inserted in symbols table"
+        Nothing -> fail $ "Somehow type with id " ++ symbol ++ " has not been inserted in symbols table"
         Just info ->
             case category info of
                 Alias -> getTypeInfo $ snd $ getAliasMetaData info
                 Type ->
                     case typeInfo info of
-                        Nothing -> fail $ "Somehow type with id " ++ id ++ " doesn't have width and alignment"
+                        Nothing -> fail $ "Somehow type with id " ++ symbol ++ " doesn't have width and alignment"
                         Just tInfo -> return tInfo
-                _ -> fail $ "Wrong category for id " ++ id ++ " expected type or alias."
+                _ -> fail $ "Wrong category for id " ++ symbol ++ " expected type or alias."
 
 getTupleTypeInfo :: [Type] -> MonadParser TypeInfo
 getTupleTypeInfo tps = do
