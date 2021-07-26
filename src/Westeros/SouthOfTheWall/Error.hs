@@ -24,6 +24,7 @@ data ParserError
     | RedeclaredVar String Tk.Position
     | RedeclaredConstant String Tk.Position
     | ExpectedFunction String String Tk.Position
+    | NonCallableExpression Tk.Position
     -- ^ Parser related
 
     | SyntaxErr Tk.Token

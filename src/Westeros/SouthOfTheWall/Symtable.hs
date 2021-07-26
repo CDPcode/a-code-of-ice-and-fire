@@ -470,7 +470,7 @@ insertAlias tk name aliasType tp = do
                 let realType = case category info of
                         Alias ->
                             case getAliasMetaData info of
-                                (ByStructure, realType) -> realType
+                                (ByStructure, rType) -> rType
                                 _ -> tp
                         _ -> tp
                 let entry = aliasEntry name aliasType realType

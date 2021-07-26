@@ -101,6 +101,24 @@ data IfInst
     | IfThenElse Expression [Instruction] [Instruction]
     deriving (Show, Eq)
 
+isValidLValue :: Expression -> Bool
+isValidLValue = isValidLValue' . getExpr
+
+isValidLValue' :: Expr -> Bool
+isValidLValue' IdExpr{}         = True
+isValidLValue' AccesField{}     = True
+isValidLValue' TupleIndex{}     = True
+isValidLValue' AccesIndex{}     = True
+isValidLValue' (UnOp Deref _)   = True
+isValidLValue' _                = False
+
+isFunctionCall :: Expression -> Bool
+isFunctionCall = isFunctionCall' . getExpr
+
+isFunctionCall' :: Expr -> Bool
+isFunctionCall' FuncCall{}  = True
+isFunctionCall' _           = False
+
 -- Type Checking
 instance T.Typeable Expr where
     typeQuery (IntLit    _) = return T.IntT
