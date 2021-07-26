@@ -546,43 +546,43 @@ prettyPrintInstruction n (ExitInst prog) = do
 prettyPrintInstruction n inst = putStrIdent n $ show inst
 
 prettyPrintExpression :: Int -> Expression -> IO ()
-prettyPrintExpression n Expression{getExpr = (IntLit x)} = putStrIdent n $ show x
-prettyPrintExpression n Expression{getExpr = (FloatLit x)} = putStrIdent n $ show x
-prettyPrintExpression n Expression{getExpr = (CharLit x)} = putStrIdent n $ "\'" ++ show x ++ "\'"
-prettyPrintExpression n Expression{getExpr = (StringLit x)} = putStrIdent n $ "\"" ++ x ++ "\""
-prettyPrintExpression n Expression{getExpr = (AtomLit x)} = putStrIdent n $ "atom " ++ x
-prettyPrintExpression n Expression{getExpr = TrueLit} = putStrIdent n "True"
-prettyPrintExpression n Expression{getExpr = FalseLit} = putStrIdent n "False"
-prettyPrintExpression n Expression{getExpr = NullLit} = putStrIdent n "Null"
-prettyPrintExpression n Expression{getExpr = (ArrayLit exprs)} = do
-    putStrIdent n "Array literal"
+prettyPrintExpression n expr@Expression{getExpr = (IntLit x)} = putStrIdent n $ show x ++ " (" ++ show (getType expr) ++ ")"
+prettyPrintExpression n expr@Expression{getExpr = (FloatLit x)} = putStrIdent n $ show x ++ " (" ++ show (getType expr) ++ ")"
+prettyPrintExpression n expr@Expression{getExpr = (CharLit x)} = putStrIdent n $ "\'" ++ show x ++ "\'" ++ " (" ++ show (getType expr) ++ ")"
+prettyPrintExpression n expr@Expression{getExpr = (StringLit x)} = putStrIdent n $ "\"" ++ x ++ "\"" ++ " (" ++ show (getType expr) ++ ")"
+prettyPrintExpression n expr@Expression{getExpr = (AtomLit x)} = putStrIdent n $ "atom " ++ x ++ " (" ++ show (getType expr) ++ ")"
+prettyPrintExpression n expr@Expression{getExpr = TrueLit} = putStrIdent n $ "True" ++ " (" ++ show (getType expr) ++ ")"
+prettyPrintExpression n expr@Expression{getExpr = FalseLit} = putStrIdent n  $"False" ++ " (" ++ show (getType expr) ++ ")"
+prettyPrintExpression n expr@Expression{getExpr = NullLit} = putStrIdent n $ "Null" ++ " (" ++ show (getType expr) ++ ")"
+prettyPrintExpression n expr@Expression{getExpr = (ArrayLit exprs)} = do
+    putStrIdent n $ "Array literal" ++ " (" ++ show (getType expr) ++ ")"
     mapM_ (prettyPrintExpression (n+1)) exprs
-prettyPrintExpression n Expression{getExpr = (TupleLit exprs)} = do
-    putStrIdent n "Tuple literal"
+prettyPrintExpression n expr@Expression{getExpr = (TupleLit exprs)} = do
+    putStrIdent n $ "Tuple literal" ++ " (" ++ show (getType expr) ++ ")"
     mapM_ (prettyPrintExpression (n+1)) exprs
-prettyPrintExpression n Expression{getExpr = (FuncCall symbol exprs)} = do
-    putStrIdent n $ "Call function " ++ symbol ++ " with arguments"
+prettyPrintExpression n expr@Expression{getExpr = (FuncCall symbol exprs)} = do
+    putStrIdent n $ "Call function " ++ symbol ++ " with arguments" ++ " (" ++ show (getType expr) ++ ")"
     mapM_ (prettyPrintExpression (n+1)) exprs
-prettyPrintExpression n Expression{getExpr = (BinOp op e0 e1)} = do
-    putStrIdent n $ show op
+prettyPrintExpression n expr@Expression{getExpr = (BinOp op e0 e1)} = do
+    putStrIdent n $ show op ++ " (" ++ show (getType expr) ++ ")"
     prettyPrintExpression (n+1) e0
     prettyPrintExpression (n+1) e1
-prettyPrintExpression n Expression{getExpr = (UnOp op e)} = do
-    putStrIdent n $ show op
+prettyPrintExpression n expr@Expression{getExpr = (UnOp op e)} = do
+    putStrIdent n $ show op ++ " (" ++ show (getType expr) ++ ")"
     prettyPrintExpression (n+1) e
-prettyPrintExpression n Expression{getExpr = (AccesField e symbol)} = do
-    putStrIdent n $ "Field " ++ symbol ++ " of"
+prettyPrintExpression n expr@Expression{getExpr = (AccesField e symbol)} = do
+    putStrIdent n $ "Field " ++ symbol ++ " of" ++ " (" ++ show (getType expr) ++ ")"
     prettyPrintExpression (n+1) e
-prettyPrintExpression n Expression{getExpr = (ActiveField e symbol)} = do
-    putStrIdent n $ "Check active field " ++ symbol ++ " of union"
+prettyPrintExpression n expr@Expression{getExpr = (ActiveField e symbol)} = do
+    putStrIdent n $ "Check active field " ++ symbol ++ " of union" ++ " (" ++ show (getType expr) ++ ")"
     prettyPrintExpression (n+1) e
-prettyPrintExpression n Expression{getExpr = (AccesIndex e es)} = do
-    putStrIdent n "Index array"
+prettyPrintExpression n expr@Expression{getExpr = (AccesIndex e es)} = do
+    putStrIdent n $ "Index array" ++ " (" ++ show (getType expr) ++ ")"
     prettyPrintExpression (n+1) e
     putStrIdent n "with indices"
     mapM_ (prettyPrintExpression (n+1)) es
-prettyPrintExpression n Expression{getExpr = (TupleIndex e idx)} = do
-    putStrIdent n "Index tuple"
+prettyPrintExpression n expr@Expression{getExpr = (TupleIndex e idx)} = do
+    putStrIdent n $ "Index tuple" ++ " (" ++ show (getType expr) ++ ")"
     prettyPrintExpression (n+1) e
     putStrIdent n $ "with index " ++ show idx
 prettyPrintExpression n Expression{getExpr = (Cast e tp)} = do
