@@ -373,7 +373,7 @@ COMPOSITE_DECLARATION :: { AST.Expression }
 
 CONST_DECLARATION :: { AST.Instruction }
     : const id type TYPE constValue EXPR                                            {% do
-                                                                                        ST.insertId $3 ST.Constant $4
+                                                                                        ST.insertId $2 ST.Constant $4
                                                                                         let symbol = Tk.cleanedString $2
                                                                                         expr <- AST.buildAndCheckExpr $2 $ AST.IdExpr symbol
                                                                                         checkAssignment $5 expr $6 True
