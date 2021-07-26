@@ -13,7 +13,6 @@ data Type
 
     | AliasT String
 
-    | StringT
     | ArrayT Type Int
     | TupleT [Type]
     | StructT Int
@@ -26,6 +25,46 @@ data Type
     | TypeError
     deriving (Eq, Show)
 
+checkAssignable :: Type -> Type -> Bool
+checkAssignable PointerT{} NullT = True
+checkAssignable (PointerT lType) (PointerT rType) = checkAssignable lType rType
+checkAssignable (TupleT lTypes) (TupleT rTypes) = and $ zipWith checkAssignable lTypes rTypes
+checkAssignable VoidT _ = False
+checkAssignable _ VoidT = False
+checkAssignable lType rType = lType == rType
+
+isPrimitiveType :: Type -> Bool
+isPrimitiveType IntT = True
+isPrimitiveType FloatT = True
+isPrimitiveType CharT = True 
+isPrimitiveType BoolT = True 
+isPrimitiveType AtomT = True
+isPrimitiveType _ = False
+
+isRecordOrTupleType :: Type -> Bool 
+isRecordOrTupleType (StructT _) = True
+isRecordOrTupleType (UnionT _)  = True
+isRecordOrTupleType (TupleT _)  = True
+isRecordOrTupleType _ = False 
+
+isArrayType :: Type -> Bool 
+isArrayType (ArrayT _ _) = True 
+isArrayType _ = False 
+
+isPointerType :: Type -> Bool
+isPointerType (PointerT _) = True
+isPointerType _ = False 
+
+isIntegerType :: Type -> Bool 
+isIntegerType IntT = True 
+isIntegerType _ = False
+
+isPointerToArray :: Type -> Bool 
+isPointerToArray (PointerT t) = isArrayType t
+isPointerToArray _ = False 
+
+isCompositeType :: Type -> Bool
+isCompositeType t = isRecordOrTupleType t || isArrayType t
 -- This interface will provide type check consistency for their instances.
 --
 -- The propper way to use it is to implement exhaustive instances for everything in
@@ -42,7 +81,6 @@ getTypeFromString base = case base of
     "_char"    -> return CharT
     "_bool"    -> return BoolT
     "_atom"    -> return AtomT
-    "_string"  -> return StringT
 
     otherType  -> do
         espType <- ST.lookupST otherType

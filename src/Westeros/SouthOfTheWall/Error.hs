@@ -92,6 +92,10 @@ data TypeError
 
     | InvalidNew String Tk.Position 
     | InvalidFree String Tk.Position 
+    
+    | UnexpectedType String Tk.Position
+    | InvalidAssignment String String Tk.Position
+    | InvalidLValue String Tk.Position
 
     | NonReadable String Tk.Position
     | NonPrintable String Tk.Position

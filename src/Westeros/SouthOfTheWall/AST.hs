@@ -106,7 +106,7 @@ instance T.Typeable Expr where
     typeQuery (CharLit   _) = return T.CharT
     typeQuery (FloatLit  _) = return T.FloatT
     typeQuery (AtomLit   _) = return T.AtomT
-    typeQuery (StringLit _) = return T.StringT
+    typeQuery (StringLit _) = return $ T.ArrayT T.CharT 1
     typeQuery TrueLit       = return T.BoolT
     typeQuery FalseLit      = return T.BoolT
 
@@ -303,7 +303,7 @@ instance T.Typeable Expr where
             cond2 = all T.notTypeError indTypes
             cond3 = foldl (\acc b -> T.IntT == b && acc ) True indTypes
 
-        if cond1 && cond2 
+        if cond1 && cond2
             
             then if cond3
                 then return $ T.ArrayT arrType (length indTypes)
@@ -412,6 +412,70 @@ buildAndCheckExpr tk expr = do
            getExpr  = expr, 
            getType  = exprType
         }
+
+
+checkPrimitiveType :: Expression -> ST.MonadParser ()
+checkPrimitiveType expr = do
+    if T.isPrimitiveType $ getType expr
+        then return()
+        else ST.insertError $ Err.TE (Err.UnexpectedType (show $ getType expr) $ Tk.position $ getToken expr )
+
+checkCompositeType :: Expression -> ST.MonadParser ()
+checkCompositeType expr = do
+    if T.isCompositeType $ getType expr
+        then return()
+        else ST.insertError $ Err.TE (Err.UnexpectedType (show $ getType expr) $ Tk.position $ getToken expr )
+
+checkRecordOrTupleType :: Expression -> ST.MonadParser ()
+checkRecordOrTupleType expr = do
+    if T.isRecordOrTupleType $ getType expr
+        then return()
+        else ST.insertError $ Err.TE (Err.UnexpectedType (show $ getType expr) $ Tk.position $ getToken expr)
+
+checkArrayType :: Expression -> ST.MonadParser ()
+checkArrayType expr = do
+    if T.isArrayType $ getType expr
+        then return()
+        else ST.insertError $ Err.TE (Err.UnexpectedType (show $ getType expr) $ Tk.position $ getToken expr)
+
+checkPointerType :: Expression -> ST.MonadParser ()
+checkPointerType expr = do
+    if T.isPointerType $ getType expr
+        then return()
+        else ST.insertError $ Err.TE (Err.UnexpectedType (show $ getType expr) $ Tk.position $ getToken expr)
+
+checkIntegerTypes :: [Expression] -> ST.MonadParser ()
+checkIntegerTypes = mapM_ checkIntegerType  
+
+checkIntegerType :: Expression -> ST.MonadParser ()
+checkIntegerType expr = do
+    if T.isIntegerType $ getType expr
+        then return()
+        else ST.insertError $ Err.TE (Err.UnexpectedType (show $ getType expr) $ Tk.position $ getToken expr)
+
+checkPointerToArrayType :: Expression -> ST.MonadParser ()
+checkPointerToArrayType expr = do
+    if T.isPointerToArray $ getType expr
+        then return()
+        else ST.insertError $ Err.TE (Err.UnexpectedType (show $ getType expr) $ Tk.position $ getToken expr)
+
+isValidLValue :: Expression -> Bool
+isValidLValue = isValidLValue' . getExpr
+
+isValidLValue' :: Expr -> Bool
+isValidLValue' IdExpr{}         = True
+isValidLValue' AccesField{}     = True
+isValidLValue' TupleIndex{}     = True
+isValidLValue' AccesIndex{}     = True
+isValidLValue' (UnOp Deref _)   = True
+isValidLValue' _                = False
+
+isFunctionCall :: Expression -> Bool
+isFunctionCall = isFunctionCall' . getExpr
+
+isFunctionCall' :: Expr -> Bool
+isFunctionCall' FuncCall{}  = True
+isFunctionCall' _           = False
 
 -- Pretty print AST
 putStrIdent :: Int -> String -> IO ()

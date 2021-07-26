@@ -46,7 +46,7 @@ testParser = do
     (_, preSymbolTable, errs) <- runRWST (preParse tokens) () ST.initialST
     if null errs
         then do
-            (ast, finalSt, errs') <- runRWST (parse tokens) () preSymbolTable{ST.scopeStack=[1,0]}
+            (ast, finalSt, errs') <- runRWST (parse tokens) () preSymbolTable{ ST.scopeStack=[1,0], ST.nextSymAlias = 0, ST.offsetStack = [0] }
             if null errs'
                 then do
                     prettyPrintProgram ast

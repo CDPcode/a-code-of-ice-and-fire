@@ -458,7 +458,7 @@ insertType name add tInfo = do
             return name
     else return name
 
-insertAlias :: Tk.Token -> Symbol -> AliasType -> Type -> MonadParser ()
+insertAlias :: Tk.Token -> Type -> AliasType -> Type -> MonadParser ()
 insertAlias tk name aliasType tp = do
     symT <- get
     if checkExisting symT name
