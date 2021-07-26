@@ -21,7 +21,7 @@ import Rainbow
 import qualified Data.ByteString.Lazy.Char8 as BS
 import qualified Data.Map as M (toList)
 
-import Westeros.SouthOfTheWall.Symtable ( SymbolTable(table, scopeStack, nextScope), SymbolInfo(category, scope, additional) )
+import Westeros.SouthOfTheWall.Symtable ( SymbolTable(..), SymbolInfo(..) )
 import qualified Westeros.SouthOfTheWall.Tokens as Tk (Token(..), Position(..))
 import Westeros.SouthOfTheWall.Error
 
@@ -64,11 +64,13 @@ instance Pretty SymbolTable where
 
 
 symTableChunk :: SymbolTable -> [Chunk]
-symTableChunk symT = chunk "* Name info\n"
-                     : concatMap foo asList
-                     ++ [ chunkFromStr ("\n* Scope stack :" ++ show (scopeStack symT)
-                          ++ "\n* Next Scope " ++ show (nextScope symT) )
-                        ]
+symTableChunk symT = 
+    chunk "* Name info\n" : concatMap foo asList
+    ++ [ chunkFromStr $ "\n* Scope stack :" ++ show (scopeStack symT)
+       , chunkFromStr $ "\n* Next Scope " ++ show (nextScope symT) 
+       , chunkFromStr $ "\n* Offset Stack " ++ show (offsetStack symT)
+       , chunkFromStr $ "\n* Next symbol alias " ++ show (nextSymAlias symT)
+       ]
     where
         asList = M.toList (table symT)
         foo (a,b) = (chunkFromStr ('\n':a) & fore green) : preProcess b :: [Chunk]
@@ -81,7 +83,23 @@ symbolInfoChunk :: SymbolInfo -> [Chunk]
 symbolInfoChunk si = [ chunk "\n\tCategory: "
                      , chunkFromStr (show (category si)) & fore blue
                      , chunkFromStr $ "\n\tScope: " ++ show (scope si)
-                     ]
+                     ] ++ tp (symbolType si)  
+                     ++ addnl (additional si)
+                     ++ offst (offset si)
+                     ++ tInfo (typeInfo si)
+    where
+        tp (Just t) = [ chunkFromStr $ "\n\t Type: " ++ show t ]   
+        tp Nothing  = [] 
+
+        addnl (Just t) = [ chunkFromStr $ "\n\t Additional: " ++ show t ]
+        addnl Nothing  = []
+
+        offst (Just t) = [ chunkFromStr $ "\n\t Offset" ++ show t ]
+        offst Nothing  = []
+
+        tInfo (Just t) = [ chunkFromStr $ "\n\t Type info: " ++ show t]
+        tInfo Nothing  = [] 
+
 
 {- Pretty printing for generic errors -}
 
