@@ -10,7 +10,7 @@ data Type
     | CharT
     | BoolT
     | AtomT
-    | AliasT String
+    | AliasT String Type
     | ArrayT Type Int
     | TupleT [Type]
     | StructT Int
@@ -27,7 +27,7 @@ instance Show Type where
     show CharT = "Starkhar"
     show BoolT = "Boolton"
     show AtomT = "Barathom"
-    show (AliasT a) = "Alias " ++ a
+    show (AliasT name t) = "Alias " ++ name ++ " to " ++ show t
     show (ArrayT t d) = "Lord Commander of [ " ++ show d ++ " dimentions of " ++ show t ++ " ]"
     show (TupleT ts) = "White Walker possessing ( 1" ++ unwords (map show ts) ++ " )"
     show (StructT t) = "King " ++ show t
@@ -51,37 +51,45 @@ isPrimitiveType FloatT = True
 isPrimitiveType CharT = True
 isPrimitiveType BoolT = True
 isPrimitiveType AtomT = True
+isPrimitiveType (AliasT _ t) = isPrimitiveType t
 isPrimitiveType _ = False
 
 isRecordOrTupleType :: Type -> Bool
 isRecordOrTupleType (StructT _) = True
 isRecordOrTupleType (UnionT _)  = True
 isRecordOrTupleType (TupleT _)  = True
+isRecordOrTupleType (AliasT _ t) = isRecordOrTupleType t
 isRecordOrTupleType _ = False
 
 isArrayType :: Type -> Bool
 isArrayType (ArrayT _ _) = True
+isArrayType (AliasT _ t) = isArrayType t
 isArrayType _ = False
 
 isStringType :: Type -> Bool
 isStringType (ArrayT CharT 1) = True
+isStringType (AliasT _ t) = isStringType t
 isStringType _ = False
 
 
 isPointerType :: Type -> Bool
 isPointerType (PointerT _) = True
+isPointerType (AliasT _ t) = isPointerType t
 isPointerType _ = False
 
 isIntegerType :: Type -> Bool
 isIntegerType IntT = True
+isIntegerType (AliasT _ t) = isIntegerType t
 isIntegerType _ = False
 
 isPointerToArray :: Type -> Bool
 isPointerToArray (PointerT t) = isArrayType t
+isPointerToArray (AliasT _ t) = isPointerToArray t
 isPointerToArray _ = False
 
 isCompositeType :: Type -> Bool
 isCompositeType t = isRecordOrTupleType t || isArrayType t
+
 -- This interface will provide type check consistency for their instances.
 --
 -- The propper way to use it is to implement exhaustive instances for everything in
@@ -107,7 +115,9 @@ getTypeFromString base = case base of
             Just entry  -> case ST.additional entry of
 
                 Just info -> case info of
-                    ST.AliasMetaData ST.ByName _ -> return $ AliasT otherType
+                    ST.AliasMetaData ST.ByName pointedType -> do
+                        pType <- getTypeFromString pointedType
+                        return $ AliasT otherType pType
                     ST.AliasMetaData ST.ByStructure pointedType -> getTypeFromString pointedType
                     ST.DopeVector tp dim -> do
                         arrType <- getTypeFromString tp

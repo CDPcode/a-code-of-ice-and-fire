@@ -325,10 +325,6 @@ COMPOSITE_TYPE :: { ST.Type }
 OPEN_SCOPE :: { ST.Scope }
     :  {- empty -}                                                                  {% do
                                                                                         ST.openScope
-                                                                                        symT <- get
-                                                                                        sc <- ST.currentScope
-                                                                                        liftIO $ print (ST.scopeStack symT)
-                                                                                        liftIO $ print sc
                                                                                         ST.currentScope
                                                                                     }
 
