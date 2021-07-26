@@ -394,8 +394,30 @@ INSTRUCTION :: { AST.Instruction }
     | beginExit programName endExit '.'                                             { AST.ExitInst (Tk.cleanedString $3) }
     | read EXPR '.'                                                                 { AST.Read $2 }
     | print EXPR '.'                                                                { AST.Print $2}
-    | EXPR new '.'                                                                  { AST.New $1 }
-    | EXPR free '.'                                                                 { AST.Free $1 }
+    | EXPR new '.'      {% do 
+                            ptrType = AST.getType $1 
+
+                            case ptrType of 
+                                T.PointerT _ -> return ()
+                                _            -> do 
+                                    let error = Err.InvalidNew (show ptrType) $2  
+                                    ST.insertError $ Err.TE error
+
+                            return AST.Free $1 
+ 
+                            AST.New $1 
+                        }
+    | EXPR free '.'     {% do  
+                            ptrType = AST.getType $1 
+
+                            case ptrType of 
+                                T.PointerT _ -> return ()
+                                _            -> do 
+                                    let error = Err.InvalidFree (show ptrType) $2  
+                                    ST.insertError $ Err.TE error
+
+                            return AST.Free $1 
+                        }
     | continue '.'                                                                  { AST.Continue }
     | break '.'                                                                     { AST.Break }
     | returnOpen EXPRLIST returnClose                                               { AST.Return (reverse $2) }
@@ -407,11 +429,39 @@ INSTRUCTION :: { AST.Instruction }
     | DECLARATION                                                                   { AST.DeclarationInst $1 }
 
 IF :: { AST.IfInst }
-    : if EXPR then CODE_BLOCK endif                                                                 { AST.IfThen $2 (reverse $4) }
-    | if EXPR then CODE_BLOCK else CODE_BLOCK endif                                                 { AST.IfThenElse $2 (reverse $4) (reverse $6) }
+    : if EXPR then CODE_BLOCK endif                     {% do 
+                                                            let exprType = AST.getType $2
+
+                                                            when ( exprType /=T.BoolT ) $ do
+                                                                let exprType = AST.getType $2
+                                                                    error    = Err.InvalidIfTykpe (show exprType) (Tk.position $1)
+                                                                ST.insertError $ Err.TE error
+                                                          
+                                                            AST.IfThen $2 (reverse $4) 
+                                                        }
+    | if EXPR then CODE_BLOCK else CODE_BLOCK endif     {% do 
+
+                                                            let exprType = AST.getType $2
+
+                                                            when ( exprType /=T.BoolT ) $ do
+                                                                let exprType = AST.getType $2
+                                                                    error    = Err.InvalidIfTykpe (show exprType) (Tk.position $1)
+                                                                ST.insertError $ Err.TE error
+
+                                                            AST.IfThenElse $2 (reverse $4) (reverse $6) 
+                                                        }
 
 SWITCHCASE :: { AST.Instruction }
-    : switch EXPR switchDec '.' CASES endSwitch                                                     { AST.Switch $2 (reverse $5) }
+    : switch EXPR switchDec '.' CASES endSwitch     {% do 
+                                                        let switchExprType = AST.getType $2 
+
+                                                        when ( switchExprType /= T.AtomT ) $ do 
+
+                                                            let error = Err.WrongSwitchType (show switchExprType) (Tk.position $1)
+                                                            ST.insertError $ Err.PE error
+
+                                                        return $ AST.Switch $2 (reverse $5) 
+                                                    }
 
 CASES :: { [AST.Case] }
     : CASE                                                                                          { [$1] }
@@ -425,28 +475,36 @@ FOR :: { AST.Instruction }
     : OPEN_SCOPE FOR_DEC INSTRUCTIONS endFor CLOSE_SCOPE                                            { let (id, lb, ub) = $2 in AST.For id lb ub (reverse $3) }
 
 FOR_DEC :: { (AST.Id, AST.Expression, AST.Expression) }
-    : for id type int '.' forLB EXPR forUB EXPR '.'                                                 {% do
-                                                                                                        sc <- ST.currentScope
+    : for id type int '.' forLB EXPR forUB EXPR '.'       {% do
+                                  
+                                                            ST.insertId $2 Variable ST.int
+                                              
+                                                            let lbType = AST.getType $7
+                                                                ubType = AST.getType $9
+                                              
+                                                            when (lbType /= ubType || lbType != T.IntT || rbType != T.IntT) $ do
+                                                               
+                                                                let lb    = show lbType
+                                                                    ub    = show ubType
+                                                                    error = Err.MismatchingForBounds lb ub (Tk.position $1)
+                                              
+                                                                ST.insertError $ Err.TE error
+                                              
+                                                            return (Tk.cleanedString $2, $7, $9)
+                                                          }
 
-                                                                                                        let name  = Tk.cleanedString $2
-                                                                                                            entry = createConstEntry name sc AST.IntT
-                                                                                                            pos   = Tk.position $2
-
-                                                                                                        symT  <- get
-                                                                                                        mInfo <- ST.lookup name
-
-                                                                                                        case mInfo of
-                                                                                                            Nothing -> put $ ST.insertST symT entry
-                                                                                                            Just info ->
-                                                                                                                if ST.scope info /= sc && ST.category info /= ST.Function && ST.category info /= ST.Alias
-                                                                                                                    then put $ ST.insertST symT entry
-                                                                                                                    else ST.insertError $ Err.PE (Err.RedeclaredName name pos)
-
-                                                                                                        return (name, $7, $9)
-                                                                                                    }
 
 WHILE :: { AST.Instruction }
-    : while EXPR whileDec CODE_BLOCK endWhile                                                       { AST.While $2 (reverse $4) }
+    : while EXPR whileDec CODE_BLOCK endWhile       {% do
+                                                        let exprType = AST.getType $2 
+
+                                                        when ( exprType /=T.BoolT ) $ do
+                                                                let exprType = AST.getType $2
+                                                                    error    = Err.InvalidWhileType (show exprType) (Tk.position $1)
+                                                                ST.insertError $ Err.TE error
+                                                                
+                                                        return $ AST.While $2 (reverse $4) 
+                                                    }
 
 -- Expresions --
 

@@ -81,4 +81,14 @@ data TypeError
 
     | NonCasteableTypes String String Tk.Position
 
+    {- Contextual ones -}
+
+    | InvalidWhileType String Tk.Position 
+    | WrongForBoundType String String Tk.Position
+    | WrongSwitchType String Tk.Position
+    | InvalidIfType String Tk.Position
+
+    | InvalidNew String Tk.Position 
+    | InvalidFree String Tk.Position 
+
     deriving (Show, Eq)
