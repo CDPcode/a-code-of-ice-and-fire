@@ -63,6 +63,8 @@ isPointerToArray :: Type -> Bool
 isPointerToArray (PointerT t) = isArrayType t
 isPointerToArray _ = False 
 
+isCompositeType :: Type -> Bool
+isCompositeType t = isRecordOrTupleType t || isArrayType t
 -- This interface will provide type check consistency for their instances.
 --
 -- The propper way to use it is to implement exhaustive instances for everything in
