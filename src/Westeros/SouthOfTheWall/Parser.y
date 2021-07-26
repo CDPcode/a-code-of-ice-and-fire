@@ -225,7 +225,7 @@ FUNCTION :: { AST.FunctionDeclaration }
                                                                                         -- ST.updateFunctionInfo potencialmente crea
                                                                                         -- una entrada en la tabla de simbolos para el tipo
                                                                                         -- del retorno de la funcion si este es un retorno multivalor
-                                                                                        when ($4 > 1) $ do 
+                                                                                        when ($4 > 1) $ do
                                                                                             ST.genTypeSymbol
                                                                                             return ()
                                                                                         return $5
@@ -267,7 +267,7 @@ TYPE :: { ST.Type }
     : PRIMITIVE_TYPE                                                                { $1 }
     | COMPOSITE_TYPE                                                                { $1 }
     | id                                                                            {% do
-                                                                                        let alias = Tk.cleanedString $1 
+                                                                                        let alias = Tk.cleanedString $1
                                                                                         maybeInfo <- ST.lookupST alias
                                                                                         case maybeInfo of
                                                                                             Nothing -> do
@@ -278,9 +278,9 @@ TYPE :: { ST.Type }
                                                                                                 case ST.additional info of
                                                                                                     Just (ST.AliasMetaData ST.ByName _) ->
                                                                                                         return alias
-                                                                                                    Just (ST.AliasMetaData ST.ByStructure tp) -> 
-                                                                                                        return tp 
-                                                                                                    _ ->  do 
+                                                                                                    Just (ST.AliasMetaData ST.ByStructure tp) ->
+                                                                                                        return tp
+                                                                                                    _ ->  do
                                                                                                         let err = Err.IdNotFound alias
                                                                                                         ST.insertError $ Err.TE err
                                                                                                         return alias
@@ -337,7 +337,7 @@ PRIMITIVE_DECLARATION :: { AST.Expression }
                                                                                         expr <- AST.buildAndCheckExpr $2 $ AST.IdExpr symbol
                                                                                         AST.checkPrimitiveType expr
                                                                                         return expr
-                                                                                    }   
+                                                                                    }
 
 COMPOSITE_DECLARATION :: { AST.Expression }
     : beginCompTypeId var id endCompTypeId TYPE                                     {% do
@@ -346,7 +346,7 @@ COMPOSITE_DECLARATION :: { AST.Expression }
                                                                                         expr <- AST.buildAndCheckExpr $3 $ AST.IdExpr symbol
                                                                                         AST.checkRecordOrTupleType expr
                                                                                         return expr
-                                                                                    }  
+                                                                                    }
     | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz              {% do
                                                                                         ST.insertId $3 ST.Variable $5
                                                                                         let symbol = Tk.cleanedString $3
@@ -354,25 +354,25 @@ COMPOSITE_DECLARATION :: { AST.Expression }
                                                                                         AST.checkArrayType expr
                                                                                         AST.checkIntegerTypes $7
                                                                                         return expr
-                                                                                    }  
+                                                                                    }
     | beginCompTypeId pointerVar id endCompTypeId TYPE                              {% do
                                                                                         ST.insertId $3 ST.Variable $5
                                                                                         let symbol = Tk.cleanedString $3
                                                                                         expr <- AST.buildAndCheckExpr $3 $ AST.IdExpr symbol
                                                                                         AST.checkPointerType expr
-                                                                                        return expr                                                                                        
+                                                                                        return expr
                                                                                     }
     | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz       {% do
                                                                                         ST.insertId $3 ST.Variable $5
                                                                                         let symbol = Tk.cleanedString $3
                                                                                         expr <- AST.buildAndCheckExpr $3 $ AST.IdExpr symbol
-                                                                                        AST.checkPointerToArrayType expr 
+                                                                                        AST.checkPointerToArrayType expr
                                                                                         AST.checkIntegerTypes $7
                                                                                         return expr
                                                                                     }
 
 CONST_DECLARATION :: { AST.Instruction }
-    : const id type TYPE constValue EXPR                                            {% do 
+    : const id type TYPE constValue EXPR                                            {% do
                                                                                         ST.insertId $3 ST.Constant $4
                                                                                         let symbol = Tk.cleanedString $2
                                                                                         expr <- AST.buildAndCheckExpr $2 $ AST.IdExpr symbol
@@ -384,7 +384,7 @@ CONST_DECLARATION :: { AST.Instruction }
                                                                                         ST.insertId $3 ST.Constant $5
                                                                                         let symbol = Tk.cleanedString $3
                                                                                         expr <- AST.buildAndCheckExpr $3 $ AST.IdExpr symbol
-                                                                                        checkAssignment $6 expr $7 True 
+                                                                                        checkAssignment $6 expr $7 True
                                                                                         AST.checkCompositeType expr
                                                                                         return $ AST.SimpleAssign expr $7
                                                                                     }
@@ -407,7 +407,7 @@ INSTRUCTIONS :: { [AST.Instruction] }
     | INSTRUCTIONS comment                                                          { $1 }
 
 INSTRUCTION :: { AST.Instruction }
-    : EXPR ':=' EXPR '.'                                                            {% do 
+    : EXPR ':=' EXPR '.'                                                            {% do
                                                                                         checkAssignment $2 $1 $3 False
                                                                                         return $ AST.SimpleAssign $1 $3
                                                                                     }
@@ -417,46 +417,46 @@ INSTRUCTION :: { AST.Instruction }
     | pass '.'                                                                      {% return AST.EmptyInst }
     | beginExit programName endExit '.'                                             {% return $ AST.ExitInst (Tk.cleanedString $3) }
     | read EXPR '.'                                                                 {% do
-                                                                                        let toPrintTp = AST.getType $2 
+                                                                                        let toPrintTp = AST.getType $2
                                                                                         unless (T.isPrimitiveType toPrintTp || T.isStringType toPrintTp) $ do
-                                                                                            let err = Err.NonReadable (show toPrintTp) (Tk.position $1) 
+                                                                                            let err = Err.NonReadable (show toPrintTp) (Tk.position $1)
                                                                                             ST.insertError $ Err.TE err
-                                                                                                        
+
                                                                                         return $ AST.Read $2
 
                                                                                     }
-    | print EXPR '.'                                                                {% do 
-                                                                                        let toPrintTp = AST.getType $2 
+    | print EXPR '.'                                                                {% do
+                                                                                        let toPrintTp = AST.getType $2
                                                                                         unless (T.isPrimitiveType toPrintTp || T.isStringType toPrintTp) $ do
-                                                                                            let err = Err.NonPrintable (show toPrintTp) (Tk.position $1) 
+                                                                                            let err = Err.NonPrintable (show toPrintTp) (Tk.position $1)
                                                                                             ST.insertError $ Err.TE err
-                                                                                                        
-                                                                                        return $ AST.Print $2 
+
+                                                                                        return $ AST.Print $2
                                                                                     }
-    | EXPR new '.'                                                                  {% do 
-                                                                                        let ptrType = AST.getType $1 
-                                                                                        case ptrType of 
+    | EXPR new '.'                                                                  {% do
+                                                                                        let ptrType = AST.getType $1
+                                                                                        case ptrType of
                                                                                             T.PointerT _ -> do
                                                                                                 unless (AST.isValidLValue $1) $ do
-                                                                                                    ST.insertError $ Err.TE $ Err.InvalidLValue (Tk.cleanedString $2) (Tk.position $2) 
-                                                                                            _            -> do 
-                                                                                                let error = Err.InvalidNew (show ptrType) (Tk.position $2)  
+                                                                                                    ST.insertError $ Err.TE $ Err.InvalidLValue (Tk.cleanedString $2) (Tk.position $2)
+                                                                                            _            -> do
+                                                                                                let error = Err.InvalidNew (show ptrType) (Tk.position $2)
                                                                                                 ST.insertError $ Err.TE error
 
-                                                                                        return $ AST.New $1 
+                                                                                        return $ AST.New $1
                                                                                     }
-    | EXPR free '.'                                                                 {% do  
-                                                                                        let ptrType = AST.getType $1 
+    | EXPR free '.'                                                                 {% do
+                                                                                        let ptrType = AST.getType $1
 
-                                                                                        case ptrType of 
+                                                                                        case ptrType of
                                                                                             T.PointerT _ -> do
                                                                                                 unless (AST.isValidLValue $1) $ do
-                                                                                                    ST.insertError $ Err.TE $ Err.InvalidLValue (Tk.cleanedString $2) (Tk.position $2) 
-                                                                                            _            -> do 
-                                                                                                let error = Err.InvalidFree (show ptrType) (Tk.position $2)  
+                                                                                                    ST.insertError $ Err.TE $ Err.InvalidLValue (Tk.cleanedString $2) (Tk.position $2)
+                                                                                            _            -> do
+                                                                                                let error = Err.InvalidFree (show ptrType) (Tk.position $2)
                                                                                                 ST.insertError $ Err.TE error
 
-                                                                                        return $ AST.Free $1 
+                                                                                        return $ AST.Free $1
                                                                                     }
     | continue '.'                                                                  {% return AST.Continue }
     | break '.'                                                                     {% return AST.Break }
@@ -466,23 +466,23 @@ INSTRUCTION :: { AST.Instruction }
     | SWITCHCASE '.'                                                                {% return $1 }
     | FOR '.'                                                                       {% return $1 }
     | WHILE '.'                                                                     {% return $1 }
-    | DECLARATION                                                                   {% case $1 of 
+    | DECLARATION                                                                   {% case $1 of
                                                                                         Nothing -> return AST.EmptyInst
                                                                                         Just inst -> return inst
                                                                                     }
 
 IF :: { AST.IfInst }
-    : if EXPR then CODE_BLOCK endif                                                 {% do 
+    : if EXPR then CODE_BLOCK endif                                                 {% do
                                                                                         let exprType = AST.getType $2
 
                                                                                         when ( exprType /= T.BoolT ) $ do
                                                                                             let exprType = AST.getType $2
                                                                                                 err    = Err.InvalidIfType (show exprType) (Tk.position $1)
                                                                                             ST.insertError $ Err.TE err
-                                                                                    
-                                                                                        return $ AST.IfThen $2 (reverse $4) 
+
+                                                                                        return $ AST.IfThen $2 (reverse $4)
                                                                                     }
-    | if EXPR then CODE_BLOCK else CODE_BLOCK endif                                 {% do 
+    | if EXPR then CODE_BLOCK else CODE_BLOCK endif                                 {% do
 
                                                                                         let exprType = AST.getType $2
 
@@ -491,19 +491,19 @@ IF :: { AST.IfInst }
                                                                                                 err    = Err.InvalidIfType (show exprType) (Tk.position $1)
                                                                                             ST.insertError $ Err.TE err
 
-                                                                                        return $ AST.IfThenElse $2 (reverse $4) (reverse $6) 
+                                                                                        return $ AST.IfThenElse $2 (reverse $4) (reverse $6)
                                                                                     }
 
 SWITCHCASE :: { AST.Instruction }
-    : switch EXPR switchDec '.' CASES endSwitch                                     {% do 
-                                                                                        let switchExprType = AST.getType $2 
+    : switch EXPR switchDec '.' CASES endSwitch                                     {% do
+                                                                                        let switchExprType = AST.getType $2
 
-                                                                                        when ( switchExprType /= T.AtomT ) $ do 
+                                                                                        when ( switchExprType /= T.AtomT ) $ do
 
                                                                                             let err = Err.WrongSwitchType (show switchExprType) (Tk.position $1)
                                                                                             ST.insertError $ Err.TE err
 
-                                                                                        return $ AST.Switch $2 (reverse $5) 
+                                                                                        return $ AST.Switch $2 (reverse $5)
                                                                                     }
 
 CASES :: { [AST.Case] }
@@ -519,34 +519,34 @@ FOR :: { AST.Instruction }
 
 FOR_DEC :: { (AST.Id, AST.Expression, AST.Expression) }
     : for id type int '.' forLB EXPR forUB EXPR '.'                                 {% do
-                                  
+
                                                                                         ST.insertId $2 ST.Variable ST.int
-                                                                        
+
                                                                                         let lbType = AST.getType $7
                                                                                             ubType = AST.getType $9
-                                                                        
+
                                                                                         when (lbType /= T.IntT || ubType /= T.IntT) $ do
-                                                                                        
-                                                                                            let lb    = show lbType
-                                                                                                ub    = show ubType
-                                                                                                error = Err.WrongForBoundType lb ub (Tk.position $1)
-                                                                        
-                                                                                            ST.insertError $ Err.TE error
-                                                                        
+                                                                                            unless (lbType == T.TypeError || ubType == T.TypeError) $ do
+                                                                                                let lb    = show lbType
+                                                                                                    ub    = show ubType
+                                                                                                    error = Err.WrongForBoundType lb ub (Tk.position $1)
+
+                                                                                                ST.insertError $ Err.TE error
+
                                                                                         return (Tk.cleanedString $2, $7, $9)
                                                                                     }
 
 
 WHILE :: { AST.Instruction }
     : while EXPR whileDec CODE_BLOCK endWhile                                       {% do
-                                                                                        let exprType = AST.getType $2 
+                                                                                        let exprType = AST.getType $2
 
                                                                                         when ( exprType /=T.BoolT ) $ do
                                                                                                 let exprType = AST.getType $2
                                                                                                     error    = Err.InvalidWhileType (show exprType) (Tk.position $1)
                                                                                                 ST.insertError $ Err.TE error
-                                                                                                
-                                                                                        return $ AST.While $2 (reverse $4) 
+
+                                                                                        return $ AST.While $2 (reverse $4)
                                                                                     }
 
 -- Expresions --
@@ -624,24 +624,24 @@ parseError (tk:_) = do ST.insertError $ Err.PE (Err.SyntaxErr tk)
                              ++ "related to token: " ++ show (Tk.aToken tk)
 
 checkFunctionCall :: Tk.Token -> AST.Expression -> ST.MonadParser AST.Instruction
-checkFunctionCall tk expr = do 
+checkFunctionCall tk expr = do
     unless (AST.isFunctionCall expr) $ do
         ST.insertError $ Err.PE $ Err.NonCallableExpression (Tk.position tk)
-    return $ AST.FuncCallInst expr 
+    return $ AST.FuncCallInst expr
 
 
 checkAssignment :: Tk.Token -> AST.Expression -> AST.Expression -> Bool -> ST.MonadParser ()
-checkAssignment tk lValue rValue isInit = do 
+checkAssignment tk lValue rValue isInit = do
     unless isInit $ do
         checkConstantReassignment lValue
 
     let lType = AST.getType lValue
         rType = AST.getType rValue
-    
-    unless (AST.isValidLValue lValue) $ do 
+
+    unless (AST.isValidLValue lValue) $ do
         let exprToken = AST.getToken lValue
-        ST.insertError $ Err.TE $ Err.InvalidLValue (Tk.cleanedString exprToken) (Tk.position exprToken) 
-        unless (T.checkAssignable lType rType) $ do 
+        ST.insertError $ Err.TE $ Err.InvalidLValue (Tk.cleanedString exprToken) (Tk.position exprToken)
+        unless (T.checkAssignable lType rType) $ do
             ST.insertError $ Err.TE $ Err.InvalidAssignment (show lType) (show rType) (Tk.position tk)
 
 checkConstantReassignment :: AST.Expression -> ST.MonadParser ()
