@@ -21,7 +21,7 @@ import Rainbow
 import qualified Data.ByteString.Lazy.Char8 as BS
 import qualified Data.Map as M (toList)
 
-import Westeros.SouthOfTheWall.Symtable ( SymbolTable(..), SymbolInfo(..) )
+import Westeros.SouthOfTheWall.Symtable ( SymbolTable(..), SymbolInfo(..), TypeInfo(..) )
 import qualified Westeros.SouthOfTheWall.Tokens as Tk (Token(..), Position(..))
 import Westeros.SouthOfTheWall.Error
 
@@ -64,10 +64,10 @@ instance Pretty SymbolTable where
 
 
 symTableChunk :: SymbolTable -> [Chunk]
-symTableChunk symT = 
+symTableChunk symT =
     chunk "* Name info\n" : concatMap foo asList
     ++ [ chunkFromStr $ "\n* Scope stack :" ++ show (scopeStack symT)
-       , chunkFromStr $ "\n* Next Scope " ++ show (nextScope symT) 
+       , chunkFromStr $ "\n* Next Scope " ++ show (nextScope symT)
        , chunkFromStr $ "\n* Offset Stack " ++ show (offsetStack symT)
        , chunkFromStr $ "\n* Next symbol alias " ++ show (nextSymAlias symT)
        ]
@@ -83,22 +83,24 @@ symbolInfoChunk :: SymbolInfo -> [Chunk]
 symbolInfoChunk si = [ chunk "\n\tCategory: "
                      , chunkFromStr (show (category si)) & fore blue
                      , chunkFromStr $ "\n\tScope: " ++ show (scope si)
-                     ] ++ tp (symbolType si)  
+                     ] ++ tp (symbolType si)
                      ++ addnl (additional si)
                      ++ offst (offset si)
                      ++ tInfo (typeInfo si)
     where
-        tp (Just t) = [ chunkFromStr $ "\n\t Type: " ++ show t ]   
-        tp Nothing  = [] 
+        tp (Just t) = [ chunkFromStr $ "\n\t Type: " ++ show t ]
+        tp Nothing  = []
 
         addnl (Just t) = [ chunkFromStr $ "\n\t Additional: " ++ show t ]
         addnl Nothing  = []
 
-        offst (Just t) = [ chunkFromStr $ "\n\t Offset" ++ show t ]
+        offst (Just t) = [ chunkFromStr $ "\n\t Offset: " ++ show t ]
         offst Nothing  = []
 
-        tInfo (Just t) = [ chunkFromStr $ "\n\t Type info: " ++ show t]
-        tInfo Nothing  = [] 
+        tInfo (Just t) = [ chunkFromStr $ "\n\t Width: " ++ show (width t)
+                         , chunkFromStr $ "\n\t Alignment: " ++ show (align t)]
+
+        tInfo Nothing  = []
 
 
 {- Pretty printing for generic errors -}
@@ -141,9 +143,9 @@ parseErrorChunks (RepeatedAliasName aName pos) =
     , chunkFromStr aName & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-parseErrorChunks (UndefinedType name pos) = 
+parseErrorChunks (UndefinedType name pos) =
     [ chunk "Undefined type "
-    , chunkFromStr name & fore brightBlue 
+    , chunkFromStr name & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
 
@@ -187,8 +189,8 @@ parseErrorChunks (ExpectedFunction cat name pos) =
     , chunkFromStr name & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-parseErrorChunks (NonCallableExpression pos) = 
-    chunk "Non callable expression found" : positionChunks pos 
+parseErrorChunks (NonCallableExpression pos) =
+    chunk "Non callable expression found" : positionChunks pos
 parseErrorChunks (SyntaxErr tk) =
     [ chunk "Syntax error related to: "
     , chunkFromStr (show (Tk.aToken tk)) & fore brightBlue
@@ -208,173 +210,173 @@ instance Pretty TypeError where
 
 
 typeErrorChunks :: TypeError -> [Chunk]
-typeErrorChunks (HeterogeneusArrayType pos) = 
+typeErrorChunks (HeterogeneusArrayType pos) =
     chunk "Found heterogeneus array." : positionChunks pos
-typeErrorChunks (InvalidIndexType errorTp exprString pos) = 
+typeErrorChunks (InvalidIndexType errorTp exprString pos) =
     [ chunk "Invalid Index type "
-    , chunkFromStr (truncateType errorTp) & fore brightBlue 
-    , chunk " for expression " 
+    , chunkFromStr (truncateType errorTp) & fore brightBlue
+    , chunk " for expression "
     , chunkFromStr exprString & fore brightCyan
     , chunk "."
     ] ++ positionChunks pos
-typeErrorChunks (InconsistentTypesBinOp op (a,b) actualTypes pos) = 
+typeErrorChunks (InconsistentTypesBinOp op (a,b) actualTypes pos) =
     [ chunk "Inconsistent types for binary operation "
-    , chunkFromStr op & fore brightCyan, chunk " .Found " 
-    , chunkFromStr (truncateType a) & fore brightBlue, chunk " and " 
+    , chunkFromStr op & fore brightCyan, chunk " .Found "
+    , chunkFromStr (truncateType a) & fore brightBlue, chunk " and "
     , chunkFromStr (truncateType b) & fore brightCyan
-    , chunk " but both types must be one of " 
-    , chunkFromStr (unwords actualTypes) 
+    , chunk " but both types must be one of "
+    , chunkFromStr (unwords actualTypes)
     , chunk "."
     ] ++ positionChunks pos
-typeErrorChunks (InvalidTypesBinOp op (a,b) actualTypes pos) = 
+typeErrorChunks (InvalidTypesBinOp op (a,b) actualTypes pos) =
     [ chunk "Invalid type for binary operation "
     , chunkFromStr op & fore brightCyan, chunk " .Found "
     , chunkFromStr (truncateType a) & fore brightBlue, chunk " and "
     , chunkFromStr (truncateType b) & fore brightBlue
-    , chunk " but expected one of " 
+    , chunk " but expected one of "
     , chunkFromStr (unwords actualTypes)
     , chunk "."
     ] ++ positionChunks pos
-typeErrorChunks (InvalidTypeUnOp op errType actualTypes pos) = 
-    [ chunk "Invalid type for unary operation " 
+typeErrorChunks (InvalidTypeUnOp op errType actualTypes pos) =
+    [ chunk "Invalid type for unary operation "
     , chunkFromStr op & fore brightCyan, chunk " .Found "
     , chunkFromStr (truncateType errType) & fore brightBlue
     , chunk " but expected one of ", chunkFromStr (unwords actualTypes)
-    , chunk "." 
+    , chunk "."
     ] ++ positionChunks pos
-typeErrorChunks (InvalidDereference tp pos) = 
+typeErrorChunks (InvalidDereference tp pos) =
     [ chunk " Expected a pointer but found "
     , chunkFromStr (truncateType tp) & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-typeErrorChunks (RecordFieldNotFound name sc pos) = 
+typeErrorChunks (RecordFieldNotFound name sc pos) =
     [ chunk "Not a field "
     , chunkFromStr name & fore brightBlue
     , chunk " defined whithin scope "
-    , chunkFromStr (show sc) & fore brightRed 
+    , chunkFromStr (show sc) & fore brightRed
     , chunk "."
     ] ++ positionChunks pos
-typeErrorChunks (RepeatedRecordField name sc pos) = 
+typeErrorChunks (RepeatedRecordField name sc pos) =
     [ chunk " Existing record field "
-    , chunkFromStr name & fore brightBlue 
+    , chunkFromStr name & fore brightBlue
     , chunk " defined whithin scope "
     , chunkFromStr (show sc)
     , chunk "."
     ] ++ positionChunks pos
-typeErrorChunks (UnTypedRecordField name pos) = 
+typeErrorChunks (UnTypedRecordField name pos) =
     [ chunk " Record field "
-    , chunkFromStr name & fore brightBlue 
+    , chunkFromStr name & fore brightBlue
     , chunk " has no type."
     ] ++ positionChunks pos
-typeErrorChunks (NotARecordType typeName pos) = 
-    [ chunkFromStr typeName & fore brightBlue 
+typeErrorChunks (NotARecordType typeName pos) =
+    [ chunkFromStr typeName & fore brightBlue
     , chunk " is not a record type."
     ] ++ positionChunks pos
-typeErrorChunks (NotAnUnion typeName pos) = 
-    [ chunkFromStr typeName & fore brightBlue 
+typeErrorChunks (NotAnUnion typeName pos) =
+    [ chunkFromStr typeName & fore brightBlue
     , chunk " is not an Union type."
     ] ++ positionChunks pos
-typeErrorChunks (NotATupleType err pos) = 
-    [ chunkFromStr (truncateType err) & fore brightBlue 
+typeErrorChunks (NotATupleType err pos) =
+    [ chunkFromStr (truncateType err) & fore brightBlue
     , chunk " is not a propper tuple type."
     ] ++ positionChunks pos
-typeErrorChunks (IdNotFound name) = 
+typeErrorChunks (IdNotFound name) =
     [ chunk " Id "
     , chunkFromStr name & fore brightBlue
     , chunk " not found."
-    ] 
-typeErrorChunks (UnTypedId name) = 
-    [ chunk " Id ", chunkFromStr name & fore brightBlue 
+    ]
+typeErrorChunks (UnTypedId name) =
+    [ chunk " Id ", chunkFromStr name & fore brightBlue
     , chunk " has no type."
     ]
-typeErrorChunks (NotAFunction name) = 
-    [ chunkFromStr name & fore brightBlue 
+typeErrorChunks (NotAFunction name) =
+    [ chunkFromStr name & fore brightBlue
     , chunk " is not a function."
     ]
-typeErrorChunks (FunctionWithoutMD name) = 
+typeErrorChunks (FunctionWithoutMD name) =
     [ chunk " Function "
-    , chunkFromStr name & fore brightBlue 
+    , chunkFromStr name & fore brightBlue
     , chunk " has no metadata."
     ]
-typeErrorChunks (NonCasteableTypes source dest pos) = 
+typeErrorChunks (NonCasteableTypes source dest pos) =
     [ chunk "Cannot cast "
-    , chunkFromStr (truncateType source) & fore brightBlue 
+    , chunkFromStr (truncateType source) & fore brightBlue
     , chunk " and "
     , chunkFromStr (truncateType dest) & fore brightBlue
-    , chunk "." 
+    , chunk "."
     ] ++ positionChunks pos
-typeErrorChunks (InvalidWhileType typeName pos) = 
+typeErrorChunks (InvalidWhileType typeName pos) =
     [ chunk "Found "
-    , chunkFromStr (truncateType typeName) & fore brightBlue 
-    , chunk " but expected Int for while expression." 
+    , chunkFromStr (truncateType typeName) & fore brightBlue
+    , chunk " but expected Int for while expression."
     ] ++ positionChunks pos
-typeErrorChunks (WrongForBoundType lb ub pos) = 
+typeErrorChunks (WrongForBoundType lb ub pos) =
     [ chunk "Expected Int as bounds but found "
     , chunkFromStr (truncateType lb) & fore brightBlue
-    , chunk " and " 
-    , chunkFromStr (truncateType ub) & fore brightBlue 
+    , chunk " and "
+    , chunkFromStr (truncateType ub) & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-typeErrorChunks (WrongSwitchType exprType pos) = 
+typeErrorChunks (WrongSwitchType exprType pos) =
     [ chunk "Switch expression must be Atom but found "
-    , chunkFromStr (truncateType exprType) 
+    , chunkFromStr (truncateType exprType)
     , chunk "."
     ] ++ positionChunks pos
-typeErrorChunks (InvalidIfType exprType pos) = 
+typeErrorChunks (InvalidIfType exprType pos) =
     [ chunk "If must be Bool but found "
     , chunkFromStr (truncateType exprType)
     , chunk "."
     ] ++ positionChunks pos
-typeErrorChunks (InvalidNew ptrType pos) = 
+typeErrorChunks (InvalidNew ptrType pos) =
     [ chunk "Expected pointer type but found "
-    , chunkFromStr (truncateType ptrType) & fore brightBlue 
+    , chunkFromStr (truncateType ptrType) & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-typeErrorChunks (InvalidFree ptrType pos) = 
+typeErrorChunks (InvalidFree ptrType pos) =
     [ chunk "Expected pointer type but found "
-    , chunkFromStr (truncateType ptrType) & fore brightBlue 
+    , chunkFromStr (truncateType ptrType) & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-typeErrorChunks (NonReadable tp pos) = 
-    [ chunkFromStr (truncateType tp) & fore brightBlue 
+typeErrorChunks (NonReadable tp pos) =
+    [ chunkFromStr (truncateType tp) & fore brightBlue
     , chunk " is not a readable type."
     ] ++ positionChunks pos
-typeErrorChunks (NonPrintable tp pos) = 
-    [ chunkFromStr (truncateType tp) & fore brightBlue 
+typeErrorChunks (NonPrintable tp pos) =
+    [ chunkFromStr (truncateType tp) & fore brightBlue
     , chunk " is not a printable type."
     ] ++ positionChunks pos
 
-typeErrorChunks (UnexpectedType name pos) = 
+typeErrorChunks (UnexpectedType name pos) =
     [ chunk "Found "
-    , chunkFromStr name & fore brightBlue 
+    , chunkFromStr name & fore brightBlue
     , chunk " but wasn't expected"
     ] ++ positionChunks pos
-typeErrorChunks (InvalidAssignment lhs rhs pos) = 
-    [ chunk "Lvalue type " 
-    , chunkFromStr lhs & fore brightBlue 
+typeErrorChunks (InvalidAssignment lhs rhs pos) =
+    [ chunk "Lvalue type "
+    , chunkFromStr lhs & fore brightBlue
     , chunk " doesn't match lvalue type "
-    , chunkFromStr rhs & fore brightBlue 
+    , chunkFromStr rhs & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-typeErrorChunks (InvalidLValue name pos ) = 
+typeErrorChunks (InvalidLValue name pos ) =
     [ chunk "Lvalue "
-    , chunkFromStr name & fore brightBlue 
+    , chunkFromStr name & fore brightBlue
     , chunk " is not a valid lvalue."
     ] ++ positionChunks pos
-typeErrorChunks (DimMissmatch dim1 dim2 pos ) = 
+typeErrorChunks (DimMissmatch dim1 dim2 pos ) =
     [ chunk "Number of dimentions missmatch in indexation: expected "
     , chunkFromStr dim1 & fore brightBlue
     , chunk "but "
     , chunkFromStr dim2 & fore brightBlue
     , chunk "were given."
     ] ++ positionChunks pos
-typeErrorChunks (InvalidIndexedType tp pos ) = 
+typeErrorChunks (InvalidIndexedType tp pos ) =
     [ chunk "Type "
     , chunkFromStr tp & fore brightBlue
     , chunk " is not indexable."
     ] ++ positionChunks pos
 
-typeErrorHead  :: Chunk 
+typeErrorHead  :: Chunk
 typeErrorHead = chunk "Type Error: " & fore red
 
 positionChunks :: Tk.Position -> [Chunk]
@@ -386,13 +388,13 @@ positionChunks Tk.Position{ Tk.row = r , Tk.col = c } =
     , chunkFromStr (show c) & fore brightRed
     ]
 
-truncateType :: String -> String 
-truncateType tp 
-    | length tp < 10 = tp 
+truncateType :: String -> String
+truncateType tp
+    | length tp < 10 = tp
     | otherwise      = pfx ++ trail
-    where 
+    where
         pfx = take sz tp
-        sz  = 10 
+        sz  = 10
         trail = "..."
 
 
