@@ -10,20 +10,32 @@ data Type
     | CharT
     | BoolT
     | AtomT
-
     | AliasT String
-
     | ArrayT Type Int
     | TupleT [Type]
     | StructT Int
     | UnionT Int
     | PointerT Type
-
     | NullT
     | VoidT
-
     | TypeError
-    deriving (Eq, Show)
+    deriving (Eq)
+
+instance Show Type where 
+    show IntT = "Lanninteger"
+    show FloatT = "Freyt"
+    show CharT = "Starkhar"
+    show BoolT = "Boolton"
+    show AtomT = "Barathom"
+    show (AliasT a) = "Alias " ++ a
+    show (ArrayT t d) = "Lord Commander of [ " ++ show d ++ " dimentions of " ++ show t ++ " ]"
+    show (TupleT ts) = "White Walker possessing ( 1" ++ unwords (map show ts) ++ " )"
+    show (StructT t) = "King " ++ show t
+    show (UnionT t) = "God of many faces " ++ show t
+    show (PointerT t) = "Spearwife of * " ++ show t ++ " *"
+    show NullT = "Null Pointer"
+    show VoidT = "No One"
+    show TypeError = "Type error: you should not be seeing this but you probably will"
 
 checkAssignable :: Type -> Type -> Bool
 checkAssignable PointerT{} NullT = True
