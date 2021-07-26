@@ -16,7 +16,7 @@ import Rainbow
       chunksToByteStrings,
       toByteStringsColors256,
       chunk,
-      Chunk, brightWhite )
+      Chunk)
 
 import qualified Data.ByteString.Lazy.Char8 as BS
 import qualified Data.Map as M (toList)
@@ -149,8 +149,8 @@ parseErrorChunks (UndefinedVar name pos) =
     , chunkFromStr name & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-parseErrorChunks (InvalidVar category unexpectedSym pos) =
-    [ chunkFromStr ("Expected variable, found " ++ show category ++ " ")
+parseErrorChunks (InvalidVar cat unexpectedSym pos) =
+    [ chunkFromStr ("Expected variable, found " ++ show cat ++ " ")
     , chunkFromStr unexpectedSym & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
@@ -164,11 +164,11 @@ parseErrorChunks (RedeclaredConstant name pos) =
     , chunkFromStr name & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-parseErrorChunks (ExpectedFunction category name pos) =
-    [ chunkFromStr ("Expected function, foound " ++ category ++ " ")
+parseErrorChunks (ExpectedFunction cat name pos) =
+    [ chunkFromStr ("Expected function, foound " ++ cat ++ " ")
     , chunkFromStr name & fore brightBlue
     , chunk "."
-    ]
+    ] ++ positionChunks pos
 parseErrorChunks (NonCallableExpression pos) = 
     chunk "Non callable expression found" : positionChunks pos 
 parseErrorChunks (SyntaxErr tk) =
@@ -229,23 +229,23 @@ typeErrorChunks (InvalidDereference tp pos) =
     , chunkFromStr (truncateType tp) & fore brightBlue
     , chunk "."
     ] ++ positionChunks pos
-typeErrorChunks (RecordFieldNotFound id scope pos) = 
+typeErrorChunks (RecordFieldNotFound name sc pos) = 
     [ chunk "Not a field "
-    , chunkFromStr id & fore brightBlue
+    , chunkFromStr name & fore brightBlue
     , chunk " defined whithin scope "
-    , chunkFromStr (show scope) & fore brightRed 
+    , chunkFromStr (show sc) & fore brightRed 
     , chunk "."
     ] ++ positionChunks pos
-typeErrorChunks (RepeatedRecordField id scope pos) = 
+typeErrorChunks (RepeatedRecordField name sc pos) = 
     [ chunk " Existing record field "
-    , chunkFromStr id & fore brightBlue 
+    , chunkFromStr name & fore brightBlue 
     , chunk " defined whithin scope "
-    , chunkFromStr (show scope)
+    , chunkFromStr (show sc)
     , chunk "."
     ] ++ positionChunks pos
-typeErrorChunks (UnTypedRecordField id pos) = 
+typeErrorChunks (UnTypedRecordField name pos) = 
     [ chunk " Record field "
-    , chunkFromStr id & fore brightBlue 
+    , chunkFromStr name & fore brightBlue 
     , chunk " has no type."
     ] ++ positionChunks pos
 typeErrorChunks (NotARecordType typeName pos) = 
@@ -260,9 +260,9 @@ typeErrorChunks (NotATupleType err pos) =
     [ chunkFromStr (truncateType err) & fore brightBlue 
     , chunk " is not a propper tuple type."
     ] ++ positionChunks pos
-typeErrorChunks (IdNotFound id) = 
+typeErrorChunks (IdNotFound name) = 
     [ chunk " Id "
-    , chunkFromStr id & fore brightBlue
+    , chunkFromStr name & fore brightBlue
     , chunk " not found."
     ] 
 typeErrorChunks (UnTypedId name) = 
@@ -296,7 +296,7 @@ typeErrorChunks (WrongForBoundType lb ub pos) =
     , chunk " and " 
     , chunkFromStr (truncateType ub) & fore brightBlue 
     , chunk "."
-    ]
+    ] ++ positionChunks pos
 typeErrorChunks (WrongSwitchType exprType pos) = 
     [ chunk "Switch expression must be Atom but found "
     , chunkFromStr (truncateType exprType) 
