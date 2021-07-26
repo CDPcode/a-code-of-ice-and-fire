@@ -71,7 +71,7 @@ data AdditionalInfo
 
 data FunctionInfo = FunctionInfo
     { numberOfParams    :: Int
-    , parameters        :: [Symbol]
+    , parameters        :: [Type]
     , returnTypes       :: [Type]
     , defined           :: Bool
     } deriving (Show, Eq)
@@ -226,6 +226,7 @@ updateFunctionInfo info params returns = do
             let additionalInfo = TupleTypes returns
             tInfo <- getTupleTypeInfo returns
             _ <- insertType name additionalInfo tInfo
+
             return $ info {symbolType = Just name, additional = newAdditional}
 
 currentScope :: MonadParser Int

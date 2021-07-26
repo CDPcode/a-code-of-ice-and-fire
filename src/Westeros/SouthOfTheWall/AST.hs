@@ -1,7 +1,7 @@
 module Westeros.SouthOfTheWall.AST where
 
 import Control.Monad                    (replicateM_)
-import Control.Monad.RWS                ( MonadState(get) )
+import Control.Monad.RWS                ( MonadState(get), liftIO )
 import Data.Foldable                    (foldl')
 
 import Westeros.SouthOfTheWall.TypeVer  ( typeQuery )

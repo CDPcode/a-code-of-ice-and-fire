@@ -29,9 +29,9 @@ instance Show Type where
     show AtomT = "Barathom"
     show (AliasT name t) = "Alias " ++ name ++ " to " ++ show t
     show (ArrayT t d) = "Lord Commander of [ " ++ show d ++ " dimentions of " ++ show t ++ " ]"
-    show (TupleT ts) = "White Walker possessing ( 1" ++ unwords (map show ts) ++ " )"
-    show (StructT t) = "King " ++ show t
-    show (UnionT t) = "God of many faces " ++ show t
+    show (TupleT ts) = "White Walker possessing ( " ++ unwords (map show ts) ++ " )"
+    show (StructT t) = "King with scope " ++ show t
+    show (UnionT t) = "Faceless Man with scope " ++ show t
     show (PointerT t) = "Spearwife of * " ++ show t ++ " *"
     show NullT = "Null Pointer"
     show VoidT = "No One"

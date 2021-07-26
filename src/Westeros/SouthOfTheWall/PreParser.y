@@ -238,19 +238,19 @@ FUNCTION :: { () }
                                                                                         else ST.insertError $ Err.PE (Err.FDefinitionWithoutDeclaration functionId (Tk.position $1))
                                                                                     }
 
-FUNCTION_PARAMETERS :: { [ST.Symbol] }
+FUNCTION_PARAMETERS :: { [ST.Type] }
     : beginFuncParams PARAMETER_LIST endFuncParams                                  { reverse $2 }
 
-PARAMETER_LIST :: { [ST.Symbol] }
+PARAMETER_LIST :: { [ST.Type] }
     : void                                                                          { [] }
     | PARAMETERS                                                                    { $1 }
 
-PARAMETERS :: { [ST.Symbol]}
+PARAMETERS :: { [ST.Type]}
     : PARAMETER                                                                     { [$1] }
     | PARAMETERS ',' PARAMETER                                                      { $3 : $1 }
 
-PARAMETER :: { ST.Symbol }
-    : PARAMETER_TYPE id type TYPE                                                   { Tk.cleanedString $2 }
+PARAMETER :: { ST.Type }
+    : PARAMETER_TYPE id type TYPE                                                   { $4 }
 
 PARAMETER_TYPE :: { ST.ParameterType }
     : valueParam                                                                    { ST.Value }
