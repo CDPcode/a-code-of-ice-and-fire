@@ -343,6 +343,24 @@ typeErrorChunks (NonPrintable tp pos) =
     [ chunkFromStr (truncateType tp) & fore brightBlue 
     , chunk " is not a printable type."
     ] ++ positionChunks pos
+
+typeErrorChunks (UnexpectedType name pos) = 
+    [ chunk "Found "
+    , chunkFromStr name & fore brightBlue 
+    , chunk " but wasn't expected"
+    ] ++ positionChunks pos
+typeErrorChunks (InvalidAssignment lhs rhs pos) = 
+    [ chunk "Lvalue type " 
+    , chunkFromStr lhs & fore brightBlue 
+    , chunk " doesn't match lvalue type "
+    , chunkFromStr rhs & fore brightBlue 
+    , chunk "."
+    ] ++ positionChunks pos
+typeErrorChunks (InvalidLValue name pos ) = 
+    [ chunk "Lvalue "
+    , chunkFromStr name & fore brightBlue 
+    , chunk " is not a valid lvalue."
+    ] ++ positionChunks pos
 typeErrorHead  :: Chunk 
 typeErrorHead = chunk "Type Error: " & fore red
 

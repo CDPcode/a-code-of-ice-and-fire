@@ -378,10 +378,10 @@ binOpCheck bop a b = do
     x <- typeQuery (getExpr a)
     d <- typeQuery (getExpr b)
 
-    let validTypes 
-         | bop `elem` [Sum,Sub,Prod,Mod,Div] = [T.IntT, T.FloatT]
-         | bop `elem` [Eq,Neq,Lt,Gt,Leq,Geq] = [T.IntT, T.BoolT, T.FloatT, T.CharT]
-         | otherwise                         = [T.BoolT]
+    let (validTypes , returnType)
+         | bop `elem` [Sum,Sub,Prod,Mod,Div] = ([T.IntT, T.FloatT], T.IntT)
+         | bop `elem` [Eq,Neq,Lt,Gt,Leq,Geq] = ([T.IntT, T.BoolT, T.FloatT, T.CharT], T.BoolT)
+         | otherwise                         = ([T.BoolT], T.BoolT)
 
         tkErrPos = Tk.position $ getToken a           
         lType    = show x
@@ -390,7 +390,7 @@ binOpCheck bop a b = do
 
     if x == d 
         then if x `elem` validTypes
-            then return x
+            then return returnType
             else do 
                 let error = Err.InvalidTypesBinOp (show bop) (lType,rType) correctTypes tkErrPos
 
@@ -605,11 +605,11 @@ prettyPrintExpression n Expression{getExpr = (TupleIndex e idx)} = do
     putStrIdent n "Index tuple"
     prettyPrintExpression (n+1) e
     putStrIdent n $ "with index " ++ show idx
---prettyPrintExpression n Expression{getExpr = (Cast e tp)} = do
---    putStrIdent n "Cast expression"
---    prettyPrintExpression (n+1) e
---    putStrIdent n "to type"
---    prettyPrintType (n+1) tp
+prettyPrintExpression n Expression{getExpr = (Cast e tp)} = do
+    putStrIdent n "Cast expression"
+    prettyPrintExpression (n+1) e
+    putStrIdent n "to type"
+    putStrIdent n tp
 prettyPrintExpression n Expression{getExpr = (IdExpr id)} = putStrIdent n $ "id: " ++ id
 
 prettyPrintIf :: Int -> IfInst -> IO ()
@@ -633,5 +633,3 @@ prettyPrintCase n (Case atom block) = do
 prettyPrintCase n (Default block) = do
     putStrIdent n "Default"
     mapM_ (prettyPrintInstruction (n+1)) block
-
-
