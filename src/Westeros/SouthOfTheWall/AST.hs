@@ -6,7 +6,7 @@ import Data.Foldable                    (foldl')
 
 import Westeros.SouthOfTheWall.TypeVer  ( typeQuery )
 
-import qualified Westeros.SouthOfTheWall.Error as Err 
+import qualified Westeros.SouthOfTheWall.Error as Err
 import qualified Westeros.SouthOfTheWall.Symtable as ST
 import qualified Westeros.SouthOfTheWall.Tokens as Tk
 import qualified Westeros.SouthOfTheWall.TypeVer as T
@@ -113,7 +113,7 @@ instance T.Typeable Expr where
     typeQuery NullLit       = return T.NullT
 
     typeQuery (ArrayLit []) = error "Empty literal array not supported"
-    
+
     typeQuery (ArrayLit array) = do
         types <- mapM (typeQuery . getExpr) array
         let arrType = head types
@@ -127,7 +127,7 @@ instance T.Typeable Expr where
                         errorExpr     = array !! errorInd
                         errorTk       = getToken errorExpr
                         pos           = Tk.position errorTk
-                    ST.insertError $ Err.TE (Err.HeterogeneusArrayType pos) 
+                    ST.insertError $ Err.TE (Err.HeterogeneusArrayType pos)
                     return T.TypeError
         else return T.TypeError
 
@@ -161,27 +161,27 @@ instance T.Typeable Expr where
                         else return T.TypeError
                     Nothing                         -> do
                         let err = Err.FunctionWithoutMD symbol
-                        ST.insertError $ Err.TE err 
+                        ST.insertError $ Err.TE err
                         return T.TypeError
                     _ -> return T.TypeError
             Nothing -> do
                 let err = Err.NotAFunction symbol
-                ST.insertError $ Err.TE err 
+                ST.insertError $ Err.TE err
                 return T.TypeError
-                
+
     typeQuery (BinOp op a b)  = binOpCheck op a b
 
     typeQuery (UnOp Neg a) = do
         x <- typeQuery (getExpr a)
         let validTypes   = [T.IntT, T.FloatT]
-            tkErrPos     = Tk.position $ getToken a        
+            tkErrPos     = Tk.position $ getToken a
             correctTypes = map show validTypes
-        if x `elem` validTypes 
+        if x `elem` validTypes
             then return x
             else do
                 let err = Err.InvalidTypeUnOp (show Neg) (show x) correctTypes tkErrPos
                 ST.insertError $ Err.TE err
-                return T.TypeError 
+                return T.TypeError
 
     typeQuery (UnOp Deref p) = do
         mustBePtr <- typeQuery (getExpr p)
@@ -203,8 +203,8 @@ instance T.Typeable Expr where
                 _               -> Nothing
 
         case isRecordType of
-            (Just scope) -> do 
-            
+            (Just scope) -> do
+
                 symT <- get
 
                 let inScope         = ST.filterByScopeST symT scope
@@ -226,12 +226,12 @@ instance T.Typeable Expr where
                         ST.insertError $ Err.TE err
                         return T.TypeError
                     _             -> do
-                        let err = Err.RepeatedRecordField symbol scope position 
+                        let err = Err.RepeatedRecordField symbol scope position
                         ST.insertError $ Err.TE err
                         return T.TypeError
             _              -> do
-                let name = Tk.cleanedString $ getToken expr 
-                    pos  = Tk.position $ getToken expr 
+                let name = Tk.cleanedString $ getToken expr
+                    pos  = Tk.position $ getToken expr
                     err = Err.NotARecordType name pos
                 ST.insertError $ Err.TE err
                 return T.TypeError
@@ -239,7 +239,7 @@ instance T.Typeable Expr where
     typeQuery (ActiveField expr symbol) = do
         unionExpr <- typeQuery $ getExpr expr
 
-        let position = Tk.position $ getToken expr 
+        let position = Tk.position $ getToken expr
 
         case unionExpr of
             (T.UnionT scope) -> do
@@ -252,8 +252,8 @@ instance T.Typeable Expr where
 
                     Just [entry] -> case ST.symbolType entry of
 
-                        Just _       -> return T.BoolT  
-                        Nothing      -> do 
+                        Just _       -> return T.BoolT
+                        Nothing      -> do
                             let err = Err.UnTypedRecordField symbol position
                             ST.insertError $ Err.TE err
                             return T.TypeError
@@ -264,13 +264,13 @@ instance T.Typeable Expr where
                         return T.TypeError
 
                     _            -> do
-                        let err = Err.RepeatedRecordField symbol scope position 
+                        let err = Err.RepeatedRecordField symbol scope position
                         ST.insertError $ Err.TE err
                         return T.TypeError
 
             _              -> do
-                let name = Tk.cleanedString $ getToken expr 
-                    pos  = Tk.position $ getToken expr 
+                let name = Tk.cleanedString $ getToken expr
+                    pos  = Tk.position $ getToken expr
                     err = Err.NotAnUnion name pos
                 ST.insertError $ Err.TE err
                 return T.TypeError
@@ -286,13 +286,13 @@ instance T.Typeable Expr where
             then if cond3
                 then case arrType of
                     T.ArrayT tp dim -> do
-                        if length inds == dim 
+                        if length inds == dim
                             then return tp
                             else do
-                                let pos = Tk.position $ getToken arr 
+                                let pos = Tk.position $ getToken arr
                                 ST.insertError $ Err.TE $ Err.DimMissmatch (show dim) (show $ length inds) pos
                                 return T.TypeError
-                    _ -> do 
+                    _ -> do
                             let errorTp = show arrType
                                 pos = Tk.position $ getToken arr
                             ST.insertError $ Err.TE $ Err.InvalidIndexedType errorTp pos
@@ -302,7 +302,7 @@ instance T.Typeable Expr where
                         errorTp       = show $ indTypes !! errorInd
                         errorExprTk   = getToken (inds !! errorInd)
                         exprString    = Tk.cleanedString errorExprTk
-                        pos           = Tk.position errorExprTk 
+                        pos           = Tk.position errorExprTk
                         err         = Err.InvalidIndexType errorTp exprString pos
                     ST.insertError $ Err.TE err
                     return T.TypeError
@@ -315,7 +315,7 @@ instance T.Typeable Expr where
             case tupleType of
                 T.TupleT xs -> return $ xs !! ind
                 _           -> do
-                    let invalidType = Tk.cleanedString $ getToken tupleExpr 
+                    let invalidType = Tk.cleanedString $ getToken tupleExpr
                         pos         = Tk.position $ getToken tupleExpr
                         err       = Err.NotATupleType invalidType pos
                     ST.insertError $ Err.TE err
@@ -332,7 +332,7 @@ instance T.Typeable Expr where
                 let position = Tk.position $ getToken expr
                     err    = Err.NonCasteableTypes (show exprType) (show destType) position
 
-                ST.insertError $ Err.TE err 
+                ST.insertError $ Err.TE err
                 return T.TypeError
 
     typeQuery (IdExpr symbol) = do
@@ -341,7 +341,7 @@ instance T.Typeable Expr where
         case symbolType of
             Just entry -> case ST.symbolType entry of
                 Just tp -> T.getTypeFromString tp
-                Nothing -> do 
+                Nothing -> do
                     let err = Err.UnTypedId symbol
                     ST.insertError $ Err.TE err
                     return T.TypeError
@@ -350,8 +350,8 @@ instance T.Typeable Expr where
                 ST.insertError $ Err.TE err
                 return T.TypeError
 
-isCasteable :: T.Type -> T.Type -> Bool 
-isCasteable source dest = source `elem` simpleType && dest `elem` simpleType 
+isCasteable :: T.Type -> T.Type -> Bool
+isCasteable source dest = source `elem` simpleType && dest `elem` simpleType
     where simpleType = [T.IntT,T.BoolT,T.CharT,T.FloatT]
 
 binOpCheck :: BinOp -> Expression -> Expression -> ST.MonadParser T.Type
@@ -363,33 +363,33 @@ binOpCheck bop a b = do
             |  bop `elem` [Sum,Sub,Prod,Mod,Div] = ([T.IntT, T.FloatT], x)
             | bop `elem` [Eq,Neq,Lt,Gt,Leq,Geq] = ([T.IntT, T.BoolT, T.FloatT, T.CharT], T.BoolT)
             | otherwise                         = ([T.BoolT], T.BoolT)
-         
-        
-        tkErrPos = Tk.position $ getToken a           
+
+
+        tkErrPos = Tk.position $ getToken a
         lType    = show x
-        rType    = show d 
+        rType    = show d
         correctTypes = map show validTypes
 
-    if x == d 
+    if x == d
         then if x `elem` validTypes
             then return returnType
-            else do 
+            else do
                 let err = Err.InvalidTypesBinOp (show bop) (lType,rType) correctTypes tkErrPos
                 ST.insertError $ Err.TE err
-                return T.TypeError 
-        else do 
-            let err = Err.InconsistentTypesBinOp (show bop) (lType,rType) correctTypes tkErrPos        
+                return T.TypeError
+        else do
+            let err = Err.InconsistentTypesBinOp (show bop) (lType,rType) correctTypes tkErrPos
             ST.insertError $ Err.TE err
-            return T.TypeError 
+            return T.TypeError
 
 
 buildAndCheckExpr :: Tk.Token -> Expr -> ST.MonadParser Expression
 buildAndCheckExpr tk expr = do
     exprType <- typeQuery expr
 
-    return $ Expression { 
+    return $ Expression {
            getToken = tk,
-           getExpr  = expr, 
+           getExpr  = expr,
            getType  = exprType
         }
 
@@ -425,7 +425,7 @@ checkPointerType expr = do
         else ST.insertError $ Err.TE (Err.UnexpectedType (show $ getType expr) $ Tk.position $ getToken expr)
 
 checkIntegerTypes :: [Expression] -> ST.MonadParser ()
-checkIntegerTypes = mapM_ checkIntegerType  
+checkIntegerTypes = mapM_ checkIntegerType
 
 checkIntegerType :: Expression -> ST.MonadParser ()
 checkIntegerType expr = do
@@ -546,43 +546,43 @@ prettyPrintInstruction n (ExitInst prog) = do
 prettyPrintInstruction n inst = putStrIdent n $ show inst
 
 prettyPrintExpression :: Int -> Expression -> IO ()
-prettyPrintExpression n Expression{getExpr = (IntLit x)} = putStrIdent n $ show x
-prettyPrintExpression n Expression{getExpr = (FloatLit x)} = putStrIdent n $ show x
-prettyPrintExpression n Expression{getExpr = (CharLit x)} = putStrIdent n $ "\'" ++ show x ++ "\'"
-prettyPrintExpression n Expression{getExpr = (StringLit x)} = putStrIdent n $ "\"" ++ x ++ "\""
-prettyPrintExpression n Expression{getExpr = (AtomLit x)} = putStrIdent n $ "atom " ++ x
-prettyPrintExpression n Expression{getExpr = TrueLit} = putStrIdent n "True"
-prettyPrintExpression n Expression{getExpr = FalseLit} = putStrIdent n "False"
-prettyPrintExpression n Expression{getExpr = NullLit} = putStrIdent n "Null"
-prettyPrintExpression n Expression{getExpr = (ArrayLit exprs)} = do
-    putStrIdent n "Array literal"
+prettyPrintExpression n expr@Expression{getExpr = (IntLit x)} = putStrIdent n $ show x ++ " (" ++ show (getType expr) ++ ")"
+prettyPrintExpression n expr@Expression{getExpr = (FloatLit x)} = putStrIdent n $ show x ++ " (" ++ show (getType expr) ++ ")"
+prettyPrintExpression n expr@Expression{getExpr = (CharLit x)} = putStrIdent n $ "\'" ++ show x ++ "\'" ++ " (" ++ show (getType expr) ++ ")"
+prettyPrintExpression n expr@Expression{getExpr = (StringLit x)} = putStrIdent n $ "\"" ++ x ++ "\"" ++ " (" ++ show (getType expr) ++ ")"
+prettyPrintExpression n expr@Expression{getExpr = (AtomLit x)} = putStrIdent n $ "atom " ++ x ++ " (" ++ show (getType expr) ++ ")"
+prettyPrintExpression n expr@Expression{getExpr = TrueLit} = putStrIdent n $ "True" ++ " (" ++ show (getType expr) ++ ")"
+prettyPrintExpression n expr@Expression{getExpr = FalseLit} = putStrIdent n  $"False" ++ " (" ++ show (getType expr) ++ ")"
+prettyPrintExpression n expr@Expression{getExpr = NullLit} = putStrIdent n $ "Null" ++ " (" ++ show (getType expr) ++ ")"
+prettyPrintExpression n expr@Expression{getExpr = (ArrayLit exprs)} = do
+    putStrIdent n $ "Array literal" ++ " (" ++ show (getType expr) ++ ")"
     mapM_ (prettyPrintExpression (n+1)) exprs
-prettyPrintExpression n Expression{getExpr = (TupleLit exprs)} = do
-    putStrIdent n "Tuple literal"
+prettyPrintExpression n expr@Expression{getExpr = (TupleLit exprs)} = do
+    putStrIdent n $ "Tuple literal" ++ " (" ++ show (getType expr) ++ ")"
     mapM_ (prettyPrintExpression (n+1)) exprs
-prettyPrintExpression n Expression{getExpr = (FuncCall symbol exprs)} = do
-    putStrIdent n $ "Call function " ++ symbol ++ " with arguments"
+prettyPrintExpression n expr@Expression{getExpr = (FuncCall symbol exprs)} = do
+    putStrIdent n $ "Call function " ++ symbol ++ " with arguments" ++ " (" ++ show (getType expr) ++ ")"
     mapM_ (prettyPrintExpression (n+1)) exprs
-prettyPrintExpression n Expression{getExpr = (BinOp op e0 e1)} = do
-    putStrIdent n $ show op
+prettyPrintExpression n expr@Expression{getExpr = (BinOp op e0 e1)} = do
+    putStrIdent n $ show op ++ " (" ++ show (getType expr) ++ ")"
     prettyPrintExpression (n+1) e0
     prettyPrintExpression (n+1) e1
-prettyPrintExpression n Expression{getExpr = (UnOp op e)} = do
-    putStrIdent n $ show op
+prettyPrintExpression n expr@Expression{getExpr = (UnOp op e)} = do
+    putStrIdent n $ show op ++ " (" ++ show (getType expr) ++ ")"
     prettyPrintExpression (n+1) e
-prettyPrintExpression n Expression{getExpr = (AccesField e symbol)} = do
-    putStrIdent n $ "Field " ++ symbol ++ " of"
+prettyPrintExpression n expr@Expression{getExpr = (AccesField e symbol)} = do
+    putStrIdent n $ "Field " ++ symbol ++ " of" ++ " (" ++ show (getType expr) ++ ")"
     prettyPrintExpression (n+1) e
-prettyPrintExpression n Expression{getExpr = (ActiveField e symbol)} = do
-    putStrIdent n $ "Check active field " ++ symbol ++ " of union"
+prettyPrintExpression n expr@Expression{getExpr = (ActiveField e symbol)} = do
+    putStrIdent n $ "Check active field " ++ symbol ++ " of union" ++ " (" ++ show (getType expr) ++ ")"
     prettyPrintExpression (n+1) e
-prettyPrintExpression n Expression{getExpr = (AccesIndex e es)} = do
-    putStrIdent n "Index array"
+prettyPrintExpression n expr@Expression{getExpr = (AccesIndex e es)} = do
+    putStrIdent n $ "Index array" ++ " (" ++ show (getType expr) ++ ")"
     prettyPrintExpression (n+1) e
     putStrIdent n "with indices"
     mapM_ (prettyPrintExpression (n+1)) es
-prettyPrintExpression n Expression{getExpr = (TupleIndex e idx)} = do
-    putStrIdent n "Index tuple"
+prettyPrintExpression n expr@Expression{getExpr = (TupleIndex e idx)} = do
+    putStrIdent n $ "Index tuple" ++ " (" ++ show (getType expr) ++ ")"
     prettyPrintExpression (n+1) e
     putStrIdent n $ "with index " ++ show idx
 prettyPrintExpression n Expression{getExpr = (Cast e tp)} = do

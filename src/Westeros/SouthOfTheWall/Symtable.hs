@@ -2,7 +2,7 @@ module Westeros.SouthOfTheWall.Symtable where
 
 import Data.Bifunctor       (second)
 import Data.Foldable        (foldl')
-import Control.Monad.RWS    ( MonadState(put, get), MonadWriter(tell), RWST)
+import Control.Monad.RWS    ( MonadState(put, get), MonadWriter(tell), RWST, liftIO )
 import Data.List            (find)
 import Data.Maybe           (fromJust)
 
@@ -159,13 +159,15 @@ openScope = do
     symT <- get
     let newScope = nextScope symT
         newStack = newScope : scopeStack symT
-    put $ symT { scopeStack = newStack, nextScope = succ newScope }
+        newOffsetStack = 0 : offsetStack symT
+    put $ symT { scopeStack = newStack, nextScope = succ newScope, offsetStack = newOffsetStack }
 
 closeScope :: MonadParser ()
 closeScope = do
     symT <- get
-    let (_:newStack) = scopeStack symT
-    put $ symT { scopeStack = newStack }
+    let newStack        = tail $ scopeStack symT
+        newOffsetStack  = tail $ offsetStack symT
+    put $ symT { scopeStack = newStack, offsetStack = newOffsetStack }
 
 findBest :: [SymbolInfo] -> [Int] -> Maybe SymbolInfo
 findBest _ [] = Nothing
@@ -327,6 +329,9 @@ atom = "_atom"
 tError :: String
 tError = "_type_error"
 
+tErrorInfo :: TypeInfo
+tErrorInfo = TypeInfo { width = 0, align = 1 }
+
 initialTypes :: [Symbol]
 initialTypes = [int, float, char, bool, atom] --array, union, struct, tuple, alias
 
@@ -336,10 +341,11 @@ initialTypesInfo = zipWith TypeInfo initWidths initWidths
     initWidths = [4, 8, 4, 1, 4]
 
 initialST :: SymbolTable
-initialST = foldl' insertST st entries
+initialST = foldl' insertST st (tErrorEntry:entries)
   where
     entries = zip initialTypes infos
     infos = map typesSymbolInfo initialTypesInfo
+    tErrorEntry = (tError, typesSymbolInfo tErrorInfo)
     st = SymbolTable
         { table           = M.empty
         , scopeStack      = [0,1]
@@ -421,7 +427,9 @@ insertId tk ctg tp = do
     mInfo <- lookupST name
 
     case mInfo of
-        Nothing -> put $ insertST symT entry
+        Nothing -> do
+            put $ insertST symT entry
+            setCurrentOffset newOffset
         Just info ->
             if checkNotRepeated info sc
             then do
@@ -431,11 +439,11 @@ insertId tk ctg tp = do
 
 insertParam :: Tk.Token -> Type -> ParameterType -> MonadParser ()
 insertParam tk tp paramType = do
-    
+
     sc <- currentScope
     let name  = Tk.cleanedString tk
         entry = paramEntry name sc tp $ ParameterType paramType
-    
+
     symT  <- get
     mInfo <- lookupST name
     case mInfo of
@@ -466,7 +474,7 @@ insertAlias tk name aliasType tp = do
         case findSymbolInScope symT tp globalScope of
             Nothing -> case findSymbolInScope symT tp pervasiveScope of
                 Nothing -> insertError $ Err.PE (Err.UndefinedType name (Tk.position tk))
-                Just info -> do 
+                Just info -> do
                     let realType = case category info of
                             Alias ->
                                 case getAliasMetaData info of
@@ -484,6 +492,6 @@ insertAlias tk name aliasType tp = do
                         _ -> tp
                 let entry = aliasEntry name aliasType realType
                 put $ insertST symT entry
-                
+
 checkNotRepeated :: SymbolInfo -> Scope -> Bool
 checkNotRepeated symInf sc = scope symInf /= sc && category symInf `notElem` [Function, Alias]
