@@ -37,6 +37,14 @@ instance Show Type where
     show VoidT = "No One"
     show TypeError = "Type error: you should not be seeing this but you probably will"
 
+-- Use to check if recursive types have some leave with a type error.
+notTypeError :: Type -> Bool
+notTypeError (TupleT xs)  = all notTypeError xs
+notTypeError (PointerT e) = notTypeError e
+notTypeError (ArrayT tp _) = notTypeError tp
+notTypeError TypeError    = False
+notTypeError _            = True
+
 checkAssignable :: Type -> Type -> Bool
 checkAssignable PointerT{} NullT = True
 checkAssignable (PointerT lType) (PointerT rType) = checkAssignable lType rType
@@ -71,7 +79,6 @@ isStringType (ArrayT CharT 1) = True
 isStringType (AliasT _ t) = isStringType t
 isStringType _ = False
 
-
 isPointerType :: Type -> Bool
 isPointerType (PointerT _) = True
 isPointerType (AliasT _ t) = isPointerType t
@@ -90,58 +97,6 @@ isPointerToArray _ = False
 isCompositeType :: Type -> Bool
 isCompositeType t = isRecordOrTupleType t || isArrayType t
 
--- This interface will provide type check consistency for their instances.
---
--- The propper way to use it is to implement exhaustive instances for everything in
--- the language susceptible of having a type and then performing type queries when
--- necessary.
-class Typeable a where
-    typeQuery :: a -> ST.MonadParser Type
-
-
-getTypeFromString :: ST.Type -> ST.MonadParser Type
-getTypeFromString base = case base of
-    "_int"     -> return IntT
-    "_float"   -> return FloatT
-    "_char"    -> return CharT
-    "_bool"    -> return BoolT
-    "_atom"    -> return AtomT
-
-    otherType  -> do
-        espType <- ST.lookupST otherType
-
-        case espType of
-
-            Just entry  -> case ST.additional entry of
-
-                Just info -> case info of
-                    ST.AliasMetaData ST.ByName pointedType -> do
-                        pType <- getTypeFromString pointedType
-                        return $ AliasT otherType pType
-                    ST.AliasMetaData ST.ByStructure pointedType -> getTypeFromString pointedType
-                    ST.DopeVector tp dim -> do
-                        arrType <- getTypeFromString tp
-                        return $ ArrayT arrType dim
-                    ST.PointedType tp -> do
-                        ptrType <- getTypeFromString tp
-                        return $ PointerT ptrType
-                    ST.StructScope scope         -> return $ StructT scope
-                    ST.UnionScope  scope         -> return $ UnionT scope
-                    ST.TupleTypes xs             -> do
-                        types <- mapM getTypeFromString xs
-                        return $ TupleT types
-
-                    _                            -> return TypeError
-
-                Nothing -> return TypeError
-
-            Nothing -> return TypeError
-
-
--- ^ Use to check if recursive types have some leave with a type error.
-notTypeError :: Type -> Bool
-notTypeError (TupleT xs)  = all notTypeError xs
-notTypeError (PointerT e) = notTypeError e
-notTypeError (ArrayT tp _) = notTypeError tp
-notTypeError TypeError    = False
-notTypeError _            = True
+isCasteable :: Type -> Type -> Bool
+isCasteable source dest = source `elem` simpleType && dest `elem` simpleType
+    where simpleType = [IntT, BoolT, CharT, FloatT]

@@ -34,7 +34,8 @@ library
       Westeros.SouthOfTheWall.PrettyPrint
       Westeros.SouthOfTheWall.Symtable
       Westeros.SouthOfTheWall.Tokens
-      Westeros.SouthOfTheWall.TypeVer
+      Westeros.SouthOfTheWall.TypeChecking
+      Westeros.SouthOfTheWall.Types
   other-modules:
       Paths_acif
   hs-source-dirs:

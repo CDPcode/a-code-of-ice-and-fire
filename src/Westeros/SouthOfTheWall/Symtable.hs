@@ -126,7 +126,7 @@ filterByScopeDictionary dict referenceScope = M.fromList $ filter (not . null . 
     filterEntries = filter (\symInfo -> scope symInfo == referenceScope)
     defEntries = map (second filterEntries) $ M.toList dict
 
-filterByScopeST :: SymbolTable -> Int -> Dictionary
+filterByScopeST :: SymbolTable -> Scope -> Dictionary
 filterByScopeST = filterByScopeDictionary . table
 
 
