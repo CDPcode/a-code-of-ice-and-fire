@@ -221,7 +221,7 @@
 
 --- 
 
-# Templates
+# Syntax reference
 
 ## Program
 
@@ -238,12 +238,11 @@ Table of Contents:
 
 Prologue
     Valar Morghules.
-        <code>
     Valar Dohaeres.
 
 Epilogue
     Valar Morghules.
-        <code>
+        <foo_1>
     Valar Dohaeres.
 
 <foo_1>
