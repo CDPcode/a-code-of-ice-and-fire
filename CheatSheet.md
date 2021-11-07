@@ -231,25 +231,20 @@ The phrase "No One" can appear in function invocation, instead of function argum
 A Song of Ice and Fire: -- <título> --
 Table of Contents:
 - Prologue
-- <foo_1> <#_args_1>
+- <Foo_1> <#_args_1+1>
 ...
-- <foo_n> <#_args_n>
+- <Foo_n> <#_args_n+1>
 - Epilogue
 
 Prologue
-    Valar Morghules.
-    Valar Dohaeres.
+    Valar Morghulis.
+    Valar Dohaeris.
 
-Epilogue
-    Valar Morghules.
-        <foo_1>
-    Valar Dohaeres.
-
-<foo_1>
+<Foo_1>
     watches
-        <Valued|Honorable> <id_1> <type_1>,
+        <Valued|Honorable> <Id_1> of House <type_1>,
         ...
-        <Valued|Honorable> <id_1> <type_n>
+        <Valued|Honorable> <Id_1> of House <type_n>
         |
         No one
     approach from a distance;
@@ -260,40 +255,44 @@ Epilogue
         |
         No one
     is coming.
-Valar Morghules.
+Valar Morghulis.
     <code>
-    IGNORAR RETORNO INVOCACION: No One fights against <invocación> 
+    IGNORAR RETORNO INVOCACION: No One fight against <invocación> 
     Dracarys [<val_1>, ... <val_n>]!
-Valar Dohaeres.
+Valar Dohaeris.
 
 ..
 
+Epilogue
+    Valar Morghulis.
+        <foo_1>
+    Valar Dohaeris.
 
 Appendix:
-* House <alias_id_1> are the dogs of <alias_type_1>
-* ..
-* House <alias_id_n> are the dogs of <alias_type_n>
+House <alias_id_1> are the dogs of <alias_type_1>
+..
+House <alias_id_n> are the dogs of <alias_type_n>
 ```
 
 ## Functions
 
 This:
 ```
-<foo_1>
+<Foo_1>
     watches
-        <Valued|Honorable> <id_1> <type_1>,
+        <Valued|Honorable> <Id_1> of House <type_1>,
         ...
-        <Valued|Honorable> <id_1> <type_n>
+        <Valued|Honorable> <Id_1> of House <type_n>
     approach from a distance;
     I must warn you,
         <ret_type_1>,
         ...
         <ret_type_m>
     is coming.
-Valar Morghules.
+Valar Morghulis.
     <code>
     Dracarys [<val_1>, ... <val_n>]!
-Valar Dohaeres.
+Valar Dohaeris.
 
 
 ```
@@ -319,7 +318,7 @@ id = foo_id(arg_1,..,arg_n);
 And this
 
 ```
-No One fights against <foo_id> traveling alongside <arg_1>, ... <arg_n> with caution 
+No One fight against <foo_id> traveling alongside <arg_1>, ... <arg_n> with caution 
 ```
 Equals to this c function call:
 ```
