@@ -1,4 +1,4 @@
-# ACIF-Cheactsheet
+# ACIF-Cheatsheet
 
 ## Type declaration
 | meaning | acif name |

@@ -1,0 +1,35 @@
+#!/bin/bash
+
+if [ $# -ne 1 ]; then
+    echo -e "Invalid invocation. Use :\n\t ./run-tests [lexer|preparser|parser]";
+    exit -1; 
+fi
+
+case $1 in
+    "lexer")
+    echo "Correct: "
+    find ./lexer/correct -name "*.got" -exec ./test-acif lex '{}' ';';
+    echo "Fail: "
+    find ./lexer/fail -name "*.got" -exec ./test-acif lex '{}' ';';
+    ;;
+    "preparser")
+    echo "Correct: "
+    find ./preparser/correct -name "*.got" -exec ./test-acif preparse '{}' ';';
+    echo "Fail: "
+    find ./preparser/fail -name "*.got" -exec ./test-acif preparse '{}' ';';
+    ;;
+    "parser")
+    echo "Correct: "
+    find ./parser/correct -name "*.got" -exec ./test-acif parse '{}' ';';
+    echo "Fail: "
+    find ./parser/fail -name "*.got" -exec ./test-acif parse '{}' ';';
+    ;;
+    "typesys")
+    echo "Not implemented";
+    exit -1; 
+    ;;
+    *)
+    echo "Invalid type of test. Types of tests are: lexer, preparesr and parser"; 
+    exit -1;
+    ;;
+esac
