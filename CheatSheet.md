@@ -249,9 +249,9 @@ Prologue
         No one
     approach from a distance;
     I must warn you,
-        <ret_type_1>,
+        <Ret_type_1>,
         ...
-        <ret_type_m>
+        <Ret_type_m>
         |
         No one
     is coming.
@@ -269,9 +269,9 @@ Epilogue
     Valar Dohaeris.
 
 Appendix:
-House <alias_id_1> are the dogs of <alias_type_1>
+House <alias_Id_1> are the dogs of <alias_type_1>
 ..
-House <alias_id_n> are the dogs of <alias_type_n>
+House <alias_Id_n> are the dogs of <alias_type_n>
 ```
 
 ## Functions
@@ -285,9 +285,9 @@ This:
         <Valued|Honorable> <Id_1> of House <type_n>
     approach from a distance;
     I must warn you,
-        <ret_type_1>,
+        <Ret_type_1>,
         ...
-        <ret_type_m>
+        <Ret_type_m>
     is coming.
 Valar Morghulis.
     <code>
@@ -308,21 +308,21 @@ Equals to this pseudo c code:
 
 This:
 ```
-<id> takes <foo_id> traveling alongside <arg_1>, ... <arg_n> with caution    
+<Id> takes <foo_Id> traveling alongsIde <arg_1>, ... <arg_n> with caution    
 ```
 Equals this c function call:
 ```
-id = foo_id(arg_1,..,arg_n);
+Id = foo_Id(arg_1,..,arg_n);
 ```
 
 And this
 
 ```
-No One fight against <foo_id> traveling alongside <arg_1>, ... <arg_n> with caution 
+No One fight against <foo_Id> traveling alongsIde <arg_1>, ... <arg_n> with caution 
 ```
 Equals to this c function call:
 ```
-foo_id(arg_1,..,arg_n);
+foo_Id(arg_1,..,arg_n);
 ```
 
 
@@ -331,25 +331,25 @@ foo_id(arg_1,..,arg_n);
 
 ### Simple type
 ```
-Knight <id> of House <tipo> hosts a feast for <value>.
+Knight <Id> of House <tipo> hosts a feast for <value>.
 ```
 
 ### Composite type
 Impossible for composite types without literals: structs, unions
 ```
-Former Knight <id> now <tipo> hosts a feast for <value>.
+Former Knight <Id> now <tipo> hosts a feast for <value>.
 ```
 
 ## Variable Declaration
 
 ### Simple type
 ```
-<Lord|Lady> <id> of House <tipo>.
+<Lord|Lady> <Id> of House <tipo>.
 ```
 ### Composite type
 ```
-Former <Lord|Lady> <id> now <tipo>.
-Former Wildling <id> now <tipo>.
+Former <Lord|Lady> <Id> now <tipo>.
+Former Wildling <Id> now <tipo>.
 ```
 
 ## Arrays
@@ -358,7 +358,7 @@ Former Wildling <id> now <tipo>.
 
 This
 ```
-Lord Commander of <n_dimentions> <type> bannermen.
+Former <Lord|Lady> <Id> now Lord Commander of <n_dimentions> <type> bannermen.
 
 Lord Commander of <dimentions> <type> bannermen leading <tam_dim_1>,..,<tam_dim_n> to their deaths.
 ```
@@ -405,12 +405,12 @@ array_name[index_1]..[index_n];
 ### Declaration
 This:
 ```
-Former <Lord|Lady> <id> now Hand of the king leading <size> soldiers to their death
+Former <Lord|Lady> <Id> now Hand of the king leading <size> soldiers to their death
 ```
 
 Equals this c array declaration:
 ```
-char <id>[<size>];
+char <Id>[<size>];
 ```
 
 ### Literal
@@ -425,7 +425,7 @@ There are no literals.
 ### Declaration
 This:
 ```
-Former <Lord|Lady> <id> now King to whom
+Former <Lord|Lady> <Id> now King to whom
     <decl_1>,
     ...
     <decl_n>
@@ -433,7 +433,7 @@ have bent their knees
 ```
 Equals this c struct declaration:
 ```
-struct <id> { 
+struct <Id> { 
         <decl_1>;
         ...
         <decl_n>;
@@ -443,11 +443,11 @@ struct <id> {
 ### Field access
 This:
 ```
-<field_id> subject of <struct_id>
+<field_Id> subject of <struct_Id>
 ```
 equals this c struct field reference:
 ```
-<struct_id>.<field_id>;
+<struct_Id>.<field_Id>;
 ```
 
 ## Unions
@@ -458,19 +458,19 @@ This has no literals.
 
 This
 ```
-Former <Lord|Lady> <id> now Faceless Man who stole <decl_1>, ...  <decl_n> their faces.
+Former <Lord|Lady> <Id> now Faceless Man who stole <decl_1>, ...  <decl_n> their faces.
 ```
 Approximates to this Haskell data declaration:
 ```
-data <id> = <decl_1> | .. | <decl_n> 
+data <Id> = <decl_1> | .. | <decl_n> 
 ```
 
 ### Field access
 
 This
 ```
-<union> acting as <id>
-<union> looking in the mirror at <id>
+<union> acting as <Id>
+<union> looking in the mirror at <Id>
 ```
 Represents an approximation to Haskell pattern matching and a query of the current struct field respectively.
 
@@ -502,7 +502,7 @@ Represents this haskell tuple literal
 ### Indexing
 
 ```
-Wight <index> under command of <tuple_id>
+Wight <index> under command of <tuple_Id>
 ```
 
 ## Pointers
@@ -510,42 +510,42 @@ Wight <index> under command of <tuple_id>
 ### Declaration
 This:
 ```
-Former Wildling <id> now Spearwife of <type>
+Former Wildling <Id> now Spearwife of <type>
 ```
 Equals to this c pointer declaration:
 ```
-<type> *<id>; 
+<type> *<Id>; 
 ```
 
 ### Dereference
 This
 ```
-Spouse of <pointer_id>
+Spouse of <pointer_Id>
 ```
 Equals to this c statement:
 ```
-*<pointer_id>
+*<pointer_Id>
 ```
 
 ### Memory allocation
 This:
 ```
-<pointer_id> marries.
+<pointer_Id> marries.
 ```
 Equals this c malloc:
 ```
-<pointer_id> = (pointer_id_type) malloc(sizeof(pointer_id_type)) ; 
+<pointer_Id> = (pointer_Id_type) malloc(sizeof(pointer_Id_type)) ; 
 ```
 
 ### Memory deallocation
 
 This:
 ```
-<pointer_id> becomes widowed.
+<pointer_Id> becomes wIdowed.
 ```
 Equals this c deallocation:
 ```
-free(<pointer_id>)
+free(<pointer_Id>)
 ```
 
 ### Literals
@@ -557,21 +557,21 @@ free(<pointer_id>)
 ### Weak Declaration
 This
 ```
-House <id> are the dogs of <type>.
+House <Id> are the dogs of <type>.
 ```
 Equals this type synonim of haskell:
 ```
-type <id> = <type>
+type <Id> = <type>
 ```
 
 ### Strong Declaration
 This:
 ```
-House <id> comes from the old lineage of <type>
+House <Id> comes from the old lineage of <type>
 ```
 Equals this newtype declaration in Haskell:
 ```
-newtype <id> = <type> 
+newtype <Id> = <type> 
 ```
 
 ### Casting
@@ -584,7 +584,7 @@ Equals this c statement:
 ```
 (<type>) <value>;
 ```
-And is only allow between:
+And is only allowed between:
 * Values with primitive types and primitive types
 * Values whose type is equivalent to a strong alias given as a type. 
 
@@ -667,7 +667,7 @@ case <expr> of
 ### Determinate repetition
 This
 ```
-The things I do for <id> of House Lanninteger.
+The things I do for <Id> of House Lanninteger.
 I would kill from <initial> up to <final>.
     What is dead, may never die.
     This is the Doom of Valyria.
@@ -676,7 +676,7 @@ That, and much more I would to get her love.
 ```
 Equals this c code:
 ```
-for <id> = <initial> ; <id> < <final> ; <id>++) { 
+for <Id> = <initial> ; <Id> < <final> ; <Id>++) { 
     continue;
     break;
     <code>

@@ -1,28 +1,146 @@
 A Song of Ice and Fire: -- Template --
 Table of Contents:
 - Prologue
-- Foo II 
+- Simpletypealiases VII
+- Compoundtypealiases I
 - Epilogue
 
 Prologue
 Valar Morghulis.
 Valar Dohaeris.
 
-Foo
+Simpletypealiases
     watches
-        Valued Id of House Lanninteger
+        Valued Ida of House Lanninteger,
+        Valued Idb of House Freyt,
+        Valued Idc of House Boolton,
+        Valued Idd of House Starkhar,
+        Valued Ide of House Barathom,
+        Valued Idf of House Newint
     approach from a distance;
     I must warn you,
-        Lanninteger
+        Aliasint,
+        Aliasaliasfloat,
+        Aliasbool, 
+        Aliaschar,
+        Aliasatom,
+        Newint
     is coming.
 Valar Morghulis.
-    Dracarys id joined by 69 soldiers!
+    Therefore >> Reta := 1 + (Ida is 2) - 3 * 4 / (-5) % 6 is 0 <<.
+    Lord Reta of House Aliasint takes 1 soldiers 
+                                      joined by Ida 
+                                      left by 3 soldiers 
+                                      combined forces with 4 soldiers 
+                                      cut into pieces by 5 soldiers turncloak
+                                      stripped of his dignity by 6 soldiers.
+
+    Therefore >> Retb := (int) 1p0 + (Idb is 2p0) - 3p0 * 4p0 / (-5p0) % 6p0 is 0 <<. 
+    Lady Retb of House Aliasfloat takes 69.0 descendants 
+                                        joined by Idb
+                                        left by 3.0 descendants
+                                        combined forces with 4.0 descendants
+                                        cut into pieces by 5.0 descendants turncloak
+                                        stripped of his dignity by 6.0 descendants. 
+                                        
+    Therefore >> Retc := Idc or Reta = 0 and Retb != 1p0 and 69 > 42 is true << . 
+    Lord Retc of House Aliasbool takes Idc 
+                                       or Reta similar to 0 soldiers
+                                       and Retb different from 1.0 descendants
+                                       and 69 soldiers defeating 42 soldiers.
+    
+    Therefore >> Casta = (int) 44p0 ; << .
+    Lord Casta of House Aliasint takes 44.0 descendants adopted by House Lanninteger.
+
+    Dracarys Reta, Retb, Retc, Idd, Ide, 5 soldiers adopted by House Newint! 
+Valar Dohaeris.
+
+Compoundtypealiases 
+    watches
+        No One
+    approach from a distance;
+    I must warn you,
+        No One
+    is coming.
+Valar Morghulis.
 Valar Dohaeris.
 
 Epilogue
 Valar Morghulis.
-       No One fight against Foo traveling alongside 69 soldiers with caution.
+    Lord Reca of House Lanninteger.
+    Lord Recb of House Freyt.
+    Lord Recc of House Boolton.
+    Lord Recd of House Starkhar.
+    Lord Rece of House Barathom.
+    Lord Recf of House Newint.
+
+    Therefore >> Check multiple assignment for type and alias of that type << .
+    Reca, Recb, Recc, Recd, Rece, Recf fight against 
+        Simpletypealiases traveling alongside 2 soldiers
+                                              , 2.0 descendants
+                                              , Usurper
+                                              , Hodor 'a'
+                                              , someatom 
+                                              , 42 soldiers adopted by House Newint
+                                              with caution.
 Valar Dohaeris.
 
 Appendix:
-House Aliasid are the dogs of Freyt.
+House Aliasint are the dogs of Lanninteger.
+House Aliasfloat are the dogs of Freyt.
+House Aliasaliasfloat are the dogs of Aliasfloat.
+House Aliasbool are the dogs of Boolton.
+House Aliaschar are the dogs of Starkhar.
+House Aliasatom are the dogs of Barathom.
+House Newint comes from the old lineage of Lanninteger.
+
+
+House Aliasstring are the dogs of Hand of the King .
+House Aliasarraysimple are the dogs of Lord Commander of 4 Lanninteger bannermen.
+House Aliasstructsimple are the dogs of King to whom
+    Lord Aa of House Lanninteger,
+    Lady Bb of House Freyt,
+    Lord Cb of House Starkhar,
+    Lady Dd of House Boolton,
+    Lord Ee of House Barathom,
+    Lady Ff of House Newint
+have bent their knees. 
+House Aliasunionsimple are the dogs of Faceless Man who stole
+    Lord Aa of House Lanninteger,
+    Lady Bb of House Freyt,
+    Lord Cb of House Starkhar,
+    Lady Dd of House Boolton,
+    Lord Ee of House Barathom,
+    Lady Ff of House Newint
+their faces.
+House Aliastuplesimple are the dogs of White Walker possesing
+    Lanninteger,
+    Freyt,
+    Starkhar,
+    Boolton,
+    Barathom,
+    Newint
+wights.
+House Aliaspointersimple are the dogs of Spearwife of Lanninteger.
+House Aliasarraycompose are the dogs of Lord Commander of 4 Aliasstructsimple bannermen.
+House Aliasstructcompose are the dogs of King to whom
+    Former Lord Aa now Aliasarraysimple, 
+    Former Lord Bb now Aliasstring,
+    Former Lord Cc now Aliasstructsimple,
+    Former Lady Dd now Aliasunionsimple,
+    Former Lord Ee now Aliastuplesimple
+have bent their knees. 
+House Aliasunioncompose are the dogs of Faceless Man who stole
+    Former Lord Aa now Aliasarraysimple, 
+    Former Lord Bb now Aliasstring,
+    Former Lord Cc now Aliasstructsimple,
+    Former Lady Dd now Aliasunionsimple,
+    Former Lord Ee now Aliastuplesimple
+their faces.
+House Aliastuplecompose are the dogs of White Walker possesing
+    Aliasarraysimple,
+    Aliasstructsimple,
+    Aliasunionsimple,
+    Aliastuplesimple
+wights.
+House Aliaspointercompose are the dogs of Spearwife of Aliastuplesimple.
