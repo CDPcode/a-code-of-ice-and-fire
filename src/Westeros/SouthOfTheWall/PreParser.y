@@ -1,11 +1,12 @@
 {
 module Westeros.SouthOfTheWall.PreParser (preParse) where
 
-import qualified Westeros.SouthOfTheWall.AST        as AST
-import qualified Westeros.SouthOfTheWall.Error      as Err
-import qualified Westeros.SouthOfTheWall.Symtable   as ST
-import qualified Westeros.SouthOfTheWall.Tokens     as Tk
-import qualified Westeros.SouthOfTheWall.TypeVer    as T
+import qualified Westeros.SouthOfTheWall.AST            as AST
+import qualified Westeros.SouthOfTheWall.Error          as Err
+import qualified Westeros.SouthOfTheWall.Symtable       as ST
+import qualified Westeros.SouthOfTheWall.Tokens         as Tk
+import qualified Westeros.SouthOfTheWall.Types          as T
+import qualified Westeros.SouthOfTheWall.TypeChecking   as Tc
 
 import Control.Monad.RWS
 import Data.List (find)
@@ -17,15 +18,12 @@ import Data.Maybe (fromJust)
 %monad                { ST.MonadParser }
 %tokentype            { Tk.Token }
 %error                { parseError }
--- TODO: %monad expr to properly handle errors
 
 -- Token aliases definitions
 %token
 
-     -- Program
 programStart    { Tk.Token { Tk.aToken=Tk.TknProgramStart } }
 programName     { Tk.Token { Tk.aToken=Tk.TknProgramName } }
-
 var             { Tk.Token { Tk.aToken=Tk.TknVar } }
 const           { Tk.Token { Tk.aToken=Tk.TknConst } }
 pointerVar      { Tk.Token { Tk.aToken=Tk.TknVarPointer } }
@@ -162,8 +160,6 @@ comment         { Tk.Token { Tk.aToken=Tk.TknComment }  }
 
 %% -- Grammar
 
--- Program
-
 -- A program is :
 -- a header
 -- a table of contents
@@ -191,13 +187,15 @@ FUNCTION_DECLARATIONS :: {}
 FUNCTION_NAMES :: { () }
     : {- empty -}                                                                   { () }
     | FUNCTION_NAMES item id paramNumber                                            {% do
-                                                                                        symT <- get
                                                                                         let name  = Tk.cleanedString $3
                                                                                             params = read $ Tk.cleanedString $4
                                                                                         function <- ST.lookupFunction name params
                                                                                         case function of
-                                                                                            Nothing    -> put $ ST.insertST symT $ ST.functionDecEntry name params
-                                                                                            Just entry -> ST.insertError $ Err.PE (Err.FRepeatedDeclarations name (Tk.position $3))
+                                                                                            Nothing -> do
+                                                                                                symT <- get
+                                                                                                put $ ST.insertST symT $ ST.functionDecEntry name params
+                                                                                            Just entry -> 
+                                                                                                ST.insertError $ Err.PE (Err.FRepeatedDeclarations name (Tk.position $3))
                                                                                     }
 
 
@@ -215,13 +213,16 @@ ALIAS_DECLARATIONS :: {}
     | ALIAS_DECLARATIONS ALIAS_DECLARATION                                          {}
 
 -- Subrutines --
-
+ 
 FUNCTIONS :: {}
     : {- empty -}                                                                   {}
     | FUNCTIONS FUNCTION                                                            {}
 
-FUNCTION :: { () }
-    : id FUNCTION_PARAMETERS FUNCTION_RETURN FUNCTION_BODY                          {% do
+FUNCTION :: {} 
+    : FUNCTION_DEF FUNCTION_BODY                                                    {}
+
+FUNCTION_DEF :: { () }
+    : id FUNCTION_PARAMETERS FUNCTION_RETURN                                        {% do
                                                                                         symT <- get
                                                                                         let functionId = Tk.cleanedString $1
                                                                                             nParams = length $2
@@ -229,7 +230,9 @@ FUNCTION :: { () }
                                                                                             decEntry <- ST.findFunctionDec functionId nParams
                                                                                             case decEntry of
                                                                                                 Left entry -> do
-                                                                                                    newEntry <- ST.updateFunctionInfo entry $2 $3
+                                                                                                    let params     = fst $ unzip $2
+                                                                                                        paramTypes = snd $ unzip $2
+                                                                                                    newEntry <- ST.updateFunctionInfo entry param paramTypes $3
                                                                                                     put $  ST.searchAndReplaceSymbol symT (functionId, entry) newEntry
                                                                                                 Right defined -> do
                                                                                                     if defined
@@ -238,19 +241,19 @@ FUNCTION :: { () }
                                                                                         else ST.insertError $ Err.PE (Err.FDefinitionWithoutDeclaration functionId (Tk.position $1))
                                                                                     }
 
-FUNCTION_PARAMETERS :: { [ST.Symbol] }
+FUNCTION_PARAMETERS :: { [(ST.Symbol, ST.Type)] }
     : beginFuncParams PARAMETER_LIST endFuncParams                                  { reverse $2 }
 
-PARAMETER_LIST :: { [ST.Symbol] }
+PARAMETER_LIST :: { [(ST.Symbol, ST.Type)] }
     : void                                                                          { [] }
     | PARAMETERS                                                                    { $1 }
 
-PARAMETERS :: { [ST.Symbol]}
+PARAMETERS :: { [(ST.Symbol, ST.Type)] }
     : PARAMETER                                                                     { [$1] }
-    | PARAMETERS ',' PARAMETER                                                      { $3 : $1 }
+    | PARAMETERS ',' PARAMETER                                                      { $3 : $1}
 
-PARAMETER :: { ST.Symbol }
-    : PARAMETER_TYPE id type TYPE                                                   { Tk.cleanedString $2 }
+PARAMETER :: { (ST.Symbol, ST.Type) }
+    : PARAMETER_TYPE id type TYPE                                                   { (Tk.cleanedString $2, $4) }
 
 PARAMETER_TYPE :: { ST.ParameterType }
     : valueParam                                                                    { ST.Value }

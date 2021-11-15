@@ -14,39 +14,8 @@ import qualified Westeros.SouthOfTheWall.AST as AST
 
 import Data.List (findIndex)
 import Data.Maybe (fromJust)
-
-getTypeFromString :: ST.Type -> ST.MonadParser Type
-getTypeFromString base = case base of
-    "_int"     -> return IntT
-    "_float"   -> return FloatT
-    "_char"    -> return CharT
-    "_bool"    -> return BoolT
-    "_atom"    -> return AtomT
-
-    otherType  -> do
-        espType <- ST.lookupST otherType
-        case espType of
-            Just entry  -> case ST.additional entry of
-                Just info -> case info of
-                    ST.AliasMetaData ST.ByName pointedType -> do
-                        pType <- getTypeFromString pointedType
-                        return $ AliasT otherType pType
-                    ST.AliasMetaData ST.ByStructure pointedType -> getTypeFromString pointedType
-                    ST.DopeVector tp dim -> do
-                        arrType <- getTypeFromString tp
-                        return $ ArrayT arrType dim
-                    ST.PointedType tp -> do
-                        ptrType <- getTypeFromString tp
-                        return $ PointerT ptrType
-                    ST.StructScope scope         -> return $ StructT scope
-                    ST.UnionScope  scope         -> return $ UnionT scope
-                    ST.TupleTypes xs             -> do
-                        types <- mapM getTypeFromString xs
-                        return $ TupleT types
-
-                    _                            -> return TypeError
-                Nothing -> return TypeError
-            Nothing -> return TypeError
+import Data.ByteString.Lazy (length)
+import qualified Westeros.SouthOfTheWall.TypeVer as T
 
 -- This interface will provide type check consistency for their instances.
 --
@@ -69,10 +38,11 @@ instance Typeable Expr where
     typeQuery NullLit       = return T.NullT
 
     -- Literal Arrays
+    -- TODO: Think about empty literal arrays ?
+    -- Build several dimentions this is so fucked up
     typeQuery (ArrayLit []) = error "Empty literal array not supported"
-
     typeQuery (ArrayLit array) = do
-        types <- mapM (typeQuery . getExpr) array
+        types <- mapM AST.getType array
         let arrType = head types
         if all T.notTypeError types
             then if foldl' (\acc b -> arrType == b && acc ) True types
@@ -103,14 +73,15 @@ instance Typeable Expr where
                 case ST.additional function of
                     Just (ST.FunctionMetaData info) -> do
                         let params = ST.parameters info
-                        paramTypes <- mapM getTypeFromString params
-                        
+                        paramTypes <- mapM T.getTypeFromString params
+
                         let cond1 = all T.notTypeError paramTypes
                             cond2 = and $ zipWith (==) paramTypes types
                         if cond1 && cond2 then do
+                            -- TODO replace this with return types
                             let functionType = ST.symbolType function
                             case functionType of
-                                Just typeName -> getTypeFromString typeName
+                                Just typeName -> T.getTypeFromString typeName
                                 Nothing -> return T.VoidT
                         else return T.TypeError
                     Nothing -> do
@@ -232,23 +203,26 @@ instance Typeable Expr where
                 ST.insertError $ Err.TE err
                 return T.TypeError
 
+    -- TODO: support for partial indexation 
     typeQuery (AccesIndex arr inds)  = do
 
         arrType  <- typeQuery (getExpr arr)
         indTypes <- mapM (typeQuery . getExpr) inds
         let cond1 = T.notTypeError arrType
             cond2 = all T.notTypeError indTypes
-            cond3 = foldl' (\acc b -> T.IntT == b && acc ) True indTypes
+            cond3 = all (== T.IntT) indTypes
         if cond1 && cond2
             then if cond3
                 then case arrType of
                     T.ArrayT tp dim -> do
                         if length inds == dim
                             then return tp
-                            else do
-                                let pos = Tk.position $ getToken arr
-                                ST.insertError $ Err.TE $ Err.DimMissmatch (show dim) (show $ length inds) pos
-                                return T.TypeError
+                            else if length inds < dim
+                                then return $ T.ArrayT tp (dim - length inds)
+                                else do
+                                    let pos = Tk.position $ getToken arr
+                                    ST.insertError $ Err.TE $ Err.DimMissmatch (show dim) (show $ length inds) pos
+                                    return T.TypeError
                     _ -> do
                             let errorTp = show arrType
                                 pos = Tk.position $ getToken arr
@@ -265,7 +239,7 @@ instance Typeable Expr where
                     return T.TypeError
             else return T.TypeError
 
-    -- check if ind is in the range
+    -- TODO: check if ind is in the range
     typeQuery (TupleIndex tupleExpr ind) = do
         tupleType <- typeQuery (getExpr tupleExpr)
         if T.notTypeError tupleType then
@@ -348,7 +322,8 @@ buildAndCheckExpr tk expr = do
 
 checkPrimitiveType :: Expression -> ST.MonadParser ()
 checkPrimitiveType expr = do
-    if T.isPrimitiveType $ getType expr
+    let tp = getType expr
+    if T.isPrimitiveType tp or T.isPrimitiveAlias tp
         then return()
         else ST.insertError $ Err.TE (Err.UnexpectedType (show $ getType expr) $ Tk.position $ getToken expr )
 
@@ -388,6 +363,12 @@ checkIntegerType expr = do
 checkPointerToArrayType :: Expression -> ST.MonadParser ()
 checkPointerToArrayType expr = do
     if T.isPointerToArray $ getType expr
+        then return()
+        else ST.insertError $ Err.TE (Err.UnexpectedType (show $ getType expr) $ Tk.position $ getToken expr)
+
+checkPointerToRecordOrTupleType :: Expression -> ST.MonadParser ()
+checkPointerToRecordOrTupleType expr = do
+    if T.isPointerToRecordOrTuple $ getType expr
         then return()
         else ST.insertError $ Err.TE (Err.UnexpectedType (show $ getType expr) $ Tk.position $ getToken expr)
 

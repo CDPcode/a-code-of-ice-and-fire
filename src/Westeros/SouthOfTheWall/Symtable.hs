@@ -72,16 +72,19 @@ data AdditionalInfo
 data FunctionInfo = FunctionInfo
     { numberOfParams    :: Int
     , parameters        :: [Symbol]
+    , paramTypes        :: [Type]
     , returnTypes       :: [Type]
     , defined           :: Bool
     } deriving (Show, Eq)
 
 data SymbolTable = SymbolTable
-    { table         :: Dictionary
-    , scopeStack    :: [Scope]
-    , nextScope     :: Scope
-    , offsetStack   :: [Offset]
-    , nextSymAlias  :: SymAlias
+    { table           :: Dictionary
+    , scopeStack      :: [Scope]
+    , nextScope       :: Scope
+    , openLoops       :: Int
+    , currentFunction :: (Symbol, Int)
+    , offsetStack     :: [Offset]
+    , nextSymAlias    :: SymAlias
     }
 
 
@@ -169,6 +172,24 @@ closeScope = do
         newOffsetStack  = tail $ offsetStack symT
     put $ symT { scopeStack = newStack, offsetStack = newOffsetStack }
 
+openLoop :: MonadParser ()
+openLoop = do
+    symT <- get
+    let count = openLoops symT
+    put $ symT { openLoops = succ count }
+
+closeLoop :: MonadParser ()
+closeLoop = do
+    symT <- get
+    let count = openLoops symT
+    put $ symT { openLoops = pred count }
+
+openFunction :: Symbol -> Int -> MonadParser ()
+openFunction sym params = do
+    symT <- get
+    put $ symT { currentFunction = (sym, params) }
+
+
 findBest :: [SymbolInfo] -> [Int] -> Maybe SymbolInfo
 findBest _ [] = Nothing
 findBest entries (s:ss) = case filter (\e -> scope e == s) entries of
@@ -208,12 +229,13 @@ findFunctionDec sym params = do
                 then return $ Left entry
                 else return $ Right True
 
-updateFunctionInfo :: SymbolInfo -> [Type] -> [Type] -> MonadParser SymbolInfo
-updateFunctionInfo info params returns = do
+updateFunctionInfo :: SymbolInfo -> [Symbol] -> [Type] -> [Type] -> MonadParser SymbolInfo
+updateFunctionInfo info params ptypes returns = do
     let oldMetadata = getFunctionMetaData info
         newAdditional = Just $ FunctionMetaData oldMetadata {
             numberOfParams = length params,
             parameters = params,
+            paramTypes = ptypes,
             returnTypes = returns,
             defined = True
         }
@@ -233,10 +255,20 @@ currentScope = do
     SymbolTable { scopeStack = (s:_) } <- get
     return s
 
+currentOpenLoops :: MonadParser Int
+currentOpenLoops = do
+    SymbolTable { openLoops = count } <- get
+    return count
+
 currentOffset :: MonadParser Int
 currentOffset = do
     SymbolTable { offsetStack = (o:_) } <- get
     return o
+
+currentOpenFunction :: MonadParser (Symbol, Int)
+currentOpenFunction = do 
+    SymbolTable { openFunction = (s, p) } <- get
+    return (s, p)
 
 setCurrentOffset :: Offset -> MonadParser ()
 setCurrentOffset newOffset = do
@@ -350,8 +382,10 @@ initialST = foldl' insertST st (tErrorEntry:entries)
         { table           = M.empty
         , scopeStack      = [0,1]
         , nextScope       = 2
+        , openLoops       = 0
         , offsetStack     = [0]
         , nextSymAlias    = 0
+        , currentFunction = ("", 0)
         }
 
 typesSymbolInfo :: TypeInfo -> SymbolInfo
@@ -406,6 +440,7 @@ functionDecEntry name params =
             FunctionInfo {
                 numberOfParams = params,
                 parameters =  [],
+                paramTypes = [],
                 returnTypes = [],
                 defined = False
             })

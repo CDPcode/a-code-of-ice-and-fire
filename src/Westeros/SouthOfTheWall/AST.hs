@@ -107,8 +107,8 @@ isFunctionCall :: Expression -> Bool
 isFunctionCall = isFunctionCall' . getExpr
 
 isFunctionCall' :: Expr -> Bool
-isFunctionCall' FuncCall{}  = True
-isFunctionCall' _           = False
+isFunctionCall' FuncCall _ _  = True
+isFunctionCall' _             = False
 
 -- Pretty print AST
 putStrIdent :: Int -> String -> IO ()
@@ -124,7 +124,7 @@ putStrIdent n str = do
 
 prettyPrintProgram :: Program -> IO ()
 prettyPrintProgram (Program global decs main) = do
-    putStrIdent 0 $ "Program: "
+    putStrIdent 0 "Program: "
     prettyPrintGlobal 1 global
     prettyPrintFunctionDecs 1 decs
     prettyPrintMain 1 main
