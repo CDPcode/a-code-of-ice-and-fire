@@ -1,0 +1,8 @@
+#!/bin/bash
+
+if [ $# -ne 2 ] && [ -f $2 ] ; then
+    echo -e "Invalid Invocation. Use:\n\t./single [lex|preparse|parse] filename";
+    exit -1;
+fi
+
+stack exec acif-exe $1 < $2 
