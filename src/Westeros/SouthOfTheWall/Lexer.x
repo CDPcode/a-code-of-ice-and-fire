@@ -104,6 +104,7 @@ tokens :-
 <0>         cut(@ws)into(@ws)pieces(@ws)by(@ws)                                                         { makeToken TknDivide }
 <0>         turncloak                                                                                   { makeToken TknNegate }
 <0>         stripped(@ws)of(@ws)his(@ws)dignity(@ws)by(@ws)                                             { makeToken TknMod }
+<0>         opposite(@ws)of                                                                             { makeToken TknNot }
 <0>         and(@ws)                                                                                    { makeToken TknAnd }
 <0>         or(@ws)                                                                                     { makeToken TknOr }
 <0>         similar(@ws)to(@ws)                                                                         { makeToken TknEqual }
@@ -162,7 +163,7 @@ tokens :-
 <0>         The(@ws)things(@ws)I(@ws)do(@ws)for(@ws)                                                    { makeToken TknFor }
 <0>         I(@ws)would(@ws)kill(@ws)from(@ws)                                                          { makeToken TknForLB }
 <0>         up(@ws)to(@ws)                                                                              { makeToken TknForUB }
-<0>         That\,(@ws)and(@ws)much(@ws)more(@ws)I(@ws)would(@ws)do(@ws)to(@ws)get(@ws)her(@ws)love       { makeToken TknEndFor }
+<0>         That\,(@ws)and(@ws)much(@ws)more(@ws)I(@ws)would(@ws)do(@ws)to(@ws)get(@ws)her(@ws)love     { makeToken TknEndFor }
 
 --          Undeterminate repetition
 <0>         While(@ws)                                                                                  { makeToken TknWhile }
@@ -209,7 +210,7 @@ tokens :-
 <0>         «                                                                                           { makeToken TknOpenParenthesis }
 <0>         »                                                                                           { makeToken TknCloseParenthesis }
 
-<0>         [A-Za-z0-9]+                                                                                   { invalidWord }
+<0>         [A-Za-z0-9]+                                                                                { invalidWord }
 <0>         .                                                                                           { invalidCharacter }
 
 -- Lexer and wrapper function definitions

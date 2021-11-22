@@ -2,7 +2,7 @@ module Westeros.SouthOfTheWall.Symtable where
 
 import Data.Bifunctor       (second)
 import Data.Foldable        (foldl')
-import Control.Monad.RWS    ( MonadState(put, get), MonadWriter(tell), RWST, liftIO )
+import Control.Monad.RWS    ( MonadState(put, get), MonadWriter(tell), RWST )
 import Data.List            (find)
 import Data.Maybe           (fromJust)
 
@@ -65,6 +65,7 @@ data AdditionalInfo
     | StructScope Scope
     | UnionScope Scope
     | TupleTypes [Type]
+    | MultiReturnType [Type]
     | FunctionMetaData FunctionInfo
     | ParameterType ParameterType
    deriving (Show,Eq)
@@ -240,15 +241,9 @@ updateFunctionInfo info params ptypes returns = do
             defined = True
         }
 
-    case returns of
-        []            -> return $ info {symbolType = Nothing, additional = newAdditional}
-        [singleType]  -> return $ info {symbolType = Just singleType, additional = newAdditional}
-        _            -> do
-            name <- genTypeSymbol
-            let additionalInfo = TupleTypes returns
-            tInfo <- getTupleTypeInfo returns
-            _ <- insertType name additionalInfo tInfo
-            return $ info {symbolType = Just name, additional = newAdditional}
+    tInfo <- getTupleTypeInfo returns
+    return $ info { additional = newAdditional, typeInfo = Just tInfo }
+
 
 currentScope :: MonadParser Int
 currentScope = do
@@ -267,8 +262,8 @@ currentOffset = do
 
 currentOpenFunction :: MonadParser (Symbol, Int)
 currentOpenFunction = do 
-    SymbolTable { openFunction = (s, p) } <- get
-    return (s, p)
+    SymbolTable { currentFunction = p } <- get
+    return p
 
 setCurrentOffset :: Offset -> MonadParser ()
 setCurrentOffset newOffset = do
@@ -327,8 +322,11 @@ getTupleTypeInfo tps = do
         a = foldr max 0 aligns
         w = foldl' sumTypeInfo 0 tInfos
     return $ TypeInfo {width = w, align = a}
-  where
-    sumTypeInfo acc info = getAlignedOffset acc (align info) + width info
+    where
+        sumTypeInfo acc info = getAlignedOffset acc (align info) + width info
+
+getMultiReturnTypeInfo :: [Type] -> MonadParser TypeInfo
+getMultiReturnTypeInfo = getTupleTypeInfo
 
 getUnionTypeInfo :: [Type] -> MonadParser TypeInfo
 getUnionTypeInfo tps = do
@@ -470,7 +468,7 @@ insertId tk ctg tp = do
             then do
                 put $ insertST symT entry
                 setCurrentOffset newOffset
-            else insertError $ Err.PE (Err.RedeclaredVar name $ Tk.position tk)
+            else insertError $ Err.PE (Err.RedeclaredName name $ Tk.position tk)
 
 insertParam :: Tk.Token -> Type -> ParameterType -> MonadParser ()
 insertParam tk tp paramType = do
@@ -487,7 +485,7 @@ insertParam tk tp paramType = do
             if checkNotRepeated info sc
             then do
                 put $ insertST symT entry
-            else insertError $ Err.PE (Err.RedeclaredParameter name $ Tk.position tk)
+            else insertError $ Err.PE (Err.RedeclaredName name $ Tk.position tk)
 
 insertType :: Symbol -> AdditionalInfo -> TypeInfo -> MonadParser Type
 insertType name add tInfo = do
@@ -503,12 +501,12 @@ insertAlias :: Tk.Token -> Type -> AliasType -> Type -> MonadParser ()
 insertAlias tk name aliasType tp = do
     symT <- get
     if checkExisting symT name
-    then insertError $ Err.PE (Err.RepeatedAliasName name (Tk.position tk))
+    then insertError $ Err.PE (Err.RedeclaredName name (Tk.position tk))
     else do
         -- Esto es un delito pero hay que hacer que funcione
         case findSymbolInScope symT tp globalScope of
             Nothing -> case findSymbolInScope symT tp pervasiveScope of
-                Nothing -> insertError $ Err.PE (Err.UndefinedType name (Tk.position tk))
+                Nothing -> error "unexpected error: undefined type when creating alias"
                 Just info -> do
                     let realType = case category info of
                             Alias ->

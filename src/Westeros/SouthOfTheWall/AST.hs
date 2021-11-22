@@ -61,6 +61,7 @@ data BinOp
 data UnOp
     = Neg
     | Deref
+    | Not
     deriving (Show, Eq)
 
 data Instruction
@@ -107,7 +108,7 @@ isFunctionCall :: Expression -> Bool
 isFunctionCall = isFunctionCall' . getExpr
 
 isFunctionCall' :: Expr -> Bool
-isFunctionCall' FuncCall _ _  = True
+isFunctionCall' (FuncCall _ _) = True
 isFunctionCall' _             = False
 
 -- Pretty print AST
@@ -243,7 +244,7 @@ prettyPrintExpression n Expression{getExpr = (Cast e tp)} = do
     prettyPrintExpression (n+1) e
     putStrIdent n "to type"
     putStrIdent n tp
-prettyPrintExpression n Expression{getExpr = (IdExpr id)} = putStrIdent n $ "id: " ++ id
+prettyPrintExpression n Expression{getExpr = (IdExpr sym)} = putStrIdent n $ "id: " ++ sym
 
 prettyPrintIf :: Int -> IfInst -> IO ()
 prettyPrintIf n (IfThen cond ifBlock) = do

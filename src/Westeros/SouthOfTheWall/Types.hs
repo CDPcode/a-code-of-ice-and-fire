@@ -1,4 +1,4 @@
-module Westeros.SouthOfTheWall.TypeVer where
+module Westeros.SouthOfTheWall.Types where
 
 import qualified Westeros.SouthOfTheWall.Symtable as ST
 
@@ -16,12 +16,14 @@ data Type
     | AliasT String Type
     | ArrayT Type Int
     | TupleT [Type]
+    | MultiReturnT [Type]
     | StructT [(String, Type)]
     | UnionT [(String, Type)]
     | PointerT Type
     | NullT
     | VoidT
     | TypeError
+    | NothingT
     deriving (Eq)
 
 instance Show Type where
@@ -30,25 +32,32 @@ instance Show Type where
     show CharT = "Starkhar"
     show BoolT = "Boolton"
     show AtomT = "Barathom"
-    show (AliasT name t) = "Alias " ++ name ++ " to " ++ show t
-    show (ArrayT t d) = "Lord Commander of [ " ++ show d ++ " dimentions of " ++ show t ++ " ]"
-    show (TupleT ts) = "White Walker possessing ( 1" ++ unwords (map show ts) ++ " )"
-    show (StructT t) = "King " ++ show t
-    show (UnionT t) = "God of many faces " ++ show t
+    show (AliasT name t) = "House " ++ name ++ " that comes from the lineage of <<" ++ show t ++ ">>"
+    show (ArrayT t d) = "Lord Commander of [ " ++ show d ++ " armies of " ++ show t ++ " ]"
+    show (TupleT ts) = "White Walker possessing ( " ++ unwords (map show ts) ++ " )"
+    show (StructT t) = "King of { " ++ unwords (map (show . snd) t) ++ " }"
+    show (UnionT t) = "God of many faces ruling over { " ++ unwords (map (show . snd) t) ++ " }"
     show (PointerT t) = "Spearwife of * " ++ show t ++ " *"
-    show NullT = "Null Pointer"
+    show NullT = "Rickon"
     show VoidT = "No One"
     show TypeError = "Type error: you should not be seeing this but you probably will"
+    show NothingT = "No One"
+    show (MultiReturnT ts) = show $ TupleT ts
 
 
 getTypeFromString :: ST.Type -> ST.MonadParser Type
 getTypeFromString base = case base of
-    "_int"     -> return IntT
-    "_float"   -> return FloatT
-    "_char"    -> return CharT
-    "_bool"    -> return BoolT
-    "_atom"    -> return AtomT
 
+    -- Primitive types
+    "_int"          -> return IntT
+    "_float"        -> return FloatT
+    "_char"         -> return CharT
+    "_bool"         -> return BoolT
+    "_atom"         -> return AtomT
+    "_null"         -> return NullT
+    "_type_error"   -> return TypeError
+    
+    -- Composite types
     otherType  -> do
         espType <- ST.lookupST otherType
         case espType of
@@ -94,10 +103,11 @@ notTypeError :: Type -> Bool
 notTypeError (TupleT xs)  = all notTypeError xs
 notTypeError (PointerT e) = notTypeError e
 notTypeError (ArrayT tp _) = notTypeError tp
+notTypeError (StructT xs) = all (notTypeError . snd) xs
+notTypeError (UnionT xs)  = all (notTypeError . snd) xs
 notTypeError TypeError    = False
 notTypeError _            = True
 
--- TODO: Should we add here checkAssignable struct tuple (?)
 checkAssignable :: Type -> Type -> Bool
 checkAssignable PointerT{} NullT = True
 checkAssignable (PointerT lType) (PointerT rType) = checkAssignable lType rType
@@ -121,11 +131,8 @@ isPrimitiveType FloatT = True
 isPrimitiveType CharT = True
 isPrimitiveType BoolT = True
 isPrimitiveType AtomT = True
+isPrimitiveType (AliasT _ t) = isPrimitiveType t
 isPrimitiveType _ = False
-
-isPrimitiveAlias :: Type -> Bool
-isPrimitiveAlias (AliasT _ t) = isPrimitiveType t
-isPrimitiveAlias _ = False
 
 isRecordOrTupleType :: Type -> Bool
 isRecordOrTupleType (TupleT _)  = True
@@ -174,3 +181,6 @@ isCompositeType t = isRecordOrTupleType t || isArrayType t
 isCasteable :: Type -> Type -> Bool
 isCasteable source dest = source `elem` simpleType && dest `elem` simpleType
     where simpleType = [IntT, BoolT, CharT, FloatT]
+
+isPrimitiveOrPointerType :: Type -> Bool
+isPrimitiveOrPointerType t = isPrimitiveType t || isPointerType t

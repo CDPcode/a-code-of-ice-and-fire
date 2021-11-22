@@ -93,6 +93,7 @@ data AbstractToken =
     | TknMod
     | TknAnd
     | TknOr
+    | TknNot
     | TknEqual
     | TknNotEqual
     | TknLessThan
