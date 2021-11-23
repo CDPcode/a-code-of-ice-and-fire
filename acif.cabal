@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       Lib
+      TACTypes.TAC
       Westeros.SouthOfTheWall.AST
       Westeros.SouthOfTheWall.Error
       Westeros.SouthOfTheWall.Lexer
@@ -34,7 +35,8 @@ library
       Westeros.SouthOfTheWall.PrettyPrint
       Westeros.SouthOfTheWall.Symtable
       Westeros.SouthOfTheWall.Tokens
-      Westeros.SouthOfTheWall.TypeVer
+      Westeros.SouthOfTheWall.TypeChecking
+      Westeros.SouthOfTheWall.Types
   other-modules:
       Paths_acif
   hs-source-dirs:

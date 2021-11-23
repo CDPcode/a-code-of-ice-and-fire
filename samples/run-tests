@@ -7,29 +7,25 @@ fi
 
 case $1 in
     "lexer")
-    echo "Correct: "
+    echo "Should be Correct: "
     find ./lexer/correct -name "*.got" -exec ./test-acif lex '{}' ';';
-    echo "Fail: "
+    echo "Should Fail: "
     find ./lexer/fail -name "*.got" -exec ./test-acif lex '{}' ';';
     ;;
     "preparser")
-    echo "Correct: "
+    echo "Should be Correct: "
     find ./preparser/correct -name "*.got" -exec ./test-acif preparse '{}' ';';
-    echo "Fail: "
+    echo "Should Fail: "
     find ./preparser/fail -name "*.got" -exec ./test-acif preparse '{}' ';';
     ;;
     "parser")
-    echo "Correct: "
+    echo "Should be Correct: "
     find ./parser/correct -name "*.got" -exec ./test-acif parse '{}' ';';
-    echo "Fail: "
+    echo "Should Fail: "
     find ./parser/fail -name "*.got" -exec ./test-acif parse '{}' ';';
     ;;
-    "typesys")
-    echo "Not implemented";
-    exit -1; 
-    ;;
     *)
-    echo "Invalid type of test. Types of tests are: lexer, preparesr and parser"; 
+    echo "Invalid type of test. Types of tests are: lexer, preparser and parser"; 
     exit -1;
     ;;
 esac

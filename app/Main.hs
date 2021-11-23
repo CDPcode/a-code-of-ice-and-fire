@@ -47,10 +47,8 @@ testParser = do
     if null errs
         then do
             (ast, finalSt, errs') <- runRWST (parse tokens) () preSymbolTable{ ST.scopeStack=[1,0], ST.nextSymAlias = 0, ST.offsetStack = [0], ST.nextScope = 2 }
-            if null errs'
-                then do
-                    prettyPrintProgram ast
-                    pretty finalSt
-            else mapM_ pretty errs'
+            prettyPrintProgram ast
+            pretty finalSt
+            mapM_ pretty errs'
         else mapM_ pretty errs
 

@@ -1,105 +1,55 @@
-module Westeros.SouthOfTheWall.Error where
+module Westeros.SouthOfTheWall.Error(
+    Error(..),
+    ParserError(..),
+    TypeError(..),
+    ExpectedTypes(..)
+) where
 
-import qualified Westeros.SouthOfTheWall.Tokens as Tk (Position(..),Token(..))
+import qualified Westeros.SouthOfTheWall.Tokens as Tk 
 
 data Error
     = PE ParserError
     | TE TypeError
 
--- ^ Sorted in occurrence order
 data ParserError
-    = FRepeatedDeclarations String Tk.Position
-    | FRepeatedDefinitions String Tk.Position
-    | InvalidNArgsDef String Int Tk.Position
-    | FDefinitionWithoutDeclaration String Tk.Position
-    | RepeatedAliasName String Tk.Position
-    | UndefinedType String Tk.Position
-    -- ^ Preparser related
-
-    | UndefinedFunction String Tk.Position
-    | RedeclaredParameter String Tk.Position
-    | RedeclaredName String Tk.Position
-    | UndefinedVar String Tk.Position
-    | InvalidVar String String Tk.Position
-    | RedeclaredVar String Tk.Position
-    | RedeclaredConstant String Tk.Position
-    | ExpectedFunction String String Tk.Position
+    = RedeclareFunction String Int Tk.Position
+    | RedefineFunction String Int Tk.Position
+    | UndefinedFunction String Int Tk.Position
+    | UndeclaredFunction String Int Tk.Position
     | NonCallableExpression Tk.Position
-    -- ^ Parser related
-
-    | SyntaxErr Tk.Token
+    | RedeclaredName String Tk.Position
+    | UndeclaredName String Tk.Position
+    | NoLoop Tk.Position
+    | MultiAssignmentLengthMissmatch Int Int Tk.Position
+    | ReturnLengthMissmatch String Int Int Int Tk.Position
+    | IndexOutOfBounds Int Int Tk.Position
+    | SyntaxErr String Tk.Position
     | SyntaxErrEOF
-    -- ^ parseError :: [Tk.Token] -> a/syntax related
     deriving Show
 
 data TypeError
-    {- Arrays -}
-    = HeterogeneusArrayType Tk.Position
-    | InvalidIndexType String String Tk.Position
-        -- ^ Invalid Type
-        -- ^ Expression cleaned String
-        -- ^ Position
 
-    {- Binary operations -}
-
-    | InconsistentTypesBinOp String (String,String) [String] Tk.Position
-        -- ^ Operation
-        -- ^ Type of Operands
-        -- ^ List of correct types
-        -- ^ Position of first operand
-
-    | InvalidTypesBinOp String (String, String) [String] Tk.Position
-    | InvalidTypeUnOp String String [String] Tk.Position
-        -- ^ Operation
-        -- ^ Type Of Operand
-        -- ^ Correct Types
-        -- ^ Position
-
-    | InvalidDereference String Tk.Position
-
-    {- Record Access -}
-
-    | RecordFieldNotFound String Int Tk.Position
-    | RepeatedRecordField String Int Tk.Position
-    | UnTypedRecordField String Tk.Position
-    | NotARecordType String Tk.Position
-    | NotAnUnion String Tk.Position
-
-    {- Tuple -}
-
-    | NotATupleType String Tk.Position
-
-    {- Id --}
-
-    | IdNotFound String
-    | UnTypedId String
-
-    {- Function -}
-
-    | NotAFunction String
-    | FunctionWithoutMD String
-
-    {- Cast -}
-
+    = UnexpectedType String String Tk.Position
+    | InvalidExprType String Tk.Position
+    | InvalidField String Tk.Position
+    | IncompatibleTypes String String Tk.Position
+    | HeterogeneusArrayType Tk.Position
+    | InvalidLValue Tk.Position
+    | ConstantReassignment Tk.Position
     | NonCasteableTypes String String Tk.Position
-
-    {- Contextual ones -}
-
-    | InvalidWhileType String Tk.Position 
-    | WrongForBoundType String String Tk.Position
-    | WrongSwitchType String Tk.Position
-    | InvalidIfType String Tk.Position
-
-    | InvalidNew String Tk.Position 
-    | InvalidFree String Tk.Position 
-    
-    | UnexpectedType String Tk.Position
-    | InvalidAssignment String String Tk.Position
-    | InvalidLValue String Tk.Position
-
-    | NonReadable String Tk.Position
-    | NonPrintable String Tk.Position
-
-    | DimMissmatch String String Tk.Position
-    | InvalidIndexedType String Tk.Position
     deriving (Show, Eq)
+
+data ExpectedTypes
+    = Bool
+    | Int
+    | Pointer
+    | Atom
+    | Array
+    deriving (Eq)
+
+instance Show ExpectedTypes where
+    show Bool = "Boolton"
+    show Int = "Lanninteger"
+    show Pointer = "Spearwife"
+    show Atom = "Barathom"
+    show Array = "Lord Commander"

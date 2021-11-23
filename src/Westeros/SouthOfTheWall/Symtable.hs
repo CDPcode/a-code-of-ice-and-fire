@@ -2,7 +2,7 @@ module Westeros.SouthOfTheWall.Symtable where
 
 import Data.Bifunctor       (second)
 import Data.Foldable        (foldl')
-import Control.Monad.RWS    ( MonadState(put, get), MonadWriter(tell), RWST, liftIO )
+import Control.Monad.RWS    ( MonadState(put, get), MonadWriter(tell), RWST )
 import Data.List            (find)
 import Data.Maybe           (fromJust)
 
@@ -56,7 +56,7 @@ data SymbolInfo = SymbolInfo
     , additional    :: Maybe AdditionalInfo
     , offset        :: Maybe Offset         -- Only for variables/constants
     , typeInfo      :: Maybe TypeInfo       -- Only for types
-    } deriving Eq
+    } deriving (Show, Eq)
 
 data AdditionalInfo
     = AliasMetaData AliasType Type
@@ -71,17 +71,20 @@ data AdditionalInfo
 
 data FunctionInfo = FunctionInfo
     { numberOfParams    :: Int
-    , parameters        :: [Symbol]
-    , returnTypes       :: [Type]
+    , fScope            :: Scope
+    , returns           :: [Type]
     , defined           :: Bool
     } deriving (Show, Eq)
 
 data SymbolTable = SymbolTable
-    { table         :: Dictionary
-    , scopeStack    :: [Scope]
-    , nextScope     :: Scope
-    , offsetStack   :: [Offset]
-    , nextSymAlias  :: SymAlias
+    { table           :: Dictionary
+    , scopeStack      :: [Scope]
+    , nextScope       :: Scope
+    , openLoops       :: Int
+    , openRecords     :: Int
+    , currentFunction :: (Symbol, Int)
+    , offsetStack     :: [Offset]
+    , nextSymAlias    :: SymAlias
     }
 
 
@@ -126,7 +129,7 @@ filterByScopeDictionary dict referenceScope = M.fromList $ filter (not . null . 
     filterEntries = filter (\symInfo -> scope symInfo == referenceScope)
     defEntries = map (second filterEntries) $ M.toList dict
 
-filterByScopeST :: SymbolTable -> Int -> Dictionary
+filterByScopeST :: SymbolTable -> Scope -> Dictionary
 filterByScopeST = filterByScopeDictionary . table
 
 
@@ -151,6 +154,11 @@ checkExisting st sym = case findSymbol st sym of
     Nothing -> False
     Just _  -> True
 
+checkExistingAlias :: SymbolTable -> Symbol -> Bool
+checkExistingAlias st sym = case findSymbol st sym of
+    Nothing -> False
+    Just infos  -> any (\info -> category info == Alias) infos
+
 
 {- Statefull functions to be called on rules -}
 
@@ -168,6 +176,36 @@ closeScope = do
     let newStack        = tail $ scopeStack symT
         newOffsetStack  = tail $ offsetStack symT
     put $ symT { scopeStack = newStack, offsetStack = newOffsetStack }
+
+openLoop :: MonadParser ()
+openLoop = do
+    symT <- get
+    let count = openLoops symT
+    put $ symT { openLoops = succ count }
+
+closeLoop :: MonadParser ()
+closeLoop = do
+    symT <- get
+    let count = openLoops symT
+    put $ symT { openLoops = pred count }
+
+openRecord :: MonadParser ()
+openRecord = do
+    symT <- get
+    let count = openRecords symT
+    put $ symT { openRecords = succ count }
+
+closeRecord :: MonadParser ()
+closeRecord = do
+    symT <- get
+    let count = openRecords symT
+    put $ symT { openRecords = pred count }
+
+openFunction :: Symbol -> Int -> MonadParser ()
+openFunction sym params = do
+    symT <- get
+    put $ symT { currentFunction = (sym, params) }
+
 
 findBest :: [SymbolInfo] -> [Int] -> Maybe SymbolInfo
 findBest _ [] = Nothing
@@ -208,35 +246,44 @@ findFunctionDec sym params = do
                 then return $ Left entry
                 else return $ Right True
 
-updateFunctionInfo :: SymbolInfo -> [Type] -> [Type] -> MonadParser SymbolInfo
-updateFunctionInfo info params returns = do
+updateFunctionInfo :: SymbolInfo -> Int -> [Type] -> MonadParser SymbolInfo
+updateFunctionInfo info params ret = do
+    sc <- currentScope
     let oldMetadata = getFunctionMetaData info
         newAdditional = Just $ FunctionMetaData oldMetadata {
-            numberOfParams = length params,
-            parameters = params,
-            returnTypes = returns,
+            numberOfParams = params,
+            fScope = sc,
+            returns = ret,
             defined = True
         }
+    tInfo <- getTupleTypeInfo ret
+    return $ info { additional = newAdditional, typeInfo = Just tInfo }
 
-    case returns of
-        []            -> return $ info {symbolType = Nothing, additional = newAdditional}
-        [singleType]  -> return $ info {symbolType = Just singleType, additional = newAdditional}
-        _            -> do
-            name <- genTypeSymbol
-            let additionalInfo = TupleTypes returns
-            tInfo <- getTupleTypeInfo returns
-            _ <- insertType name additionalInfo tInfo
-            return $ info {symbolType = Just name, additional = newAdditional}
 
 currentScope :: MonadParser Int
 currentScope = do
     SymbolTable { scopeStack = (s:_) } <- get
     return s
 
+currentOpenLoops :: MonadParser Int
+currentOpenLoops = do
+    SymbolTable { openLoops = count } <- get
+    return count
+
 currentOffset :: MonadParser Int
 currentOffset = do
     SymbolTable { offsetStack = (o:_) } <- get
     return o
+
+currentOpenFunction :: MonadParser (Symbol, Int)
+currentOpenFunction = do 
+    SymbolTable { currentFunction = p } <- get
+    return p
+
+currentOpenRecords :: MonadParser Int
+currentOpenRecords = do 
+    SymbolTable { openRecords = p } <- get
+    return p
 
 setCurrentOffset :: Offset -> MonadParser ()
 setCurrentOffset newOffset = do
@@ -259,6 +306,7 @@ getNextSymAlias = do
     put $ symT { nextSymAlias = succ sa }
     return sa
 
+
 genTypeSymbol :: MonadParser Type
 genTypeSymbol = do
     next <- getNextSymAlias
@@ -278,7 +326,8 @@ getTypeInfo :: Symbol -> MonadParser TypeInfo
 getTypeInfo symbol = do
     mInfo <- lookupST symbol
     case mInfo of
-        Nothing -> fail $ "Somehow type with id " ++ symbol ++ " has not been inserted in symbols table"
+        -- Error. An Alias wasn't declared. It will be reported somewhere else
+        Nothing -> return $ TypeInfo {width = 4, align = 4}
         Just info ->
             case category info of
                 Alias -> getTypeInfo $ snd $ getAliasMetaData info
@@ -295,8 +344,11 @@ getTupleTypeInfo tps = do
         a = foldr max 0 aligns
         w = foldl' sumTypeInfo 0 tInfos
     return $ TypeInfo {width = w, align = a}
-  where
-    sumTypeInfo acc info = getAlignedOffset acc (align info) + width info
+    where
+        sumTypeInfo acc info = getAlignedOffset acc (align info) + width info
+
+getMultiReturnTypeInfo :: [Type] -> MonadParser TypeInfo
+getMultiReturnTypeInfo = getTupleTypeInfo
 
 getUnionTypeInfo :: [Type] -> MonadParser TypeInfo
 getUnionTypeInfo tps = do
@@ -350,8 +402,11 @@ initialST = foldl' insertST st (tErrorEntry:entries)
         { table           = M.empty
         , scopeStack      = [0,1]
         , nextScope       = 2
+        , openLoops       = 0
         , offsetStack     = [0]
         , nextSymAlias    = 0
+        , openRecords     = 0
+        , currentFunction = ("", 0)
         }
 
 typesSymbolInfo :: TypeInfo -> SymbolInfo
@@ -385,11 +440,8 @@ regularEntry name sc ctg tp add mOffset mInfo = (name, symInfo)
         , typeInfo      = mInfo
         }
 
-idEntry :: Symbol -> Scope -> Category -> Type -> Offset -> Entry
-idEntry name sc ctg tp offs = regularEntry name sc ctg (Just tp) Nothing (Just offs) Nothing
-
-paramEntry :: Symbol -> Scope -> Type -> AdditionalInfo -> Entry
-paramEntry name sc tp info = regularEntry name sc Parameter (Just tp) (Just info) Nothing Nothing
+idEntry :: Symbol -> Scope -> Category -> Type -> Maybe AdditionalInfo -> Offset -> Maybe TypeInfo -> Entry
+idEntry name sc ctg tp info offs = regularEntry name sc ctg (Just tp) info (Just offs)
 
 typeEntry :: Symbol -> AdditionalInfo -> TypeInfo -> Entry
 typeEntry name info tInfo = regularEntry name globalScope Type Nothing (Just info) Nothing (Just tInfo)
@@ -405,28 +457,27 @@ functionDecEntry name params =
         info = Just $ FunctionMetaData (
             FunctionInfo {
                 numberOfParams = params,
-                parameters =  [],
-                returnTypes = [],
+                fScope = -1,
+                returns = [],
                 defined = False
             })
 
 {- Insertion Function -}
 
-insertId :: Tk.Token -> Category -> Type -> MonadParser ()
-insertId tk ctg tp = do
+insertId :: Tk.Token -> Category -> Type -> Maybe AdditionalInfo -> MonadParser ()
+insertId tk ctg tp addInfo = do
+
     sc <- currentScope
     currOffset <- currentOffset
-    tInfo <- getTypeInfo tp
-
-    let offs = getAlignedOffset currOffset (align tInfo)
+    tpInfo <- getTypeInfo tp
+    let offs = getAlignedOffset currOffset (align tpInfo)
         name  = Tk.cleanedString tk
-        entry = idEntry name sc ctg tp offs
-        newOffset = offs + width tInfo
+        entry = idEntry name sc ctg tp addInfo offs (Just tpInfo)
+        newOffset = offs + width tpInfo
 
     symT  <- get
-    mInfo <- lookupST name
-
-    case mInfo of
+    maybeInfo <- lookupST name
+    case maybeInfo of
         Nothing -> do
             put $ insertST symT entry
             setCurrentOffset newOffset
@@ -435,24 +486,7 @@ insertId tk ctg tp = do
             then do
                 put $ insertST symT entry
                 setCurrentOffset newOffset
-            else insertError $ Err.PE (Err.RedeclaredVar name $ Tk.position tk)
-
-insertParam :: Tk.Token -> Type -> ParameterType -> MonadParser ()
-insertParam tk tp paramType = do
-
-    sc <- currentScope
-    let name  = Tk.cleanedString tk
-        entry = paramEntry name sc tp $ ParameterType paramType
-
-    symT  <- get
-    mInfo <- lookupST name
-    case mInfo of
-        Nothing -> put $ insertST symT entry
-        Just info ->
-            if checkNotRepeated info sc
-            then do
-                put $ insertST symT entry
-            else insertError $ Err.PE (Err.RedeclaredParameter name $ Tk.position tk)
+            else insertError $ Err.PE (Err.RedeclaredName name $ Tk.position tk)
 
 insertType :: Symbol -> AdditionalInfo -> TypeInfo -> MonadParser Type
 insertType name add tInfo = do
@@ -468,12 +502,12 @@ insertAlias :: Tk.Token -> Type -> AliasType -> Type -> MonadParser ()
 insertAlias tk name aliasType tp = do
     symT <- get
     if checkExisting symT name
-    then insertError $ Err.PE (Err.RepeatedAliasName name (Tk.position tk))
+    then insertError $ Err.PE (Err.RedeclaredName name (Tk.position tk))
     else do
         -- Esto es un delito pero hay que hacer que funcione
         case findSymbolInScope symT tp globalScope of
             Nothing -> case findSymbolInScope symT tp pervasiveScope of
-                Nothing -> insertError $ Err.PE (Err.UndefinedType name (Tk.position tk))
+                Nothing -> error "unexpected error: undefined type when creating alias"
                 Just info -> do
                     let realType = case category info of
                             Alias ->
