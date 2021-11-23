@@ -1,0 +1,3 @@
+[submodule "src/Westeros/BeyondTheWall/TACTypes"]
+	path = src/Westeros/BeyondTheWall/TACTypes
+	url = git@github.com:LDiazN/TACTypes.git
