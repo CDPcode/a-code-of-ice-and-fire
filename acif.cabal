@@ -27,6 +27,7 @@ library
   exposed-modules:
       Lib
       TACTypes.TAC
+      Westeros.BeyondTheWall.TACGenerator
       Westeros.SouthOfTheWall.AST
       Westeros.SouthOfTheWall.Error
       Westeros.SouthOfTheWall.Lexer
