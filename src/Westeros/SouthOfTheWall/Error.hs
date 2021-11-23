@@ -21,6 +21,7 @@ data ParserError
     | UndeclaredName String Tk.Position
     | NoLoop Tk.Position
     | MultiAssignmentLengthMissmatch Int Int Tk.Position
+    | ReturnLengthMissmatch String Int Int Int Tk.Position
     | IndexOutOfBounds Int Int Tk.Position
     | SyntaxErr String Tk.Position
     | SyntaxErrEOF

@@ -21,7 +21,6 @@ data Type
     | UnionT [(String, Type)]
     | PointerT Type
     | NullT
-    | VoidT
     | TypeError
     | NothingT
     deriving (Eq)
@@ -39,7 +38,6 @@ instance Show Type where
     show (UnionT t) = "God of many faces ruling over { " ++ unwords (map (show . snd) t) ++ " }"
     show (PointerT t) = "Spearwife of * " ++ show t ++ " *"
     show NullT = "Rickon"
-    show VoidT = "No One"
     show TypeError = "Type error: you should not be seeing this but you probably will"
     show NothingT = "No One"
     show (MultiReturnT ts) = show $ TupleT ts
@@ -76,12 +74,12 @@ getTypeFromString base = case base of
                     ST.StructScope scope -> do
                         symT <- get
                         let fields = ST.filterByScopeST symT scope
-                        types <- buildRecordTypes $ map (second head) $ M.toList fields
+                        types <- buildTypesFromDict $ map (second head) $ M.toList fields
                         return $ StructT types
                     ST.UnionScope scope -> do
                         symT <- get
                         let fields = ST.filterByScopeST symT scope
-                        types <- buildRecordTypes $ map (second head) $ M.toList fields
+                        types <- buildTypesFromDict $ map (second head) $ M.toList fields
                         return $ UnionT types
                     ST.TupleTypes xs             -> do
                         types <- mapM getTypeFromString xs
@@ -91,10 +89,10 @@ getTypeFromString base = case base of
             Nothing -> return TypeError
 
 
-buildRecordTypes :: [(String, ST.SymbolInfo)] -> ST.MonadParser [(String, Type)]
-buildRecordTypes [] = return []
-buildRecordTypes ((name, info):xs) = do
-    rest <- buildRecordTypes xs
+buildTypesFromDict :: [(String, ST.SymbolInfo)] -> ST.MonadParser [(String, Type)]
+buildTypesFromDict [] = return []
+buildTypesFromDict ((name, info):xs) = do
+    rest <- buildTypesFromDict xs
     t <- getTypeFromString $ fromJust $ ST.symbolType info
     return $ (name, t) : rest
 
@@ -110,17 +108,15 @@ notTypeError _            = True
 
 checkAssignable :: Type -> Type -> Bool
 checkAssignable PointerT{} NullT = True
-checkAssignable (PointerT lType) (PointerT rType) = checkAssignable lType rType
-checkAssignable (TupleT lTypes) (TupleT rTypes) = and $ zipWith checkAssignable lTypes rTypes
+checkAssignable (TupleT lTypes) (TupleT rTypes) = 
+    length lTypes == length rTypes && and (zipWith checkAssignable lTypes rTypes)
 checkAssignable (StructT lTypes) (TupleT rTypes) = 
-    and $ zipWith checkAssignable (map snd lTypes) rTypes
+    length lTypes == length rTypes && and (zipWith checkAssignable (map snd lTypes) rTypes)
 checkAssignable (StructT lTypes) (StructT rTypes) = 
-    and $ zipWith checkAssignable (map snd lTypes) (map snd rTypes)
-checkAssignable VoidT _ = False
-checkAssignable _ VoidT = False
-checkAssignable (AliasT lType _) (AliasT rType _) = lType == rType
-checkAssignable _ (AliasT _ _) = False
-checkAssignable (AliasT _ _) _ = False
+    length lTypes == length rTypes && 
+        and (map (\((ln, lt), (rn, rt)) -> ln == rn && (checkAssignable lt rt)) $ zip lTypes rTypes)
+checkAssignable _ (MultiReturnT _) = False
+checkAssignable _ NothingT = False
 checkAssignable _ TypeError = True
 checkAssignable TypeError _ = True
 checkAssignable lType rType = lType == rType
@@ -179,8 +175,7 @@ isCompositeType :: Type -> Bool
 isCompositeType t = isRecordOrTupleType t || isArrayType t
 
 isCasteable :: Type -> Type -> Bool
-isCasteable source dest = source `elem` simpleType && dest `elem` simpleType
-    where simpleType = [IntT, BoolT, CharT, FloatT]
+isCasteable source dest = isPrimitiveType source && isPrimitiveType dest
 
 isPrimitiveOrPointerType :: Type -> Bool
 isPrimitiveOrPointerType t = isPrimitiveType t || isPointerType t

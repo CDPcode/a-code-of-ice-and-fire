@@ -8,7 +8,9 @@ import qualified Westeros.SouthOfTheWall.AST as AST
 
 import Data.List (findIndex, find)
 import Data.Maybe (fromJust)
-import Control.Monad.RWS (unless)
+import Control.Monad.RWS (unless, get)
+import Data.Bifunctor (second)
+import qualified Data.Map.Strict as M
 
 -- This interface will provide type check consistency for their instances.
 --
@@ -58,38 +60,44 @@ instance Typeable AST.Expr where
     -- Function Calls
     typeQuery (AST.FuncCall symbol args) = do
         let types = map AST.getType args
-        entry <- ST.lookupFunction symbol $ length args
-        case entry of
-            Just ST.SymbolInfo{ST.additional=additional} ->
-                case additional of
-                    Just (ST.FunctionMetaData ST.FunctionInfo{
-                        ST.parameters=params,
-                        ST.returnTypes=returnTypes
-                    }) -> do
-                        paramTypes <- mapM T.getTypeFromString params
-                        returns <- mapM T.getTypeFromString returnTypes
-                        -- Length should be tested in parser and error should be logged
-                        if all T.notTypeError paramTypes && all T.notTypeError returns 
-                            then case findIndex not $ zipWith (==) paramTypes types of
-                                Nothing -> 
-                                    case returns of
-                                        [] -> return T.NothingT
-                                        [t] -> return t
-                                        _ -> return $ T.MultiReturnT returns
-                                Just idx -> do
-                                    let errorExpr = args !! idx
-                                        errorTk   = AST.getToken errorExpr
-                                        errorTp   = types !! idx
-                                        err = Err.UnexpectedType (show errorTp) (show $ paramTypes !! idx) (Tk.position errorTk)
-                                    ST.insertError $ Err.TE err
-                                    return T.TypeError
-                            else return T.TypeError
-                    Nothing ->
-                        error "Function symbol without metadata"
-                    _ -> return T.TypeError
-            Nothing -> 
-                -- Symbol existence should be tested in parser and error should be logged
-                return T.TypeError
+        if all T.notTypeError types
+            then do
+                entry <- ST.lookupFunction symbol $ length args
+                case entry of
+                    Just ST.SymbolInfo {
+                        ST.additional=(Just (
+                            ST.FunctionMetaData ST.FunctionInfo{
+                                ST.fScope=scope,
+                                ST.returns=returns,
+                                ST.defined=defined
+                            })
+                        )
+                    } -> do if defined
+                            then do
+                                symT <- get
+                                returnTypes <- mapM T.getTypeFromString returns
+                                let params = ST.filterByScopeST symT scope
+                                params <- T.buildTypesFromDict $ map (second head) $ M.toList params
+                                let paramTypes = map snd params
+                                if all T.notTypeError paramTypes && all T.notTypeError returnTypes 
+                                    then case findIndex not $ zipWith T.checkAssignable paramTypes types of
+                                        Nothing -> 
+                                            case returnTypes of
+                                                [] -> return T.NothingT
+                                                [t] -> return t
+                                                _ -> return $ T.MultiReturnT returnTypes
+                                        Just idx -> do
+                                            let errorExpr = args !! idx
+                                                errorTk   = AST.getToken errorExpr
+                                                errorTp   = types !! idx
+                                                err = Err.UnexpectedType (show errorTp) (show $ paramTypes !! idx) (Tk.position errorTk)
+                                            ST.insertError $ Err.TE err
+                                            return T.TypeError
+                                    else return T.TypeError
+                            else
+                                return T.TypeError
+                    Nothing -> return T.TypeError
+            else return T.TypeError
 
     -- Binary Operators
     typeQuery (AST.BinOp op a b)  = binOpCheck op a b

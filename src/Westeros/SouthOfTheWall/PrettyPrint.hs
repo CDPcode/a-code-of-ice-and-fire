@@ -2,8 +2,8 @@
 
 module Westeros.SouthOfTheWall.PrettyPrint where
 
+import Data.List(intercalate)
 import Data.Function ((&))
-import Data.List (intercalate, intersperse)
 import Data.Text (pack)
 import Rainbow
     ( fore,
@@ -144,7 +144,7 @@ parseErrorChunks (RedeclaredName name pos) =
 parseErrorChunks (UndeclaredName name pos) =
     [ chunk "Name "
     , chunkFromStr name & fore brightBlue
-    , chunk " is not taken taken."
+    , chunk " has not been introducted before."
     ] ++ positionChunks pos
 parseErrorChunks (NonCallableExpression pos) =
     chunk "You are trying to refer to an article that hasn't been written." : positionChunks pos
@@ -156,6 +156,17 @@ parseErrorChunks (MultiAssignmentLengthMissmatch nArgs nVars pos) =
     , chunk " characters take "
     , chunkFromStr (show nVars) & fore brightBlue
     , chunk " fights."
+    ] ++ positionChunks pos
+parseErrorChunks (ReturnLengthMissmatch str nArgs nRet nVars pos) =
+    [ chunk "In your story, chapter "
+    , chunkFromStr str & fore brightBlue
+    , chunk " "
+    , chunkFromStr (show nArgs) & fore brightBlue
+    , chunk " is expected to end with "
+    , chunkFromStr (show nRet) & fore brightBlue
+    , chunk " characters coming, but you only provided "
+    , chunkFromStr (show nVars) & fore brightBlue
+    , chunk " ."
     ] ++ positionChunks pos
 parseErrorChunks (IndexOutOfBounds nArgs nVars pos) =
     [ chunk "You are trying to tell the story of the soldier "
@@ -191,6 +202,11 @@ typeErrorChunks (UnexpectedType tp1 tp2 pos) =
     , chunkFromStr tp2 & fore brightCyan
     , chunk "."
     ] ++ positionChunks pos
+typeErrorChunks (InvalidExprType tp pos) =
+    [ chunk "Invalid mention of a member from "
+    , chunkFromStr tp & fore brightBlue
+    , chunk "."
+    ] ++ positionChunks pos
 typeErrorChunks (InvalidLValue pos) =
     chunk "There is a character that is not allowed to fight agains anyone from another family" : positionChunks pos
 typeErrorChunks (IncompatibleTypes tp1 tp2 pos) =
@@ -220,11 +236,11 @@ typeErrorHead = chunk "Your scriptures contain inconsistencies in characters: " 
 
 positionChunks :: Tk.Position -> [Chunk]
 positionChunks Tk.Position{ Tk.row = r , Tk.col = c } =
-    [ chunk "\n"
-    , chunk "--> " & fore brightBlue
+    [ chunk "\n At position --> Line "
     , chunkFromStr (show r) & fore brightRed
-    , chunk ":"
+    , chunk ": Column "
     , chunkFromStr (show c) & fore brightRed
+    , chunk "\n"
     ]
 
 {-

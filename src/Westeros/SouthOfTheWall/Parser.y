@@ -11,6 +11,7 @@ import Data.Maybe (fromJust)
 import Control.Monad.RWS ( MonadState(put, get), RWST, when, unless )
 import Data.List (find, findIndex)
 
+
 }
 
 %name                 parse
@@ -238,22 +239,16 @@ PARAMETERS :: { Int }
 
 PARAMETER :: { () }
     : PARAMETER_TYPE id type TYPE                                                   {% do
-                                                                                        ST.insertParam $2 $4 $1
                                                                                         expr <- TC.buildAndCheckExpr $2 $ AST.IdExpr (Tk.cleanedString $2)
                                                                                         TC.checkPrimitiveType expr
-                                                                                        return ()
                                                                                     }
     | beginCompTypeId PARAMETER_TYPE id endCompTypeId TYPE                          {% do
-                                                                                        ST.insertParam $3 $5 $2
                                                                                         expr <- TC.buildAndCheckExpr $3 $ AST.IdExpr (Tk.cleanedString $3)
                                                                                         TC.checkCompositeType expr
-                                                                                        return ()
                                                                                     }
     | beginCompTypeId PARAMETER_TYPE pointerVar id endCompTypeId TYPE               {% do
-                                                                                        ST.insertParam $4 $6 $2
                                                                                         expr <- TC.buildAndCheckExpr $4 $ AST.IdExpr (Tk.cleanedString $4)
                                                                                         TC.checkPointerType expr
-                                                                                        return ()
                                                                                     }
 
 PARAMETER_TYPE :: { ST.ParameterType }
@@ -279,22 +274,17 @@ TYPE :: { ST.Type }
     | COMPOSITE_TYPE                                                                { $1 }
     | id                                                                            {% do
                                                                                         let alias = Tk.cleanedString $1
-                                                                                        maybeInfo <- ST.lookupST alias
-                                                                                        case maybeInfo of
+                                                                                        info <- ST.lookupST alias
+                                                                                        -- Already checked in preparser that the symbol exists
+                                                                                        case info of
                                                                                             Nothing -> do
-                                                                                                let err = Err.UndeclaredName alias (Tk.position $1)
-                                                                                                ST.insertError $ Err.PE err
                                                                                                 return ST.tError
                                                                                             Just info -> do
                                                                                                 case ST.additional info of
-                                                                                                    Just (ST.AliasMetaData ST.ByName _) ->
-                                                                                                        return alias
-                                                                                                    Just (ST.AliasMetaData ST.ByStructure tp) ->
-                                                                                                        return tp
-                                                                                                    _ ->  do
-                                                                                                        let err = Err.UndeclaredName alias (Tk.position $1)
-                                                                                                        ST.insertError $ Err.PE err
-                                                                                                        return ST.tError
+                                                                                                    Just (ST.AliasMetaData ST.ByName _) -> return alias
+                                                                                                    Just (ST.AliasMetaData ST.ByStructure tp) -> return tp
+                                                                                                    _ -> return ST.tError
+                                                                                            _ -> return ST.tError
                                                                                     }
 
 PRIMITIVE_TYPE :: { ST.Type }
@@ -308,9 +298,18 @@ COMPOSITE_TYPE :: { ST.Type }
     : beginArray naturalLit TYPE endArray                                           {% ST.genTypeSymbol }
     | string                                                                        {% ST.genTypeSymbol }
     | pointerType TYPE                                                              {% ST.genTypeSymbol }
-    | beginStruct OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endStruct              {% ST.genTypeSymbol }
-    | beginUnion OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endUnion                {% ST.genTypeSymbol }
+    | beginStruct BEGIN_RECORD SIMPLE_DECLARATIONS END_RECORD endStruct             {% ST.genTypeSymbol }
+    | beginUnion BEGIN_RECORD SIMPLE_DECLARATIONS END_RECORD endUnion               {% ST.genTypeSymbol }
     | beginTuple TUPLE_TYPES endTuple                                               {% ST.genTypeSymbol }
+
+BEGIN_RECORD :: { ST.Scope }
+    : OPEN_SCOPE                                                                    {% do 
+                                                                                        ST.openRecord
+                                                                                        return $1
+                                                                                    }
+
+END_RECORD :: { () }
+    : CLOSE_SCOPE                                                                   {% ST.closeRecord }
 
 TUPLE_TYPES :: { }
     : {- empty -}                                                                   { }
@@ -345,7 +344,9 @@ SIMPLE_DECLARATION :: { AST.Expression }
 
 PRIMITIVE_DECLARATION :: { AST.Expression }
     : var id type TYPE                                                              {% do
-                                                                                        ST.insertId $2 ST.Variable $4
+                                                                                        countOpenRecords <- ST.currentOpenRecords
+                                                                                        unless (countOpenRecords > 0) $ do
+                                                                                            ST.insertId $2 ST.Variable $4 Nothing
                                                                                         let symbol = Tk.cleanedString $2
                                                                                         expr <- TC.buildAndCheckExpr $2 $ AST.IdExpr symbol
                                                                                         TC.checkPrimitiveType expr
@@ -354,14 +355,18 @@ PRIMITIVE_DECLARATION :: { AST.Expression }
 
 COMPOSITE_DECLARATION :: { AST.Expression }
     : beginCompTypeId var id endCompTypeId TYPE                                     {% do
-                                                                                        ST.insertId $3 ST.Variable $5
+                                                                                        countOpenRecords <- ST.currentOpenRecords
+                                                                                        unless (countOpenRecords > 0) $ do
+                                                                                            ST.insertId $3 ST.Variable $5 Nothing
                                                                                         let symbol = Tk.cleanedString $3
                                                                                         expr <- TC.buildAndCheckExpr $3 $ AST.IdExpr symbol
                                                                                         TC.checkCompositeType expr
                                                                                         return expr
                                                                                     }
     | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz              {% do
-                                                                                        ST.insertId $3 ST.Variable $5
+                                                                                        countOpenRecords <- ST.currentOpenRecords
+                                                                                        unless (countOpenRecords > 0) $ do
+                                                                                            ST.insertId $3 ST.Variable $5 Nothing
                                                                                         let symbol = Tk.cleanedString $3
                                                                                         expr <- TC.buildAndCheckExpr $3 $ AST.IdExpr symbol
                                                                                         TC.checkArrayType expr
@@ -369,15 +374,18 @@ COMPOSITE_DECLARATION :: { AST.Expression }
                                                                                         return expr
                                                                                     }
     | beginCompTypeId pointerVar id endCompTypeId TYPE                              {% do
-                                                                                        ST.insertId $3 ST.Variable $5
+                                                                                        countOpenRecords <- ST.currentOpenRecords
+                                                                                        unless (countOpenRecords > 0) $ do
+                                                                                            ST.insertId $3 ST.Variable $5 Nothing
                                                                                         let symbol = Tk.cleanedString $3
                                                                                         expr <- TC.buildAndCheckExpr $3 $ AST.IdExpr symbol
                                                                                         TC.checkPointerType expr
-                                                                                        TC.checkPointerToRecordOrTupleType expr
                                                                                         return expr
                                                                                     }
     | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz       {% do
-                                                                                        ST.insertId $3 ST.Variable $5
+                                                                                        countOpenRecords <- ST.currentOpenRecords
+                                                                                        unless (countOpenRecords > 0) $ do
+                                                                                            ST.insertId $3 ST.Variable $5 Nothing
                                                                                         let symbol = Tk.cleanedString $3
                                                                                         expr <- TC.buildAndCheckExpr $3 $ AST.IdExpr symbol
                                                                                         TC.checkPointerToArrayType expr
@@ -387,7 +395,7 @@ COMPOSITE_DECLARATION :: { AST.Expression }
 
 CONST_DECLARATION :: { AST.Instruction }
     : const id type TYPE constValue EXPR                                            {% do
-                                                                                        ST.insertId $3 ST.Constant $4
+                                                                                        ST.insertId $3 ST.Constant $4 Nothing
                                                                                         let symbol = Tk.cleanedString $2
                                                                                         expr <- TC.buildAndCheckExpr $2 $ AST.IdExpr symbol
                                                                                         checkAssignment $5 [expr] $6 True
@@ -395,7 +403,7 @@ CONST_DECLARATION :: { AST.Instruction }
                                                                                         return $ AST.SimpleAssign expr $6
                                                                                     }
     | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                   {% do
-                                                                                        ST.insertId $3 ST.Constant $5
+                                                                                        ST.insertId $3 ST.Constant $5 Nothing
                                                                                         let symbol = Tk.cleanedString $3
                                                                                         expr <- TC.buildAndCheckExpr $3 $ AST.IdExpr symbol
                                                                                         checkAssignment $6 [expr] $7 True
@@ -557,7 +565,7 @@ FOR :: { AST.Instruction }
 FOR_DEC :: { (AST.Id, AST.Expression, AST.Expression) }
     : for id type int '.' forLB EXPR forUB EXPR '.'                                 {% do
 
-                                                                                        ST.insertId $2 ST.Variable ST.int
+                                                                                        ST.insertId $2 ST.Variable ST.int Nothing
                                                                                         TC.checkIntegerType $7
                                                                                         TC.checkIntegerType $9
                                                                                         return (Tk.cleanedString $2, $7, $9)
@@ -593,21 +601,21 @@ EXPR :: { AST.Expression }
     | '[' EXPRLIST ']' EXPR                                                         {% TC.buildAndCheckExpr $3 $ AST.AccesIndex $4 (reverse $2) }
     | id '<-' EXPR                                                                  {% do
                                                                                         expr <- TC.buildAndCheckExpr $2 $ AST.AccesField $3 (Tk.cleanedString $1)
-                                                                                        case AST.getType expr of
+                                                                                        case AST.getType $3 of
                                                                                             T.StructT _ -> return ()
                                                                                             T.TypeError -> return ()
                                                                                             _           -> do
-                                                                                                let error = Err.InvalidExprType (show $ AST.getType expr) (Tk.position $2)
+                                                                                                let error = Err.InvalidExprType (show $ AST.getType $3) (Tk.position $2)
                                                                                                 ST.insertError $ Err.TE error
                                                                                         return expr
                                                                                     }
     | EXPR '->' id                                                                  {% do
                                                                                         expr <- TC.buildAndCheckExpr $2 $ AST.AccesField $1 (Tk.cleanedString $3)
-                                                                                        case AST.getType expr of
+                                                                                        case AST.getType $1 of
                                                                                                 T.UnionT  _ -> return ()
                                                                                                 T.TypeError -> return ()
                                                                                                 _           -> do
-                                                                                                    let error = Err.InvalidExprType (show $ AST.getType expr) (Tk.position $2)
+                                                                                                    let error = Err.InvalidExprType (show $ AST.getType $1) (Tk.position $2)
                                                                                                     ST.insertError $ Err.TE error
                                                                                         return expr
                                                                                     }
@@ -758,10 +766,10 @@ checkValidReturn statement exprs = do
     maybeEntry <- ST.lookupFunction fn params 
     case maybeEntry of
         Just ST.SymbolInfo{
-            ST.additional = (Just (ST.FunctionMetaData ST.FunctionInfo{ST.returnTypes=retTypes}))
+            ST.additional = (Just (ST.FunctionMetaData ST.FunctionInfo{ST.returns=returns}))
         } -> do
             let exprsTypes = map AST.getType exprs
-            returnTypes <- mapM T.getTypeFromString retTypes
+            returnTypes <- mapM T.getTypeFromString returns
             if all T.notTypeError (returnTypes ++ exprsTypes)
                 then do
                     if length returnTypes == length exprsTypes
@@ -772,7 +780,8 @@ checkValidReturn statement exprs = do
                                 Just pos -> do
                                     let err = Err.UnexpectedType (show $ exprsTypes !! pos) (show $ returnTypes !! pos) (Tk.position statement)
                                     ST.insertError $ Err.TE err
-                        else return ()
+                        else do
+                            ST.insertError $ Err.PE $ Err.ReturnLengthMissmatch fn params (length returnTypes) (length exprsTypes) (Tk.position statement)
                 else return ()
         _ -> return ()
 

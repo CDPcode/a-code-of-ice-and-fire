@@ -8,7 +8,7 @@ import qualified Westeros.SouthOfTheWall.Tokens         as Tk
 import qualified Westeros.SouthOfTheWall.Types          as T
 import qualified Westeros.SouthOfTheWall.TypeChecking   as TC
 
-import Control.Monad.RWS (get, put)
+import Control.Monad.RWS (get, put, unless)
 import Data.List (find)
 import Data.Maybe (fromJust)
 
@@ -194,7 +194,9 @@ FUNCTION_NAMES :: { () }
                                                                                         case function of
                                                                                             Nothing -> do
                                                                                                 symT <- get
-                                                                                                put $ ST.insertST symT $ ST.functionDecEntry name params
+                                                                                                if (ST.checkExistingAlias symT name)
+                                                                                                    then ST.insertError $ Err.PE (Err.RedeclaredName name (Tk.position $3))
+                                                                                                    else put $ ST.insertST symT $ ST.functionDecEntry name params
                                                                                             Just entry -> 
                                                                                                 ST.insertError $ Err.PE (Err.RedeclareFunction name params (Tk.position $3))
                                                                                     }
@@ -226,37 +228,34 @@ FUNCTION_DEF :: { () }
     : id OPEN_SCOPE FUNCTION_PARAMETERS FUNCTION_RETURN                             {% do
                                                                                         symT <- get
                                                                                         let functionId = Tk.cleanedString $1
-                                                                                            nParams = length $3
-                                                                                        if ST.checkExisting symT functionId then do
-                                                                                            decEntry <- ST.findFunctionDec functionId nParams
-                                                                                            case decEntry of
-                                                                                                Left entry -> do
-                                                                                                    let params     = fst $ unzip $3
-                                                                                                        paramTypes = snd $ unzip $3
-                                                                                                    newEntry <- ST.updateFunctionInfo entry params paramTypes $4
-                                                                                                    put $  ST.searchAndReplaceSymbol symT (functionId, entry) newEntry
-                                                                                                Right defined -> do
-                                                                                                    if defined
-                                                                                                        then ST.insertError $ Err.PE (Err.RedefineFunction functionId nParams (Tk.position $1))
-                                                                                                        else ST.insertError $ Err.PE (Err.UndeclaredFunction functionId nParams (Tk.position $1))
-                                                                                        else ST.insertError $ Err.PE (Err.UndeclaredFunction functionId nParams (Tk.position $1))
+                                                                                            nParams = $3
+                                                                                        decEntry <- ST.findFunctionDec functionId nParams
+                                                                                        case decEntry of
+                                                                                            Left entry -> do
+                                                                                                let params = $3
+                                                                                                newEntry <- ST.updateFunctionInfo entry params $4
+                                                                                                put $  ST.searchAndReplaceSymbol symT (functionId, entry) newEntry
+                                                                                            Right defined -> do
+                                                                                                if defined
+                                                                                                    then ST.insertError $ Err.PE (Err.RedefineFunction functionId nParams (Tk.position $1))
+                                                                                                    else ST.insertError $ Err.PE (Err.UndeclaredFunction functionId nParams (Tk.position $1))
                                                                                     }
 
-FUNCTION_PARAMETERS :: { [(ST.Symbol, ST.Type)] }
-    : beginFuncParams PARAMETER_LIST endFuncParams                                  { reverse $2 }
+FUNCTION_PARAMETERS :: { Int }
+    : beginFuncParams PARAMETER_LIST endFuncParams                                  { $2 }
 
-PARAMETER_LIST :: { [(ST.Symbol, ST.Type)] }
-    : void                                                                          { [] }
+PARAMETER_LIST :: { Int }
+    : void                                                                          { 0 }
     | PARAMETERS                                                                    { $1 }
 
-PARAMETERS :: { [(ST.Symbol, ST.Type)] }
-    : PARAMETER                                                                     { [$1] }
-    | PARAMETERS ',' PARAMETER                                                      { $3 : $1}
+PARAMETERS :: { Int }
+    : PARAMETER                                                                     { 1 }
+    | PARAMETERS ',' PARAMETER                                                      { $1 + 1}
 
-PARAMETER :: { (ST.Symbol, ST.Type) }
-    : PARAMETER_TYPE id type TYPE                                                   { (Tk.cleanedString $2, $4) }
-    | beginCompTypeId PARAMETER_TYPE id endCompTypeId TYPE                          { (Tk.cleanedString $3, $5) }
-    | beginCompTypeId PARAMETER_TYPE pointerVar id endCompTypeId TYPE               { (Tk.cleanedString $4, $6) }
+PARAMETER :: { () }
+    : PARAMETER_TYPE id type TYPE                                                   {% ST.insertId $2 ST.Parameter $4 (Just $ ST.ParameterType $1) }
+    | beginCompTypeId PARAMETER_TYPE id endCompTypeId TYPE                          {% ST.insertId $3 ST.Parameter $5 (Just $ ST.ParameterType $2) }
+    | beginCompTypeId PARAMETER_TYPE pointerVar id endCompTypeId TYPE               {% ST.insertId $4 ST.Parameter $6 (Just $ ST.ParameterType $2) }
 
 PARAMETER_TYPE :: { ST.ParameterType }
     : valueParam                                                                    { ST.Value }
@@ -280,7 +279,25 @@ FUNCTION_BODY :: {}
 TYPE :: { ST.Type }
     : PRIMITIVE_TYPE                                                                { $1 }
     | COMPOSITE_TYPE                                                                { $1 }
-    | id                                                                            { Tk.cleanedString $1 }
+    | id                                                                            {% do
+                                                                                        let alias = Tk.cleanedString $1
+                                                                                        maybeInfo <- ST.lookupST alias
+                                                                                        case maybeInfo of
+                                                                                            Nothing -> do
+                                                                                                let err = Err.UndeclaredName alias (Tk.position $1)
+                                                                                                ST.insertError $ Err.PE err
+                                                                                                return ST.tError
+                                                                                            Just info -> do
+                                                                                                case ST.additional info of
+                                                                                                    Just (ST.AliasMetaData ST.ByName _) ->
+                                                                                                        return alias
+                                                                                                    Just (ST.AliasMetaData ST.ByStructure tp) ->
+                                                                                                        return tp
+                                                                                                    _ ->  do
+                                                                                                        let err = Err.UndeclaredName alias (Tk.position $1)
+                                                                                                        ST.insertError $ Err.PE err
+                                                                                                        return ST.tError
+                                                                                    }
 
 PRIMITIVE_TYPE :: { ST.Type }
     : int                                                                           { ST.int }
@@ -309,14 +326,14 @@ COMPOSITE_TYPE :: { ST.Type }
                                                                                             typeInfo = ST.TypeInfo {ST.width = 4, ST.align = 4}
                                                                                         ST.insertType name info typeInfo
                                                                                     }
-    | beginStruct OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endStruct              {% do
+    | beginStruct BEGIN_RECORD SIMPLE_DECLARATIONS END_RECORD endStruct             {% do
                                                                                         name <- ST.genTypeSymbol
                                                                                         let info = ST.StructScope $2
                                                                                         typeInfo <- ST.getTupleTypeInfo $ reverse $3
                                                                                         ST.insertType name info typeInfo
                                                                                     }
 
-    | beginUnion OPEN_SCOPE SIMPLE_DECLARATIONS CLOSE_SCOPE endUnion                {% do
+    | beginUnion BEGIN_RECORD SIMPLE_DECLARATIONS END_RECORD endUnion               {% do
                                                                                         name <- ST.genTypeSymbol
                                                                                         let info = ST.UnionScope $2
                                                                                         typeInfo <- ST.getUnionTypeInfo $ reverse $3
@@ -328,6 +345,16 @@ COMPOSITE_TYPE :: { ST.Type }
                                                                                         typeInfo <- ST.getTupleTypeInfo $2
                                                                                         ST.insertType name info typeInfo
                                                                                     }
+
+BEGIN_RECORD :: { ST.Scope }
+    : OPEN_SCOPE                                                                    {% do 
+                                                                                        ST.openRecord
+                                                                                        return $1
+                                                                                    }
+
+END_RECORD :: { () }
+    : CLOSE_SCOPE                                                                   {% ST.closeRecord }
+
 OPEN_SCOPE :: { ST.Scope }
     :  {- empty -}                                                                  {% do
                                                                                         ST.openScope
@@ -361,17 +388,42 @@ SIMPLE_DECLARATION :: { ST.Type }
     | COMPOSITE_DECLARATION                                                         { $1 }
 
 PRIMITIVE_DECLARATION :: { ST.Type }
-    : var id type TYPE                                                              { $4 }
+    : var id type TYPE                                                              {% do
+                                                                                        countOpenRecords <- ST.currentOpenRecords
+                                                                                        unless (countOpenRecords == 0) $ do
+                                                                                            ST.insertId $2 ST.Field $4 Nothing
+                                                                                        return $4
+                                                                                    }
 
 COMPOSITE_DECLARATION :: { ST.Type }
-    : beginCompTypeId var id endCompTypeId TYPE                                     { $5 }
-    | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz              { $5 }
-    | beginCompTypeId pointerVar id endCompTypeId TYPE                              { $5 }
-    | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz       { $5 }
+    : beginCompTypeId var id endCompTypeId TYPE                                     {% do
+                                                                                        countOpenRecords <- ST.currentOpenRecords
+                                                                                        unless (countOpenRecords == 0) $ do
+                                                                                            ST.insertId $3 ST.Field $5 Nothing
+                                                                                        return $5
+                                                                                    }
+    | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz              {% do
+                                                                                        countOpenRecords <- ST.currentOpenRecords
+                                                                                        unless (countOpenRecords == 0) $ do
+                                                                                            ST.insertId $3 ST.Field $5 Nothing
+                                                                                        return $5
+                                                                                    }
+    | beginCompTypeId pointerVar id endCompTypeId TYPE                              {% do
+                                                                                        countOpenRecords <- ST.currentOpenRecords
+                                                                                        unless (countOpenRecords == 0) $ do
+                                                                                            ST.insertId $3 ST.Field $5 Nothing
+                                                                                        return $5
+                                                                                    }
+    | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz        {% do
+                                                                                        countOpenRecords <- ST.currentOpenRecords
+                                                                                        unless (countOpenRecords == 0) $ do
+                                                                                            ST.insertId $3 ST.Field $5 Nothing
+                                                                                        return $5
+                                                                                    }
 
-CONST_DECLARATION :: { ST.Type }
-    : const id type TYPE constValue EXPR                                            { $4 }
-    | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                   { $5 }
+CONST_DECLARATION :: { }
+    : const id type TYPE constValue EXPR                                            { }
+    | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                   { }
 
 ALIAS_DECLARATION :: { () }
     : beginAlias id ALIAS_TYPE TYPE '.'                                             {% ST.insertAlias $2 (Tk.cleanedString $2) $3 $4 }
