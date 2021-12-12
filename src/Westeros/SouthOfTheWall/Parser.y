@@ -494,13 +494,13 @@ INSTRUCTION :: { AST.Instruction }
                                                                                     }
     | continue '.'                                                                  {% do
                                                                                         openLoops <- ST.currentOpenLoops
-                                                                                        unless (openLoops == 0) $ do
+                                                                                        when (openLoops == 0) $ do
                                                                                             ST.insertError $ Err.PE $ Err.NoLoop (Tk.position $1)
                                                                                         return $ AST.Continue
                                                                                     }
     | break '.'                                                                     {% do
                                                                                         openLoops <- ST.currentOpenLoops
-                                                                                        unless (openLoops == 0) $ do
+                                                                                        when (openLoops == 0) $ do
                                                                                             ST.insertError $ Err.PE $ Err.NoLoop (Tk.position $1)
                                                                                         return $ AST.Break
                                                                                     }
