@@ -459,7 +459,7 @@ INSTRUCTION :: {}
     | IF '.'                                                                        {}
     | SWITCHCASE  '.'                                                               {}
     | FOR '.'                                                                       {}
-    | WHILE                                                                         {}
+    | WHILE '.'                                                                     {}
     | DECLARATION                                                                   {}
     | FUNCTIONCALL                                                                  {}
 
