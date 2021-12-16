@@ -1,29 +1,35 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Westeros.SouthOfTheWall.PrettyPrint where
+module Westeros.SouthOfTheWall.PrettyPrint (
+      Pretty (..)
+    ) where
 
 import Data.List(intercalate)
 import Data.Function ((&))
 import Data.Text (pack)
 import Rainbow
-    ( fore,
-      blue,
-      brightCyan,
-      brightBlue,
-      brightRed,
-      green,
-      red,
-      chunksToByteStrings,
-      toByteStringsColors256,
-      chunk,
-      Chunk)
+    ( fore
+    , blue
+    , brightCyan
+    , brightBlue
+    , brightRed
+    , green
+    , red
+    , chunksToByteStrings
+    , toByteStringsColors256
+    , chunk
+    , Chunk)
+
+import Westeros.SouthOfTheWall.Error
+    ( Error(..)
+    , ParserError(..)
+    , TypeError(..) )
 
 import qualified Data.ByteString.Lazy.Char8 as BS
 import qualified Data.Map as M (toList)
 
 import Westeros.SouthOfTheWall.Symtable ( SymbolTable(..), SymbolInfo(..), TypeInfo(..) )
 import qualified Westeros.SouthOfTheWall.Tokens as Tk (Token(..), Position(..))
-import Westeros.SouthOfTheWall.Error
 
 
 

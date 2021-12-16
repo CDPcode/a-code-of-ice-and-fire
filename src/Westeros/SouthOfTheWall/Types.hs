@@ -1,4 +1,22 @@
-module Westeros.SouthOfTheWall.Types where
+module Westeros.SouthOfTheWall.Types (
+      Type (..)
+    , getTypeFromString
+    , buildTypesFromDict
+    , notTypeError
+    , isArrayType
+    , isCasteable
+    , isPrimitiveType
+    , isPrimitiveOrPointerType
+    , checkAssignable
+    , isRecordOrTupleType
+    , isRecordType
+    , isPointerToArray
+    , isIntegerType
+    , isStringType
+    , isPointerType
+    , isPointerToRecordOrTuple
+    , isCompositeType
+    ) where
 
 import qualified Westeros.SouthOfTheWall.Symtable as ST
 
@@ -54,7 +72,7 @@ getTypeFromString base = case base of
     "_atom"         -> return AtomT
     "_null"         -> return NullT
     "_type_error"   -> return TypeError
-    
+
     -- Composite types
     otherType  -> do
         espType <- ST.lookupST otherType
@@ -108,13 +126,13 @@ notTypeError _            = True
 
 checkAssignable :: Type -> Type -> Bool
 checkAssignable PointerT{} NullT = True
-checkAssignable (TupleT lTypes) (TupleT rTypes) = 
+checkAssignable (TupleT lTypes) (TupleT rTypes) =
     length lTypes == length rTypes && and (zipWith checkAssignable lTypes rTypes)
-checkAssignable (StructT lTypes) (TupleT rTypes) = 
+checkAssignable (StructT lTypes) (TupleT rTypes) =
     length lTypes == length rTypes && and (zipWith checkAssignable (map snd lTypes) rTypes)
-checkAssignable (StructT lTypes) (StructT rTypes) = 
-    length lTypes == length rTypes && 
-        and (map (\((ln, lt), (rn, rt)) -> ln == rn && (checkAssignable lt rt)) $ zip lTypes rTypes)
+checkAssignable (StructT lTypes) (StructT rTypes) =
+    length lTypes == length rTypes &&
+        all (\((ln, lt), (rn, rt)) -> ln == rn && (checkAssignable lt rt)) (zip lTypes rTypes)
 checkAssignable _ (MultiReturnT _) = False
 checkAssignable _ NothingT = False
 checkAssignable _ TypeError = True

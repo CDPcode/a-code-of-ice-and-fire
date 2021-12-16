@@ -34,6 +34,7 @@ library
       Westeros.SouthOfTheWall.PreParser
       Westeros.SouthOfTheWall.PrettyPrint
       Westeros.SouthOfTheWall.Symtable
+      Westeros.SouthOfTheWall.TACGeneration
       Westeros.SouthOfTheWall.Tokens
       Westeros.SouthOfTheWall.TypeChecking
       Westeros.SouthOfTheWall.Types

@@ -1,4 +1,21 @@
-module Westeros.SouthOfTheWall.AST where
+module Westeros.SouthOfTheWall.AST (
+      Program (..)
+    , Id
+    , Main
+    , Global
+    , FunctionDeclaration
+    , FunctionDeclarations
+    , Expression (..)
+    , Expr (..)
+    , BinOp (..)
+    , UnOp (..)
+    , Instruction (..)
+    , IfInst (..)
+    , Case (..)
+    , isValidLValue
+    , isFunctionCall
+    , prettyPrintProgram
+    ) where
 
 import Control.Monad (replicateM_)
 

@@ -1,11 +1,11 @@
 module Westeros.SouthOfTheWall.Error(
-    Error(..),
-    ParserError(..),
-    TypeError(..),
-    ExpectedTypes(..)
-) where
+      Error(..)
+    , ParserError(..)
+    , TypeError(..)
+    , ExpectedTypes(..)
+    ) where
 
-import qualified Westeros.SouthOfTheWall.Tokens as Tk 
+import qualified Westeros.SouthOfTheWall.Tokens as Tk
 
 data Error
     = PE ParserError
