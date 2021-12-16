@@ -1,4 +1,4 @@
-module Main where
+module Main (main) where
 
 import Westeros.SouthOfTheWall.AST          (prettyPrintProgram)
 import Westeros.SouthOfTheWall.Lexer        (scanTokens)

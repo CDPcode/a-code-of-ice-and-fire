@@ -1,5 +1,18 @@
-module Westeros.SouthOfTheWall.TypeChecking where
-    
+module Westeros.SouthOfTheWall.TypeChecking (
+      Typeable (..)
+    , binOpCheck
+    , buildAndCheckExpr
+    , checkPrimitiveType
+    , checkCompositeType
+    , checkRecordOrTupleType
+    , checkArrayType
+    , checkPointerType
+    , checkPointerToArrayType
+    , checkPointerToRecordOrTupleType
+    , checkIntegerType
+    , checkIntegerTypes
+    ) where
+
 import qualified Westeros.SouthOfTheWall.Error as Err
 import qualified Westeros.SouthOfTheWall.Symtable as ST
 import qualified Westeros.SouthOfTheWall.Tokens as Tk
@@ -30,7 +43,7 @@ instance Typeable AST.Expr where
     typeQuery (AST.StringLit _) = return $ T.ArrayT T.CharT 1
     typeQuery AST.TrueLit       = return T.BoolT
     typeQuery AST.FalseLit      = return T.BoolT
-    typeQuery AST.NullLit       = return T.NullT                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+    typeQuery AST.NullLit       = return T.NullT
 
     -- Literal Arrays
     typeQuery (AST.ArrayLit array) = do
@@ -77,11 +90,11 @@ instance Typeable AST.Expr where
                                 symT <- get
                                 returnTypes <- mapM T.getTypeFromString returns
                                 let params = ST.filterByScopeST symT scope
-                                params <- T.buildTypesFromDict $ map (second head) $ M.toList params
-                                let paramTypes = map snd params
-                                if all T.notTypeError paramTypes && all T.notTypeError returnTypes 
+                                params' <- T.buildTypesFromDict $ map (second head) $ M.toList params
+                                let paramTypes = map snd params'
+                                if all T.notTypeError paramTypes && all T.notTypeError returnTypes
                                     then case findIndex not $ zipWith T.checkAssignable paramTypes types of
-                                        Nothing -> 
+                                        Nothing ->
                                             case returnTypes of
                                                 [] -> return T.NothingT
                                                 [t] -> return t
@@ -96,7 +109,7 @@ instance Typeable AST.Expr where
                                     else return T.TypeError
                             else
                                 return T.TypeError
-                    Nothing -> return T.TypeError
+                    _ -> return T.TypeError
             else return T.TypeError
 
     -- Binary Operators
@@ -113,7 +126,7 @@ instance Typeable AST.Expr where
                     err = Err.UnexpectedType (show x) (show Err.Bool) tkErrPos
                 ST.insertError $ Err.TE err
                 return T.TypeError
-    
+
     typeQuery (AST.UnOp AST.Not a) = do
         case AST.getType a of
             T.BoolT -> return T.BoolT
@@ -138,14 +151,14 @@ instance Typeable AST.Expr where
     typeQuery (AST.AccesField expr symbol) = do
 
         case AST.getType expr of
-            T.StructT fields -> do 
+            T.StructT fields -> do
                 case find (\p -> fst p == symbol) fields of
                     Just (_, t) -> return t
                     Nothing -> do
                         let err = Err.InvalidField symbol (Tk.position $ AST.getToken expr)
                         ST.insertError $ Err.TE err
                         return T.TypeError
-            T.UnionT fields -> do 
+            T.UnionT fields -> do
                 case find (\p -> fst p == symbol) fields of
                     Just (_, t) -> return t
                     Nothing -> do
@@ -188,17 +201,17 @@ instance Typeable AST.Expr where
                                 pos           = Tk.position $ AST.getToken $ inds !! idx
                                 err         = Err.UnexpectedType errorTp (show Err.Int) pos
                             ST.insertError $ Err.TE err
-                            return T.TypeError      
+                            return T.TypeError
                 _ -> do
                     let errorTp = show arrType
                         pos = Tk.position $ AST.getToken arr
                     ST.insertError $ Err.TE $ Err.UnexpectedType errorTp (show Err.Array) pos
                     return T.TypeError
             else return T.TypeError
-        
-    
+
+
     typeQuery (AST.TupleIndex tupleExpr ind) = do
-        
+
         let tupleType = AST.getType tupleExpr
         if T.notTypeError tupleType then
             case tupleType of
@@ -245,10 +258,10 @@ instance Typeable AST.Expr where
 
 binOpCheck :: AST.BinOp -> AST.Expression -> AST.Expression -> ST.MonadParser T.Type
 binOpCheck bop a b = do
-    
+
     let firstType = AST.getType a
         secondType = AST.getType b
-        (validTypes, returnType) 
+        (validTypes, returnType)
             | bop `elem` numericalOp = (numericalTypes, firstType)
             | bop `elem` relationalOp = (primitiveTypes, T.BoolT)
             | bop == AST.Mod = ([T.IntT], T.IntT)
@@ -269,12 +282,12 @@ binOpCheck bop a b = do
         else do
             let err = Err.InvalidExprType (show firstType) (Tk.position $ AST.getToken a)
             ST.insertError $ Err.TE err
-            
+
             unless (secondType `elem` validTypes) $ do
                 let er = Err.InvalidExprType (show secondType) (Tk.position $ AST.getToken b)
                 ST.insertError $ Err.TE er
             return T.TypeError
-    where 
+    where
         numericalOp = [AST.Sum, AST.Sub, AST.Prod, AST.Div]
         numericalTypes = [T.IntT, T.FloatT]
         relationalOp = [AST.Eq, AST.Neq, AST.Lt, AST.Gt, AST.Leq, AST.Geq]

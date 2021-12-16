@@ -1,4 +1,67 @@
-module Westeros.SouthOfTheWall.Symtable where
+module Westeros.SouthOfTheWall.Symtable (
+      Type
+    , Symbol
+    , Scope
+    , Offset
+    , Width
+    , Alignment
+    , TypeInfo (..)
+    , SymAlias
+    , Entry
+    , Dictionary
+    , MonadParser
+    , AliasType (..)
+    , ParameterType (..)
+    , Category (..)
+    , SymbolInfo (..)
+    , AdditionalInfo (..)
+    , FunctionInfo (..)
+    , SymbolTable (..)
+    , getFunctionMetaData
+    , getAliasMetaData
+    , insertST
+    , searchAndReplaceSymbol
+    , filterByScopeST
+    , findSymbolInScope
+    , openScope
+    , closeScope
+    , openLoop
+    , closeLoop
+    , openRecord
+    , closeRecord
+    , checkExisting
+    , checkExistingAlias
+    , openFunction
+    , findBest
+    , lookupST
+    , lookupFunction
+    , findFunctionDec
+    , functionDecEntry
+    , initialST
+    , typesSymbolInfo
+    , insertId
+    , insertAlias
+    , insertType
+    , checkNotRepeated
+    , currentOpenLoops
+    , currentOpenFunction
+    , currentOpenRecords
+    , updateFunctionInfo
+    , getTupleTypeInfo
+    , getMultiReturnTypeInfo
+    , getUnionTypeInfo
+    , updateOffset
+    , getNextSymAlias
+    , genTypeSymbol
+    , insertError
+    , currentScope
+    , tError
+    , char
+    , bool
+    , atom
+    , int
+    , float
+    ) where
 
 import Data.Bifunctor       (second)
 import Data.Foldable        (foldl')
@@ -276,19 +339,21 @@ currentOffset = do
     return o
 
 currentOpenFunction :: MonadParser (Symbol, Int)
-currentOpenFunction = do 
+currentOpenFunction = do
     SymbolTable { currentFunction = p } <- get
     return p
 
 currentOpenRecords :: MonadParser Int
-currentOpenRecords = do 
+currentOpenRecords = do
     SymbolTable { openRecords = p } <- get
     return p
 
 setCurrentOffset :: Offset -> MonadParser ()
 setCurrentOffset newOffset = do
     symT <- get
-    let (_:rest) = offsetStack symT
+    let rest = case offsetStack symT of
+            (_:xs) -> xs
+            _ -> error "Set current offset called without any offset in the list"
         newOffsetStack = newOffset : rest
 
     put $ symT { offsetStack = newOffsetStack }

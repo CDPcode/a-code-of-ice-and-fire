@@ -1,13 +1,13 @@
 module Westeros.SouthOfTheWall.Tokens (
-    Token(..),
-    AbstractToken(..),
-    Position(..),
-    Error(..)
-) where
+      Token(..)
+    , AbstractToken(..)
+    , Position(..)
+    , Error(..)
+    ) where
 
 {- Relevant tokens datatypes -}
 
-newtype Error = Error { lexerError :: String } 
+newtype Error = Error { lexerError :: String }
     deriving (Show)
 
 data Position = Position {
@@ -16,7 +16,7 @@ data Position = Position {
     }
     deriving (Eq,Show)
 
-data Token = Token 
+data Token = Token
     { aToken :: AbstractToken
     , capturedString :: String
     , cleanedString :: String
@@ -26,14 +26,14 @@ data Token = Token
 
 
 
-data AbstractToken = 
+data AbstractToken =
     -- Program Start
-    TknProgramStart   
-    | TknProgramName 
+    TknProgramStart
+    | TknProgramName
 
     -- Type Declaration
-    | TknVar     
-    | TknConst 
+    | TknVar
+    | TknConst
     | TknVarPointer
     | TknType
     | TknConstValue
@@ -48,7 +48,7 @@ data AbstractToken =
     | TknChar
     | TknAtom
     | TknVoid
-    
+
     -- Literals
     | TknTrue
     | TknFalse
@@ -129,7 +129,7 @@ data AbstractToken =
     | TknGlobalDec
     | TknMain
     | TknBeginFunctionParams
-    | TknEndFunctionParams 
+    | TknEndFunctionParams
     | TknBeginReturnVals
     | TknEndReturnVals
     | TknReturnOpen
