@@ -68,10 +68,14 @@ import Data.Foldable        (foldl')
 import Control.Monad.RWS    ( MonadState(put, get), MonadWriter(tell), RWST )
 import Data.List            (find)
 import Data.Maybe           (fromJust)
+import Data.Sequence        (Seq)
+import TACTypes.TAC         (TACCode)
 
-import qualified Data.Map.Strict as M
-import qualified Westeros.SouthOfTheWall.Error as Err
+import qualified Data.Map.Strict                as M
+import qualified Data.Sequence                  as Seq
+import qualified Westeros.SouthOfTheWall.Error  as Err
 import qualified Westeros.SouthOfTheWall.Tokens as Tk
+
 
 type Type = String
 
@@ -148,6 +152,9 @@ data SymbolTable = SymbolTable
     , currentFunction :: (Symbol, Int)
     , offsetStack     :: [Offset]
     , nextSymAlias    :: SymAlias
+    , tacCode         :: Seq TACCode
+    , nextLabel       :: Int
+    , nextTemp        :: Int
     }
 
 
@@ -472,6 +479,7 @@ initialST = foldl' insertST st (tErrorEntry:entries)
         , nextSymAlias    = 0
         , openRecords     = 0
         , currentFunction = ("", 0)
+        , tacCode         = Seq.empty
         }
 
 typesSymbolInfo :: TypeInfo -> SymbolInfo
