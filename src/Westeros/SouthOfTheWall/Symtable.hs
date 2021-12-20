@@ -480,6 +480,8 @@ initialST = foldl' insertST st (tErrorEntry:entries)
         , openRecords     = 0
         , currentFunction = ("", 0)
         , tacCode         = Seq.empty
+        , nextLabel       = 0
+        , nextTemp        = 0
         }
 
 typesSymbolInfo :: TypeInfo -> SymbolInfo
