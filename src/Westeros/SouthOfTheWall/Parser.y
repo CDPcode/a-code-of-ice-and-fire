@@ -7,6 +7,7 @@ import qualified Westeros.SouthOfTheWall.Tokens as Tk
 import qualified Westeros.SouthOfTheWall.Symtable as ST
 import qualified Westeros.SouthOfTheWall.Types as T
 import qualified Westeros.SouthOfTheWall.TypeChecking as TC
+import qualified Westeros.SouthOfTheWall.TACGeneration as TAC
 import Data.Maybe (fromJust)
 import Control.Monad.RWS ( MonadState(put, get), RWST, when, unless )
 import Data.List (find, findIndex)
@@ -581,18 +582,73 @@ WHILE :: { AST.Instruction }
                                                                                     }
 
 -- Expresions --
-EXPR :: { AST.Expression }
-    : EXPR '+' EXPR                                                                 {% TC.buildAndCheckExpr $2 $ AST.BinOp AST.Sum $1 $3 }
-    | EXPR '-' EXPR                                                                 {% TC.buildAndCheckExpr $2 $ AST.BinOp AST.Sub $1 $3 }
-    | EXPR '*' EXPR                                                                 {% TC.buildAndCheckExpr $2 $ AST.BinOp AST.Prod $1 $3 }
-    | EXPR '/' EXPR                                                                 {% TC.buildAndCheckExpr $2 $ AST.BinOp AST.Div $1 $3 }
-    | EXPR '%' EXPR                                                                 {% TC.buildAndCheckExpr $2 $ AST.BinOp AST.Mod $1 $3 }
-    | EXPR '=' EXPR                                                                 {% TC.buildAndCheckExpr $2 $ AST.BinOp AST.Eq $1 $3 }
-    | EXPR '!=' EXPR                                                                {% TC.buildAndCheckExpr $2 $ AST.BinOp AST.Neq $1 $3 }
-    | EXPR '<' EXPR                                                                 {% TC.buildAndCheckExpr $2 $ AST.BinOp AST.Lt $1 $3 }
-    | EXPR '>' EXPR                                                                 {% TC.buildAndCheckExpr $2 $ AST.BinOp AST.Gt $1 $3 }
-    | EXPR '<=' EXPR                                                                {% TC.buildAndCheckExpr $2 $ AST.BinOp AST.Leq $1 $3 }
-    | EXPR '>=' EXPR                                                                {% TC.buildAndCheckExpr $2 $ AST.BinOp AST.Geq $1 $3 }
+EXPR :: { TAC.Expression }
+    : EXPR '+' EXPR                                                                 {% do
+                                                                                        let astExpr1 = TAC.getExpr $1
+                                                                                            astExpr2 = TAC.getExpr $3
+                                                                                        astExpr <- TC.buildAndCheckExpr $2 $ AST.BinOp AST.Sum astExpr1 astExpr2
+                                                                                        TAC.generateCodeArithmeticBin astExpr $1 $3
+                                                                                    }
+    | EXPR '-' EXPR                                                                 {% do
+                                                                                        let astExpr1 = TAC.getExpr $1
+                                                                                            astExpr2 = TAC.getExpr $3
+                                                                                        astExpr <- TC.buildAndCheckExpr $2 $ AST.BinOp AST.Sub astExpr1 astExpr2
+                                                                                        TAC.generateCodeArithmeticBin astExpr $1 $3
+                                                                                    }
+    | EXPR '*' EXPR                                                                 {% do
+                                                                                        let astExpr1 = TAC.getExpr $1
+                                                                                            astExpr2 = TAC.getExpr $3
+                                                                                        astExpr <- TC.buildAndCheckExpr $2 $ AST.BinOp AST.Prod astExpr1 astExpr2
+                                                                                        TAC.generateCodeArithmeticBin astExpr $1 $3
+                                                                                    }
+    | EXPR '/' EXPR                                                                 {% do
+                                                                                        let astExpr1 = TAC.getExpr $1
+                                                                                            astExpr2 = TAC.getExpr $3
+                                                                                        astExpr <- TC.buildAndCheckExpr $2 $ AST.BinOp AST.Div astExpr1 astExpr2
+                                                                                        TAC.generateCodeArithmeticBin astExpr $1 $3
+                                                                                    }
+    | EXPR '%' EXPR                                                                 {% do
+                                                                                        let astExpr1 = TAC.getExpr $1
+                                                                                            astExpr2 = TAC.getExpr $3
+                                                                                        astExpr <- TC.buildAndCheckExpr $2 $ AST.BinOp AST.Mod astExpr1 astExpr2
+                                                                                        TAC.generateCodeArithmeticBin astExpr $1 $3
+                                                                                    }
+    | EXPR '=' EXPR                                                                 {% do
+                                                                                        let astExpr1 = TAC.getExpr $1
+                                                                                            astExpr2 = TAC.getExpr $3
+                                                                                        astExpr <- TC.buildAndCheckExpr $2 $ AST.BinOp AST.Eq astExpr1 astExpr2
+                                                                                        TAC.generateCodeComparison astExpr $1 $3
+                                                                                    }
+    | EXPR '!=' EXPR                                                                {% do
+                                                                                        let astExpr1 = TAC.getExpr $1
+                                                                                            astExpr2 = TAC.getExpr $3
+                                                                                        astExpr <- TC.buildAndCheckExpr $2 $ AST.BinOp AST.Neq astExpr1 astExpr2
+                                                                                        TAC.generateCodeComparison astExpr $1 $3
+                                                                                    }
+    | EXPR '<' EXPR                                                                 {% do
+                                                                                        let astExpr1 = TAC.getExpr $1
+                                                                                            astExpr2 = TAC.getExpr $3
+                                                                                        astExpr <- TC.buildAndCheckExpr $2 $ AST.BinOp AST.Lt astExpr1 astExpr2
+                                                                                        TAC.generateCodeComparison astExpr $1 $3
+                                                                                    }
+    | EXPR '>' EXPR                                                                 {% do
+                                                                                        let astExpr1 = TAC.getExpr $1
+                                                                                            astExpr2 = TAC.getExpr $3
+                                                                                        astExpr <- TC.buildAndCheckExpr $2 $ AST.BinOp AST.Lt astExpr1 astExpr2
+                                                                                        TAC.generateCodeComparison astExpr $1 $3
+                                                                                    }
+    | EXPR '<=' EXPR                                                                {% do
+                                                                                        let astExpr1 = TAC.getExpr $1
+                                                                                            astExpr2 = TAC.getExpr $3
+                                                                                        astExpr <- TC.buildAndCheckExpr $2 $ AST.BinOp AST.Leq astExpr1 astExpr2
+                                                                                        TAC.generateCodeComparison astExpr $1 $3
+                                                                                    }
+    | EXPR '>=' EXPR                                                                {% do
+                                                                                        let astExpr1 = TAC.getExpr $1
+                                                                                            astExpr2 = TAC.getExpr $3
+                                                                                        astExpr <- TC.buildAndCheckExpr $2 $ AST.BinOp AST.Geq astExpr1 astExpr2
+                                                                                        TAC.generateCodeComparison astExpr $1 $3
+                                                                                    }
     | EXPR and EXPR                                                                 {% TC.buildAndCheckExpr $2 $ AST.BinOp AST.And $1 $3 }
     | EXPR or EXPR                                                                  {% TC.buildAndCheckExpr $2 $ AST.BinOp AST.Or $1 $3 }
     | EXPR '~'                                                                      {% TC.buildAndCheckExpr $2 $ AST.UnOp AST.Neg $1 }

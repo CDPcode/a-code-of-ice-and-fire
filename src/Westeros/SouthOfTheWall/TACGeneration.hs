@@ -8,10 +8,13 @@ module Westeros.SouthOfTheWall.TACGeneration (
     , getNextTemp
     , getNextFloat
     , getNextLabel
+    , generateLabel
+    , generateCodeArithmeticBin
+    , generateCodeComparison
     ) where
 
 
-import Control.Monad.RWS                (get, put)
+import Control.Monad.RWS                (get, put, gets)
 import Data.Sequence                    (Seq, (|>))
 import TACTypes.TAC                     (TACCode)
 import Westeros.SouthOfTheWall.Symtable (MonadParser)
@@ -19,6 +22,7 @@ import Westeros.SouthOfTheWall.Symtable (MonadParser)
 import qualified Data.Sequence                      as Seq
 import qualified TACTypes.TAC                       as TAC
 import qualified Westeros.SouthOfTheWall.AST        as AST
+import qualified Westeros.SouthOfTheWall.Types      as T
 import qualified Westeros.SouthOfTheWall.Symtable   as ST
 
 type Label = String
@@ -89,3 +93,111 @@ getNextLabel = do
     put st { ST.nextLabel = n+1 }
     return label
 
+getNextInstruction :: MonadParser Int
+getNextInstruction = gets (Seq.length . ST.tacCode)
+
+generateLabel :: MonadParser Label
+generateLabel = do
+    label <- getNextLabel
+    generateCode $ TAC.TACCode TAC.MetaLabel (Just $ TAC.Label label) Nothing Nothing
+    return label
+
+getTempFromAddress :: Address -> MonadParser String
+getTempFromAddress (Temp temp) = return temp
+getTempFromAddress (Memory offset) = do
+    temp <- getNextTemp
+    generateCode $ TAC.TACCode TAC.RDeref (Just $ TAC.Id temp) (Just $ TAC.Id TAC.base) (Just $ TAC.Id offset)
+    return temp
+
+getFloatFromAddress :: Address -> MonadParser String
+getFloatFromAddress (Temp temp) = return temp
+getFloatFromAddress (Memory offset) = do
+    temp <- getNextFloat
+    generateCode $ TAC.TACCode TAC.RDeref (Just $ TAC.Id temp) (Just $ TAC.Id TAC.base) (Just $ TAC.Id offset)
+    return temp
+
+generateCodeArithmeticBin :: AST.Expression -> Expression -> Expression -> MonadParser Expression
+generateCodeArithmeticBin astExpr exp1 exp2 = do
+    let t = AST.getType astExpr
+        op = case AST.getExpr astExpr of
+            (AST.BinOp AST.Sum _ _)     -> TAC.Add
+            (AST.BinOp AST.Sub _ _)     -> TAC.Sub
+            (AST.BinOp AST.Prod _ _)    -> TAC.Mult
+            (AST.BinOp AST.Div _ _)     -> TAC.Div
+            (AST.BinOp AST.Mod _ _)     -> TAC.Mod
+            _ -> error "Called 'generateCodeArithmeticBin' with a non aritmetic expression"
+    temp <- case t of
+        T.FloatT -> getNextFloat
+        T.IntT   -> getNextTemp
+        _        -> return "error"
+    t1 <- case t of
+        T.FloatT -> getFloatFromAddress $ getAddress exp1
+        T.IntT   -> getTempFromAddress $ getAddress exp1
+        _        -> return "error"
+    t2 <- case t of
+        T.FloatT -> getFloatFromAddress $ getAddress exp2
+        T.IntT   -> getTempFromAddress $ getAddress exp2
+        _        -> return "error"
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = op
+        , TAC.tacLValue     = Just $ TAC.Id temp
+        , TAC.tacRValue1    = Just $ TAC.Id t1
+        , TAC.tacRValue2    = Just $ TAC.Id t2
+        }
+    return $ Expression
+        { getExpr       = astExpr
+        , getTrueList   = []
+        , getFalseList  = []
+        , getAddress    = Temp temp
+        }
+
+generateCodeComparison :: AST.Expression -> Expression -> Expression -> MonadParser Expression
+generateCodeComparison astExpr exp1 exp2 = do
+    let t = AST.getType astExpr
+        op = case AST.getExpr astExpr of
+            (AST.BinOp AST.Eq _ _)      -> TAC.Eq
+            (AST.BinOp AST.Neq _ _)     -> TAC.Neq
+            (AST.BinOp AST.Lt _ _)      -> TAC.Lt
+            (AST.BinOp AST.Leq _ _)     -> TAC.Leq
+            (AST.BinOp AST.Gt _ _)      -> TAC.Gt
+            (AST.BinOp AST.Geq _ _)     -> TAC.Geq
+            _ -> error "Called 'generateCodeComparison' with a non comparative expression"
+    temp <- getNextTemp
+    t1 <- case t of
+        T.FloatT -> getFloatFromAddress $ getAddress exp1
+        T.IntT   -> getTempFromAddress $ getAddress exp1
+        T.BoolT  -> getTempFromAddress $ getAddress exp1
+        T.CharT  -> getTempFromAddress $ getAddress exp1
+        _        -> return "error"
+    t2 <- case t of
+        T.FloatT -> getFloatFromAddress $ getAddress exp2
+        T.IntT   -> getTempFromAddress $ getAddress exp2
+        T.BoolT  -> getTempFromAddress $ getAddress exp2
+        T.CharT  -> getTempFromAddress $ getAddress exp2
+        _        -> return "error"
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = op
+        , TAC.tacLValue     = Just $ TAC.Id temp
+        , TAC.tacRValue1    = Just $ TAC.Id t1
+        , TAC.tacRValue2    = Just $ TAC.Id t2
+        }
+    trueInst <- getNextInstruction
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = TAC.Goif
+        , TAC.tacLValue     = Just $ TAC.Label "_"
+        , TAC.tacRValue1    = Just $ TAC.Id temp
+        , TAC.tacRValue2    = Nothing
+        }
+    falseInst <- getNextInstruction
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = TAC.Goto
+        , TAC.tacLValue     = Just $ TAC.Label "_"
+        , TAC.tacRValue1    = Nothing
+        , TAC.tacRValue2    = Nothing
+        }
+    return $ Expression
+        { getExpr       = astExpr
+        , getTrueList   = [trueInst]
+        , getFalseList  = [falseInst]
+        , getAddress    = Temp temp
+        }
