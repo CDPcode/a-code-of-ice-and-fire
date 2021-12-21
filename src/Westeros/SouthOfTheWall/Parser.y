@@ -649,10 +649,24 @@ EXPR :: { TAC.Expression }
                                                                                         astExpr <- TC.buildAndCheckExpr $2 $ AST.BinOp AST.Geq astExpr1 astExpr2
                                                                                         TAC.generateCodeComparison astExpr $1 $3
                                                                                     }
-    | EXPR and EXPR                                                                 {% TC.buildAndCheckExpr $2 $ AST.BinOp AST.And $1 $3 }
-    | EXPR or EXPR                                                                  {% TC.buildAndCheckExpr $2 $ AST.BinOp AST.Or $1 $3 }
+    | EXPR and GEN_LABEL EXPR                                                       {% do
+                                                                                        let astExpr1 = TAC.getExpr $1
+                                                                                            astExpr2 = TAC.getExpr $4
+                                                                                        astExpr <- TC.buildAndCheckExpr $2 $ AST.BinOp AST.And astExpr1 astExpr2
+                                                                                        TAC.generatecodeLogicalAnd astExpr $1 $4 $3
+                                                                                    }
+    | EXPR or GEN_LABEL EXPR                                                        {% do
+                                                                                        let astExpr1 = TAC.getExpr $1
+                                                                                            astExpr2 = TAC.getExpr $4
+                                                                                        astExpr <- TC.buildAndCheckExpr $2 $ AST.BinOp AST.Or astExpr1 astExpr2
+                                                                                        TAC.generatecodeLogicalOr astExpr $1 $4 $3
+                                                                                    }
+    | not EXPR                                                                      {% do
+                                                                                        let expr = TAC.getExpr $2
+                                                                                        astExpr <- TC.buildAndCheckExpr $1 $ AST.UnOp AST.Not expr
+                                                                                        TAC.generateCodeLogicalNot astExpr $2
+                                                                                    }
     | EXPR '~'                                                                      {% TC.buildAndCheckExpr $2 $ AST.UnOp AST.Neg $1 }
-    | not EXPR                                                                      {% TC.buildAndCheckExpr $1 $ AST.UnOp AST.Not $2 }
     | deref EXPR                                                                    {% TC.buildAndCheckExpr $1 $ AST.UnOp AST.Deref $2 }
     | '[' EXPRLIST ']' EXPR                                                         {% TC.buildAndCheckExpr $3 $ AST.AccesIndex $4 (reverse $2) }
     | id '<-' EXPR                                                                  {% do

@@ -11,6 +11,7 @@ module Westeros.SouthOfTheWall.TACGeneration (
     , generateLabel
     , generateCodeArithmeticBin
     , generateCodeComparison
+    , generateCodeLogicalBin
     ) where
 
 
@@ -151,9 +152,37 @@ generateCodeArithmeticBin astExpr exp1 exp2 = do
         , getAddress    = Temp temp
         }
 
+generateCodeArithmeticUnary :: AST.Expression -> Expression -> MonadParser Expression
+generateCodeArithmeticUnary astExpr exp = do
+    let t = AST.getType astExpr
+        op = case AST.getExpr astExpr of
+            (AST.UnOp AST.Neg _)     -> TAC.Minus
+            _ -> error "Called 'generateCodeArithmeticBin' with a non aritmetic expression"
+    temp <- case t of
+        T.FloatT -> getNextFloat
+        T.IntT   -> getNextTemp
+        _        -> return "error"
+    t1 <- case t of
+        T.FloatT -> getFloatFromAddress $ getAddress exp1
+        T.IntT   -> getTempFromAddress $ getAddress exp1
+        _        -> return "error"
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = op
+        , TAC.tacLValue     = Just $ TAC.Id temp
+        , TAC.tacRValue1    = Just $ TAC.Id t1
+        , TAC.tacRValue2    = Nothing
+        }
+    return $ Expression
+        { getExpr       = astExpr
+        , getTrueList   = []
+        , getFalseList  = []
+        , getAddress    = Temp temp
+        }
+
+
 generateCodeComparison :: AST.Expression -> Expression -> Expression -> MonadParser Expression
 generateCodeComparison astExpr exp1 exp2 = do
-    let t = AST.getType astExpr
+    let t = AST.getType $ getExpr exp1
         op = case AST.getExpr astExpr of
             (AST.BinOp AST.Eq _ _)      -> TAC.Eq
             (AST.BinOp AST.Neq _ _)     -> TAC.Neq
@@ -199,5 +228,69 @@ generateCodeComparison astExpr exp1 exp2 = do
         { getExpr       = astExpr
         , getTrueList   = [trueInst]
         , getFalseList  = [falseInst]
+        , getAddress    = Temp temp
+        }
+
+generateCodeLogicalAnd :: AST.Expression -> Expression -> Expression -> Label -> MonadParser Expression
+generateCodeLogicalAnd astExpr exp1 exp2 label = do
+
+    temp <- getNextTemp
+    t1 <- getTempFromAddress $ getAddress exp1
+    t2 <- getTempFromAddress $ getAddress exp2
+
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = TAC.And
+        , TAC.tacLValue     = Just $ TAC.Id temp
+        , TAC.tacRValue1    = Just $ TAC.Id t1
+        , TAC.tacRValue2    = Just $ TAC.Id t2
+        }
+
+    backpatch (getTrueList exp1) label
+    return $ Expression
+        { getExpr       = astExpr
+        , getTrueList   = getTrueList exp2
+        , getFalseList  = getFalseList exp1 ++ getFalseList exp2
+        , getAddress    = Temp temp
+        }
+
+generateCodeLogicalOr :: AST.Expression -> Expression -> Expression -> Label -> MonadParser Expression
+generateCodeLogicalOr astExpr exp1 exp2 label = do
+
+    temp <- getNextTemp
+    t1 <- getTempFromAddress $ getAddress exp1
+    t2 <- getTempFromAddress $ getAddress exp2
+
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = TAC.Or
+        , TAC.tacLValue     = Just $ TAC.Id temp
+        , TAC.tacRValue1    = Just $ TAC.Id t1
+        , TAC.tacRValue2    = Just $ TAC.Id t2
+        }
+
+    backpatch (getFalseList exp1) label
+    return $ Expression
+        { getExpr       = astExpr
+        , getTrueList   = getTrueList exp1 ++ getTrueList exp2
+        , getFalseList  = getFalseList exp2
+        , getAddress    = Temp temp
+        }
+
+generateCodeLogicalNot:: AST.Expression -> Expression -> MonadParser Expression
+generateCodeLogicalNot astExpr exp = do
+
+    temp <- getNextTemp
+    t <- getTempFromAddress $ getAddress exp
+
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = TAC.Neg
+        , TAC.tacLValue     = Just $ TAC.Id temp
+        , TAC.tacRValue1    = Just $ TAC.Id t1
+        , TAC.tacRValue2    = Nothing
+        }
+
+    return $ Expression
+        { getExpr       = astExpr
+        , getTrueList   = getFalseList exp
+        , getFalseList  = getTrueList exp
         , getAddress    = Temp temp
         }
