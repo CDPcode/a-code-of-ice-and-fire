@@ -666,7 +666,11 @@ EXPR :: { TAC.Expression }
                                                                                         astExpr <- TC.buildAndCheckExpr $1 $ AST.UnOp AST.Not expr
                                                                                         TAC.generateCodeLogicalNot astExpr $2
                                                                                     }
-    | EXPR '~'                                                                      {% TC.buildAndCheckExpr $2 $ AST.UnOp AST.Neg $1 }
+    | EXPR '~'                                                                      {% do
+                                                                                        let expr = TAC.getExpr $1
+                                                                                        astExpr <- TC.buildAndCheckExpr $2 $ AST.UnOp AST.Neg Expr
+                                                                                        TAC.generateCodeArithmeticUnary astExpr $1
+                                                                                    }
     | deref EXPR                                                                    {% TC.buildAndCheckExpr $1 $ AST.UnOp AST.Deref $2 }
     | '[' EXPRLIST ']' EXPR                                                         {% TC.buildAndCheckExpr $3 $ AST.AccesIndex $4 (reverse $2) }
     | id '<-' EXPR                                                                  {% do
@@ -742,6 +746,8 @@ EXPRLIST :: { [AST.Expression] }
     : EXPR                                                                          { [$1] }
     | EXPRLIST ',' EXPR                                                             { $3 : $1 }
 
+GEN_LABEL :: { TAC.Label }
+    : {- empty -}                                                                   {% TAC.generateLabel }
 
 OPEN_SCOPE :: { Int }
     :  {- empty -}                                                                  {% do
