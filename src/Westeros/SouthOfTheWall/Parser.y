@@ -764,8 +764,6 @@ OPEN_LOOP :: { () }
 CLOSE_LOOP :: { () }
     :  {- empty -}                                                                  {% ST.closeLoop }
 
-GEN_LABEL :: { TAC.Label }
-    :  {- empty -}                                                                  {% TAC.generateLabel }
 
 {
 parseError :: [Tk.Token] -> ST.MonadParser a
