@@ -10,8 +10,11 @@ module Westeros.SouthOfTheWall.TACGeneration (
     , getNextLabel
     , generateLabel
     , generateCodeArithmeticBin
+    , generateCodeArithmeticUnary
     , generateCodeComparison
-    , generateCodeLogicalBin
+    , generateCodeLogicalAnd
+    , generateCodeLogicalOr
+    , generateCodeLogicalNot
     ) where
 
 
@@ -153,7 +156,7 @@ generateCodeArithmeticBin astExpr exp1 exp2 = do
         }
 
 generateCodeArithmeticUnary :: AST.Expression -> Expression -> MonadParser Expression
-generateCodeArithmeticUnary astExpr exp = do
+generateCodeArithmeticUnary astExpr expr = do
     let t = AST.getType astExpr
         op = case AST.getExpr astExpr of
             (AST.UnOp AST.Neg _)     -> TAC.Minus
@@ -163,8 +166,8 @@ generateCodeArithmeticUnary astExpr exp = do
         T.IntT   -> getNextTemp
         _        -> return "error"
     t1 <- case t of
-        T.FloatT -> getFloatFromAddress $ getAddress exp1
-        T.IntT   -> getTempFromAddress $ getAddress exp1
+        T.FloatT -> getFloatFromAddress $ getAddress expr
+        T.IntT   -> getTempFromAddress $ getAddress expr
         _        -> return "error"
     generateCode $ TAC.TACCode
         { TAC.tacOperation  = op
@@ -276,10 +279,10 @@ generateCodeLogicalOr astExpr exp1 exp2 label = do
         }
 
 generateCodeLogicalNot:: AST.Expression -> Expression -> MonadParser Expression
-generateCodeLogicalNot astExpr exp = do
+generateCodeLogicalNot astExpr expr = do
 
     temp <- getNextTemp
-    t <- getTempFromAddress $ getAddress exp
+    t1 <- getTempFromAddress $ getAddress expr
 
     generateCode $ TAC.TACCode
         { TAC.tacOperation  = TAC.Neg
@@ -290,7 +293,7 @@ generateCodeLogicalNot astExpr exp = do
 
     return $ Expression
         { getExpr       = astExpr
-        , getTrueList   = getFalseList exp
-        , getFalseList  = getTrueList exp
+        , getTrueList   = getFalseList expr
+        , getFalseList  = getTrueList expr
         , getAddress    = Temp temp
         }
