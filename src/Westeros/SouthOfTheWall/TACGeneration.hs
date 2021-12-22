@@ -238,21 +238,45 @@ generateCodeLogicalAnd :: AST.Expression -> Expression -> Expression -> Label ->
 generateCodeLogicalAnd astExpr exp1 exp2 label = do
 
     temp <- getNextTemp
-    t1 <- getTempFromAddress $ getAddress exp1
-    t2 <- getTempFromAddress $ getAddress exp2
 
+    trueLabel <- generateLabel
     generateCode $ TAC.TACCode
-        { TAC.tacOperation  = TAC.And
+        { TAC.tacOperation  = TAC.Assign
         , TAC.tacLValue     = Just $ TAC.Id temp
-        , TAC.tacRValue1    = Just $ TAC.Id t1
-        , TAC.tacRValue2    = Just $ TAC.Id t2
+        , TAC.tacRValue1    = Just $ TAC.Constant $ TAC.Bool True
+        , TAC.tacRValue2    = Nothing
+        }
+    trueInst <- getNextInstruction
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = TAC.Goto
+        , TAC.tacLValue     = Just $ TAC.Label "_"
+        , TAC.tacRValue1    = Nothing
+        , TAC.tacRValue2    = Nothing
+        }
+
+
+    falseLabel <- generateLabel
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = TAC.Assign
+        , TAC.tacLValue     = Just $ TAC.Id temp
+        , TAC.tacRValue1    = Just $ TAC.Constant $ TAC.Bool False
+        , TAC.tacRValue2    = Nothing
+        }
+    falseInst <- getNextInstruction
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = TAC.Goto
+        , TAC.tacLValue     = Just $ TAC.Label "_"
+        , TAC.tacRValue1    = Nothing
+        , TAC.tacRValue2    = Nothing
         }
 
     backpatch (getTrueList exp1) label
+    backpatch (getTrueList exp2) trueLabel
+    backpatch (getFalseList exp1 ++ getFalseList exp2) falseLabel
     return $ Expression
         { getExpr       = astExpr
-        , getTrueList   = getTrueList exp2
-        , getFalseList  = getFalseList exp1 ++ getFalseList exp2
+        , getTrueList   = [trueInst]
+        , getFalseList  = [falseInst]
         , getAddress    = Temp temp
         }
 
@@ -260,40 +284,91 @@ generateCodeLogicalOr :: AST.Expression -> Expression -> Expression -> Label -> 
 generateCodeLogicalOr astExpr exp1 exp2 label = do
 
     temp <- getNextTemp
-    t1 <- getTempFromAddress $ getAddress exp1
-    t2 <- getTempFromAddress $ getAddress exp2
 
+    trueLabel <- generateLabel
     generateCode $ TAC.TACCode
-        { TAC.tacOperation  = TAC.Or
+        { TAC.tacOperation  = TAC.Assign
         , TAC.tacLValue     = Just $ TAC.Id temp
-        , TAC.tacRValue1    = Just $ TAC.Id t1
-        , TAC.tacRValue2    = Just $ TAC.Id t2
+        , TAC.tacRValue1    = Just $ TAC.Constant $ TAC.Bool True
+        , TAC.tacRValue2    = Nothing
+        }
+    trueInst <- getNextInstruction
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = TAC.Goto
+        , TAC.tacLValue     = Just $ TAC.Label "_"
+        , TAC.tacRValue1    = Nothing
+        , TAC.tacRValue2    = Nothing
+        }
+
+
+    falseLabel <- generateLabel
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = TAC.Assign
+        , TAC.tacLValue     = Just $ TAC.Id temp
+        , TAC.tacRValue1    = Just $ TAC.Constant $ TAC.Bool False
+        , TAC.tacRValue2    = Nothing
+        }
+    falseInst <- getNextInstruction
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = TAC.Goto
+        , TAC.tacLValue     = Just $ TAC.Label "_"
+        , TAC.tacRValue1    = Nothing
+        , TAC.tacRValue2    = Nothing
         }
 
     backpatch (getFalseList exp1) label
+    backpatch (getFalseList exp2) falseLabel
+    backpatch (getTrueList exp1 ++ getTrueList exp2) trueLabel
     return $ Expression
         { getExpr       = astExpr
-        , getTrueList   = getTrueList exp1 ++ getTrueList exp2
-        , getFalseList  = getFalseList exp2
+        , getTrueList   = [trueInst]
+        , getFalseList  = [falseInst]
         , getAddress    = Temp temp
         }
+
 
 generateCodeLogicalNot:: AST.Expression -> Expression -> MonadParser Expression
 generateCodeLogicalNot astExpr expr = do
 
     temp <- getNextTemp
-    t1 <- getTempFromAddress $ getAddress expr
 
+    trueLabel <- generateLabel
     generateCode $ TAC.TACCode
-        { TAC.tacOperation  = TAC.Neg
+        { TAC.tacOperation  = TAC.Assign
         , TAC.tacLValue     = Just $ TAC.Id temp
-        , TAC.tacRValue1    = Just $ TAC.Id t1
+        , TAC.tacRValue1    = Just $ TAC.Constant $ TAC.Bool True
+        , TAC.tacRValue2    = Nothing
+        }
+    trueInst <- getNextInstruction
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = TAC.Goto
+        , TAC.tacLValue     = Just $ TAC.Label "_"
+        , TAC.tacRValue1    = Nothing
         , TAC.tacRValue2    = Nothing
         }
 
+
+    falseLabel <- generateLabel
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = TAC.Assign
+        , TAC.tacLValue     = Just $ TAC.Id temp
+        , TAC.tacRValue1    = Just $ TAC.Constant $ TAC.Bool False
+        , TAC.tacRValue2    = Nothing
+        }
+    falseInst <- getNextInstruction
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = TAC.Goto
+        , TAC.tacLValue     = Just $ TAC.Label "_"
+        , TAC.tacRValue1    = Nothing
+        , TAC.tacRValue2    = Nothing
+        }
+
+    backpatch (getTrueList expr) falseLabel
+    backpatch (getFalseList expr) trueLabel
+
     return $ Expression
         { getExpr       = astExpr
-        , getTrueList   = getFalseList expr
-        , getFalseList  = getTrueList expr
+        , getTrueList   = [trueInst]
+        , getFalseList  = [falseInst]
         , getAddress    = Temp temp
         }
