@@ -34,6 +34,7 @@ type Label = String
 data Address
     = Temp String
     | Memory String
+    | Heap String
 
 data Expression = Expression
     { getExpr       :: AST.Expression
@@ -112,12 +113,20 @@ getTempFromAddress (Memory offset) = do
     temp <- getNextTemp
     generateCode $ TAC.TACCode TAC.RDeref (Just $ TAC.Id temp) (Just $ TAC.Id TAC.base) (Just $ TAC.Id offset)
     return temp
+getTempFromAddress (Heap offset) = do
+    temp <- getNextTemp
+    generateCode $ TAC.TACCode TAC.RDeref (Just $ TAC.Id temp) (Just $ TAC.Id offset) (Just $ TAC.Constant $ TAC.Int 0)
+    return temp
 
 getFloatFromAddress :: Address -> MonadParser String
 getFloatFromAddress (Temp temp) = return temp
 getFloatFromAddress (Memory offset) = do
     temp <- getNextFloat
     generateCode $ TAC.TACCode TAC.RDeref (Just $ TAC.Id temp) (Just $ TAC.Id TAC.base) (Just $ TAC.Id offset)
+    return temp
+getFloatFromAddress (Heap offset) = do
+    temp <- getNextFloat
+    generateCode $ TAC.TACCode TAC.RDeref (Just $ TAC.Id temp) (Just $ TAC.Id offset) (Just $ TAC.Constant $ TAC.Int 0)
     return temp
 
 generateCodeArithmeticBin :: AST.Expression -> Expression -> Expression -> MonadParser Expression
@@ -372,3 +381,18 @@ generateCodeLogicalNot astExpr expr = do
         , getFalseList  = [falseInst]
         , getAddress    = Temp temp
         }
+
+generateCodeDeref :: AST.Expression -> Expression -> MonadParser Expression
+generateCodeDeref astExpr expr = do
+
+    if AST.getType astExpr == T.BoolT
+        then
+
+        else
+            t <-
+            return % Expression
+                { getExpr       = astExpr
+                , getTrueList   = []
+                , getFalseList  = []
+                , getAddress    =
+                }
