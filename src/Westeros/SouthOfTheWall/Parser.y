@@ -557,8 +557,11 @@ CASES :: { [AST.Case] }
     | CASES CASE                                                                    { $2 : $1 }
 
 CASE :: { AST.Case }
-    : case atomLit '.' CODE_BLOCK                                                   { AST.Case (Tk.cleanedString $2) (reverse $4) }
-    | case nothing '.' CODE_BLOCK                                                   { AST.Default (reverse $4) }
+    : case atomLit '.' CODE_BLOCK                                                   {% do
+                                                                                        atom <- ST.getAtomNumber $ Tk.cleanedString $2
+                                                                                        return AST.Case atom (reverse $4)
+                                                                                    }
+    | case nothing '.' CODE_BLOCK                                                   {% return $ AST.Default (reverse $4) }
 
 FOR :: { AST.Instruction }
     : OPEN_SCOPE OPEN_LOOP FOR_DEC INSTRUCTIONS endFor CLOSE_SCOPE CLOSE_LOOP       { let (id, lb, ub) = $3 in AST.For id lb ub (reverse $4) }
@@ -653,13 +656,13 @@ EXPR :: { TAC.Expression }
                                                                                         let astExpr1 = TAC.getExpr $1
                                                                                             astExpr2 = TAC.getExpr $4
                                                                                         astExpr <- TC.buildAndCheckExpr $2 $ AST.BinOp AST.And astExpr1 astExpr2
-                                                                                        TAC.generatecodeLogicalAnd astExpr $1 $4 $3
+                                                                                        TAC.generateCodeLogicalAnd astExpr $1 $4 $3
                                                                                     }
     | EXPR or GEN_LABEL EXPR                                                        {% do
                                                                                         let astExpr1 = TAC.getExpr $1
                                                                                             astExpr2 = TAC.getExpr $4
                                                                                         astExpr <- TC.buildAndCheckExpr $2 $ AST.BinOp AST.Or astExpr1 astExpr2
-                                                                                        TAC.generatecodeLogicalOr astExpr $1 $4 $3
+                                                                                        TAC.generateCodeLogicalOr astExpr $1 $4 $3
                                                                                     }
     | not EXPR                                                                      {% do
                                                                                         let expr = TAC.getExpr $2
@@ -703,14 +706,43 @@ EXPR :: { TAC.Expression }
                                                                                         checkFunctionCallInstr $1
                                                                                         return $1
                                                                                     }
-    | intLit                                                                        {% TC.buildAndCheckExpr $1 $ AST.IntLit ((read $ Tk.cleanedString $1) :: Int) }
-    | floatLit                                                                      {% TC.buildAndCheckExpr $1 $ AST.FloatLit ((read $ Tk.cleanedString $1) :: Float) }
-    | charLit                                                                       {% TC.buildAndCheckExpr $1 $ AST.CharLit $ head $ Tk.cleanedString $1 }
-    | atomLit                                                                       {% TC.buildAndCheckExpr $1 $ AST.AtomLit $ Tk.cleanedString $1 }
+    | intLit                                                                        {% do
+                                                                                        let expr = AST.IntLit ((read $ Tk.cleanedString $1) :: Int)
+                                                                                        astExpr <- TC.buildAndCheckExpr $1 expr
+                                                                                        TAC.generateCodeLiteral astExpr
+                                                                                    }
+    | floatLit                                                                      {% do
+                                                                                        let expr = AST.FloatLit ((read $ Tk.cleanedString $1) :: Float)
+                                                                                        astExpr <- TC.buildAndCheckExpr $1 expr
+                                                                                        TAC.generateCodeLiteral astExpr
+                                                                                    }
+    | charLit                                                                       {% do
+                                                                                        let expr =  AST.CharLit $ head $ Tk.cleanedString $1
+                                                                                        astExpr <- TC.buildAndCheckExpr $1 expr
+                                                                                        TAC.generateCodeLiteral astExpr
+                                                                                    }
+    | atomLit                                                                       {% do
+                                                                                        atom <- ST.getAtomNumber $ Tk.cleanedString $1
+                                                                                        let expr = AST.AtomLit atom
+                                                                                        astExpr <- TC.buildAndCheckExpr $1 expr
+                                                                                        TAC.generateCodeLiteral astExpr
+                                                                                    }
     | stringLit                                                                     {% TC.buildAndCheckExpr $1 $ AST.StringLit $ Tk.cleanedString $1 }
-    | true                                                                          {% TC.buildAndCheckExpr $1 $ AST.TrueLit }
-    | false                                                                         {% TC.buildAndCheckExpr $1 $ AST.FalseLit }
-    | null                                                                          {% TC.buildAndCheckExpr $1 $ AST.NullLit }
+    | true                                                                          {% do
+                                                                                        let expr = AST.TrueLit
+                                                                                        astExpr <- TC.buildAndCheckExpr $1 expr
+                                                                                        TC.generateCodeLiteral astExpr
+                                                                                    }
+    | false                                                                         {% do
+                                                                                        let expr = AST.FalseLit
+                                                                                        astExpr <- TC.buildAndCheckExpr $1 expr
+                                                                                        TC.generateCodeLiteral astExpr
+                                                                                    }
+    | null                                                                          {% do
+                                                                                        let expr = AST.NullLit
+                                                                                        astExpr <- TC.buildAndCheckExpr $1 expr
+                                                                                        TC.generateCodeLiteral astExpr
+                                                                                    }
     | id                                                                            {% do
 
                                                                                         let symbol = Tk.cleanedString $1

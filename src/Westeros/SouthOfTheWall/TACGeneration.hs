@@ -15,6 +15,7 @@ module Westeros.SouthOfTheWall.TACGeneration (
     , generateCodeLogicalAnd
     , generateCodeLogicalOr
     , generateCodeLogicalNot
+    , generateCodeLiteral
     ) where
 
 
@@ -382,17 +383,71 @@ generateCodeLogicalNot astExpr expr = do
         , getAddress    = Temp temp
         }
 
-generateCodeDeref :: AST.Expression -> Expression -> MonadParser Expression
-generateCodeDeref astExpr expr = do
+-- generateCodeDeref :: AST.Expression -> Expression -> MonadParser Expression
+-- generateCodeDeref astExpr expr = do
+--
+--     if AST.getType astExpr == T.BoolT
+--         then
+--
+--         else
+--             t <-
+--             return % Expression
+--                 { getExpr       = astExpr
+--                 , getTrueList   = []
+--                 , getFalseList  = []
+--                 , getAddress    =
+--                 }
 
-    if AST.getType astExpr == T.BoolT
-        then
+generateCodeLiteral :: AST.Expression -> MonadParser Expression
+generateCodeLiteral astExpr = do
+    temp <- case AST.getType astExpr of
+        T.FloatT -> getNextFloat
+        _        -> getNextTemp
 
-        else
-            t <-
-            return % Expression
-                { getExpr       = astExpr
-                , getTrueList   = []
-                , getFalseList  = []
-                , getAddress    =
+    let constant = case AST.getExpr astExpr of
+            AST.IntLit n    -> TAC.Constant $ TAC.Int n
+            AST.FloatLit f  -> TAC.Constant $ TAC.Float f
+            AST.CharLit c   -> TAC.Constant $ TAC.Char c
+            AST.TrueLit     -> TAC.Constant $ TAC.Bool True
+            AST.FalseLit    -> TAC.Constant $ TAC.Bool False
+            AST.AtomLit n   -> TAC.Constant $ TAC.Int n
+            AST.NullLit     -> TAC.Constant $ TAC.Int 0
+            _               -> error "Function 'generateCodeLiteral' called without a literal"
+
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = TAC.Assign
+        , TAC.tacLValue     = Just $ TAC.Id temp
+        , TAC.tacRValue1    = Just $ constant
+        , TAC.tacRValue2    = Nothing
+        }
+
+    trueList <- case AST.getExpr astExpr of
+        AST.TrueLit -> do
+            trueInst <- getNextInstruction
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation  = TAC.Goto
+                , TAC.tacLValue     = Just $ TAC.Label "_"
+                , TAC.tacRValue1    = Nothing
+                , TAC.tacRValue2    = Nothing
                 }
+            return [trueInst]
+        _ -> return []
+
+    falseList <- case AST.getExpr astExpr of
+        AST.TrueLit -> do
+            falseList <- getNextInstruction
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation  = TAC.Goto
+                , TAC.tacLValue     = Just $ TAC.Label "_"
+                , TAC.tacRValue1    = Nothing
+                , TAC.tacRValue2    = Nothing
+                }
+            return [falseList]
+        _ -> return []
+
+    return $ Expression
+        { getExpr      = astExpr
+        , getTrueList  = trueList
+        , getFalseList = falseList
+        , getAddress   = Temp temp
+        }
