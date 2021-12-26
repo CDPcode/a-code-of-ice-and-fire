@@ -703,8 +703,8 @@ EXPR :: { TAC.Expression }
     | EXPR '?' id                                                                   {% do
                                                                                         let astExpr = TAC.getExpr $1
                                                                                             sym = Tk.cleanedString $3
-                                                                                        expr <- TC.buildAndCheckExpr $2 $ AST.ActiveField $1 sym
-                                                                                        TAC.generateCodeUnionQuery astExpr sym expr
+                                                                                        expr <- TC.buildAndCheckExpr $2 $ AST.ActiveField astExpr sym
+                                                                                        TAC.generateCodeUnionQuery expr sym $1
                                                                                     }
     | '[(' naturalLit ']' EXPR                                                      {% TC.buildAndCheckExpr $3 $ AST.TupleIndex $4 ((read $ Tk.cleanedString $2) :: Int) }
     | EXPR cast TYPE                                                                {% TC.buildAndCheckExpr $2 $ AST.Cast $1 $3 }
