@@ -303,7 +303,7 @@ COMPOSITE_TYPE :: { ST.Type }
     | beginTuple TUPLE_TYPES endTuple                                               {% ST.genTypeSymbol }
 
 BEGIN_RECORD :: { ST.Scope }
-    : OPEN_SCOPE                                                                    {% do 
+    : OPEN_SCOPE                                                                    {% do
                                                                                         ST.openRecord
                                                                                         return $1
                                                                                     }
@@ -454,7 +454,7 @@ INSTRUCTION :: { AST.Instruction }
     | beginExit programName endExit '.'                                             {% return $ AST.ExitInst (Tk.cleanedString $3) }
     | read EXPR '.'                                                                 {% do
                                                                                         if AST.isValidLValue $2
-                                                                                            then do 
+                                                                                            then do
                                                                                                 let toReadTp = AST.getType $2
                                                                                                 unless (T.isPrimitiveType toReadTp || T.isStringType toReadTp) $ do
                                                                                                     let err = Err.InvalidExprType (show $ AST.getType $2) (Tk.position $1)
@@ -465,7 +465,7 @@ INSTRUCTION :: { AST.Instruction }
                                                                                         return $ AST.Read $2
                                                                                     }
     | print EXPR '.'                                                                {% do
-                                                                                        
+
                                                                                         let toPrintTp = AST.getType $2
                                                                                         unless (T.isPrimitiveType toPrintTp || T.isStringType toPrintTp) $ do
                                                                                             let err = Err.InvalidExprType (show $ AST.getType $2) (Tk.position $1)
@@ -602,7 +602,7 @@ EXPR :: { AST.Expression }
     | id '<-' EXPR                                                                  {% do
                                                                                         expr <- TC.buildAndCheckExpr $2 $ AST.AccesField $3 (Tk.cleanedString $1)
                                                                                         case AST.getType $3 of
-                                                                                            T.StructT _ -> return ()
+                                                                                            T.StructT _ _ -> return ()
                                                                                             T.TypeError -> return ()
                                                                                             _           -> do
                                                                                                 let error = Err.InvalidExprType (show $ AST.getType $3) (Tk.position $2)
@@ -612,7 +612,7 @@ EXPR :: { AST.Expression }
     | EXPR '->' id                                                                  {% do
                                                                                         expr <- TC.buildAndCheckExpr $2 $ AST.AccesField $1 (Tk.cleanedString $3)
                                                                                         case AST.getType $1 of
-                                                                                                T.UnionT  _ -> return ()
+                                                                                                T.UnionT _ _ -> return ()
                                                                                                 T.TypeError -> return ()
                                                                                                 _           -> do
                                                                                                     let error = Err.InvalidExprType (show $ AST.getType $1) (Tk.position $2)
@@ -626,7 +626,7 @@ EXPR :: { AST.Expression }
     | ARRAYLIT                                                                      { $1 }
     | TUPLELIT                                                                      { $1 }
     | FUNCTIONCALL                                                                  {% do
-                                                                                        checkFunctionCallInstr $1 
+                                                                                        checkFunctionCallInstr $1
                                                                                         return $1
                                                                                     }
     | intLit                                                                        {% TC.buildAndCheckExpr $1 $ AST.IntLit ((read $ Tk.cleanedString $1) :: Int) }
@@ -638,7 +638,7 @@ EXPR :: { AST.Expression }
     | false                                                                         {% TC.buildAndCheckExpr $1 $ AST.FalseLit }
     | null                                                                          {% TC.buildAndCheckExpr $1 $ AST.NullLit }
     | id                                                                            {% do
-                                                                                        
+
                                                                                         let symbol = Tk.cleanedString $1
                                                                                         expr <- TC.buildAndCheckExpr $1 $ AST.IdExpr symbol
                                                                                         maybeEntry <- ST.lookupST symbol
@@ -690,7 +690,7 @@ CLOSE_LOOP :: { () }
 
 {
 parseError :: [Tk.Token] -> ST.MonadParser a
-parseError []     = do 
+parseError []     = do
     ST.insertError $ Err.PE   Err.SyntaxErrEOF
     fail "The scriptures do not follow the desired structure"
 parseError (tk:_) = do
@@ -703,7 +703,7 @@ checkFunctionCallInstr AST.Expression{AST.getExpr=(AST.FuncCall id args), AST.ge
     case entry of
         Just _ -> return ()
         Nothing -> do
-            let err = Err.UndeclaredFunction id (length args) (Tk.position tk) 
+            let err = Err.UndeclaredFunction id (length args) (Tk.position tk)
             ST.insertError $ Err.PE err
 checkFunctionCallInstr _ = return ()
 
@@ -714,16 +714,16 @@ checkAssignment tk lValues rValue isInit = do
     unless ((length lValues == 1) && isInit) $ do
         mapM_ (checkConstantReassignment tk) lValues
 
-    mapM_ checkValidLValue lValues    
+    mapM_ checkValidLValue lValues
 
     case lValues of
         [lValue] -> do
             let lType = AST.getType lValue
                 rType = AST.getType rValue
-            
+
             unless (T.checkAssignable lType rType) $ do
                 ST.insertError $ Err.TE $ Err.UnexpectedType (show lType) (show rType) (Tk.position tk)
-        _ -> do 
+        _ -> do
                 let rType = AST.getType rValue
                 case rType of
                     T.TupleT rTypes  -> checkTypes rTypes
@@ -733,7 +733,7 @@ checkAssignment tk lValues rValue isInit = do
     where checkTypes rTypes = do
             let lTypes = map AST.getType lValues
             if (length lTypes == length rTypes)
-                then do 
+                then do
                     let matches = zipWith T.checkAssignable lTypes rTypes
                     case findIndex not matches of
                         Nothing -> return ()
@@ -741,8 +741,8 @@ checkAssignment tk lValues rValue isInit = do
                             let err = Err.UnexpectedType (show $ lTypes !! pos) (show $ rTypes !! pos) (Tk.position tk)
                             ST.insertError $ Err.TE err
                 else ST.insertError $ Err.PE $ Err.MultiAssignmentLengthMissmatch (length lTypes) (length rTypes) (Tk.position tk)
-    
-                        
+
+
 checkConstantReassignment :: Tk.Token -> AST.Expression -> ST.MonadParser ()
 checkConstantReassignment tk  AST.Expression{AST.getExpr=(AST.IdExpr id)} = do
     maybeSymbol <- ST.lookupST id
@@ -754,7 +754,7 @@ checkConstantReassignment _ _ = return ()
 
 checkValidLValue :: AST.Expression -> ST.MonadParser ()
 checkValidLValue maybeLVal = do
-    
+
     unless (AST.isValidLValue maybeLVal) $ do
         let exprToken = AST.getToken maybeLVal
         ST.insertError $ Err.TE $ Err.InvalidLValue (Tk.position exprToken)
@@ -763,7 +763,7 @@ checkValidLValue maybeLVal = do
 checkValidReturn :: Tk.Token -> [AST.Expression] -> ST.MonadParser ()
 checkValidReturn statement exprs = do
     (fn, params) <- ST.currentOpenFunction
-    maybeEntry <- ST.lookupFunction fn params 
+    maybeEntry <- ST.lookupFunction fn params
     case maybeEntry of
         Just ST.SymbolInfo{
             ST.additional = (Just (ST.FunctionMetaData ST.FunctionInfo{ST.returns=returns}))
@@ -791,6 +791,6 @@ checkValidReturnTypes tk types = do
     abstTypes <- mapM T.getTypeFromString types
     case findIndex (\t -> not $ T.isPrimitiveOrPointerType t) abstTypes of
         Nothing -> return ()
-        Just pos -> 
+        Just pos ->
             ST.insertError $ Err.TE $ Err.InvalidExprType (show $ abstTypes !! pos) (Tk.position tk)
 }

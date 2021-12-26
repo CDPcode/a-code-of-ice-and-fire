@@ -35,8 +35,8 @@ data Type
     | ArrayT Type Int
     | TupleT [Type]
     | MultiReturnT [Type]
-    | StructT [(String, Type)]
-    | UnionT [(String, Type)]
+    | StructT Int [(String, Type)]
+    | UnionT Int [(String, Type)]
     | PointerT Type
     | NullT
     | TypeError
@@ -52,8 +52,8 @@ instance Show Type where
     show (AliasT name t) = "House " ++ name ++ " that comes from the lineage of <<" ++ show t ++ ">>"
     show (ArrayT t d) = "Lord Commander of [ " ++ show d ++ " armies of " ++ show t ++ " ]"
     show (TupleT ts) = "White Walker possessing ( " ++ unwords (map show ts) ++ " )"
-    show (StructT t) = "King of { " ++ unwords (map (show . snd) t) ++ " }"
-    show (UnionT t) = "God of many faces ruling over { " ++ unwords (map (show . snd) t) ++ " }"
+    show (StructT _ t) = "King of { " ++ unwords (map (show . snd) t) ++ " }"
+    show (UnionT _ t) = "God of many faces ruling over { " ++ unwords (map (show . snd) t) ++ " }"
     show (PointerT t) = "Spearwife of * " ++ show t ++ " *"
     show NullT = "Rickon"
     show TypeError = "Type error: you should not be seeing this but you probably will"
@@ -93,12 +93,12 @@ getTypeFromString base = case base of
                         symT <- get
                         let fields = ST.filterByScopeST symT scope
                         types <- buildTypesFromDict $ map (second head) $ M.toList fields
-                        return $ StructT types
+                        return $ StructT scope types
                     ST.UnionScope scope -> do
                         symT <- get
                         let fields = ST.filterByScopeST symT scope
                         types <- buildTypesFromDict $ map (second head) $ M.toList fields
-                        return $ UnionT types
+                        return $ UnionT scope types
                     ST.TupleTypes xs             -> do
                         types <- mapM getTypeFromString xs
                         return $ TupleT types
@@ -119,8 +119,8 @@ notTypeError :: Type -> Bool
 notTypeError (TupleT xs)  = all notTypeError xs
 notTypeError (PointerT e) = notTypeError e
 notTypeError (ArrayT tp _) = notTypeError tp
-notTypeError (StructT xs) = all (notTypeError . snd) xs
-notTypeError (UnionT xs)  = all (notTypeError . snd) xs
+notTypeError (StructT _ xs) = all (notTypeError . snd) xs
+notTypeError (UnionT _ xs)  = all (notTypeError . snd) xs
 notTypeError TypeError    = False
 notTypeError _            = True
 
@@ -128,11 +128,11 @@ checkAssignable :: Type -> Type -> Bool
 checkAssignable PointerT{} NullT = True
 checkAssignable (TupleT lTypes) (TupleT rTypes) =
     length lTypes == length rTypes && and (zipWith checkAssignable lTypes rTypes)
-checkAssignable (StructT lTypes) (TupleT rTypes) =
+checkAssignable (StructT _ lTypes) (TupleT rTypes) =
     length lTypes == length rTypes && and (zipWith checkAssignable (map snd lTypes) rTypes)
-checkAssignable (StructT lTypes) (StructT rTypes) =
+checkAssignable (StructT _ lTypes) (StructT _ rTypes) =
     length lTypes == length rTypes &&
-        all (\((ln, lt), (rn, rt)) -> ln == rn && (checkAssignable lt rt)) (zip lTypes rTypes)
+        all (\((ln, lt), (rn, rt)) -> ln == rn && checkAssignable lt rt) (zip lTypes rTypes)
 checkAssignable _ (MultiReturnT _) = False
 checkAssignable _ NothingT = False
 checkAssignable _ TypeError = True
@@ -154,8 +154,8 @@ isRecordOrTupleType (AliasT _ t) = isRecordOrTupleType t
 isRecordOrTupleType t = isRecordType t
 
 isRecordType :: Type -> Bool
-isRecordType (StructT _) = True
-isRecordType (UnionT _)  = True
+isRecordType (StructT _ _) = True
+isRecordType (UnionT _ _)  = True
 isRecordType (AliasT _ t) = isRecordType t
 isRecordType _ = False
 
