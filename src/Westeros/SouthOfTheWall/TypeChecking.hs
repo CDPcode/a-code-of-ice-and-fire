@@ -151,14 +151,14 @@ instance Typeable AST.Expr where
     typeQuery (AST.AccesField expr symbol) = do
 
         case AST.getType expr of
-            T.StructT fields -> do
+            T.StructT _ fields -> do
                 case find (\p -> fst p == symbol) fields of
                     Just (_, t) -> return t
                     Nothing -> do
                         let err = Err.InvalidField symbol (Tk.position $ AST.getToken expr)
                         ST.insertError $ Err.TE err
                         return T.TypeError
-            T.UnionT fields -> do
+            T.UnionT _ fields -> do
                 case find (\p -> fst p == symbol) fields of
                     Just (_, t) -> return t
                     Nothing -> do
@@ -170,7 +170,7 @@ instance Typeable AST.Expr where
     typeQuery (AST.ActiveField expr symbol) = do
 
         case AST.getType expr of
-            T.UnionT fields -> do
+            T.UnionT _ fields -> do
                 case find (\(s,_) -> s == symbol) fields of
                     Just _ -> return T.BoolT
                     Nothing -> do

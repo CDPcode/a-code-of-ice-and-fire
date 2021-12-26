@@ -676,7 +676,7 @@ EXPR :: { TAC.Expression }
     | id '<-' EXPR                                                                  {% do
                                                                                         expr <- TC.buildAndCheckExpr $2 $ AST.AccesField $3 (Tk.cleanedString $1)
                                                                                         case AST.getType $3 of
-                                                                                            T.StructT _ -> return ()
+                                                                                            T.StructT _ _ -> return ()
                                                                                             T.TypeError -> return ()
                                                                                             _           -> do
                                                                                                 let error = Err.InvalidExprType (show $ AST.getType $3) (Tk.position $2)
@@ -686,7 +686,7 @@ EXPR :: { TAC.Expression }
     | EXPR '->' id                                                                  {% do
                                                                                         expr <- TC.buildAndCheckExpr $2 $ AST.AccesField $1 (Tk.cleanedString $3)
                                                                                         case AST.getType $1 of
-                                                                                                T.UnionT  _ -> return ()
+                                                                                                T.UnionT _ _ -> return ()
                                                                                                 T.TypeError -> return ()
                                                                                                 _           -> do
                                                                                                     let error = Err.InvalidExprType (show $ AST.getType $1) (Tk.position $2)
