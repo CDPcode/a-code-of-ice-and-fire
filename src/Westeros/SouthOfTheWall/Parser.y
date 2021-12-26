@@ -677,26 +677,35 @@ EXPR :: { TAC.Expression }
     | deref EXPR                                                                    {% TC.buildAndCheckExpr $1 $ AST.UnOp AST.Deref $2 }
     | '[' EXPRLIST ']' EXPR                                                         {% TC.buildAndCheckExpr $3 $ AST.AccesIndex $4 (reverse $2) }
     | id '<-' EXPR                                                                  {% do
-                                                                                        expr <- TC.buildAndCheckExpr $2 $ AST.AccesField $3 (Tk.cleanedString $1)
+                                                                                        let astExpr = TAC.getExpr $3
+                                                                                            sym = Tk.cleanedString $1
+                                                                                        expr <- TC.buildAndCheckExpr $2 $ AST.AccesField astExpr sym
                                                                                         case AST.getType $3 of
                                                                                             T.StructT _ _ -> return ()
                                                                                             T.TypeError -> return ()
                                                                                             _           -> do
                                                                                                 let error = Err.InvalidExprType (show $ AST.getType $3) (Tk.position $2)
                                                                                                 ST.insertError $ Err.TE error
-                                                                                        return expr
+                                                                                        TAC.generateCodeStructAccess expr sym $3
                                                                                     }
     | EXPR '->' id                                                                  {% do
-                                                                                        expr <- TC.buildAndCheckExpr $2 $ AST.AccesField $1 (Tk.cleanedString $3)
+                                                                                        let astExpr = TAC.getExpr $1
+                                                                                            sym = Tk.cleanedString $3
+                                                                                        expr <- TC.buildAndCheckExpr $2 $ AST.AccesField astExpr sym
                                                                                         case AST.getType $1 of
                                                                                                 T.UnionT _ _ -> return ()
                                                                                                 T.TypeError -> return ()
                                                                                                 _           -> do
                                                                                                     let error = Err.InvalidExprType (show $ AST.getType $1) (Tk.position $2)
                                                                                                     ST.insertError $ Err.TE error
-                                                                                        return expr
+                                                                                        TAC.generateCodeUnionAccess expr $1
                                                                                     }
-    | EXPR '?' id                                                                   {% TC.buildAndCheckExpr $2 $ AST.ActiveField $1 (Tk.cleanedString $3) }
+    | EXPR '?' id                                                                   {% do
+                                                                                        let astExpr = TAC.getExpr $1
+                                                                                            sym = Tk.cleanedString $3
+                                                                                        expr <- TC.buildAndCheckExpr $2 $ AST.ActiveField $1 sym
+                                                                                        TAC.generateCodeUnionQuery astExpr sym expr
+                                                                                    }
     | '[(' naturalLit ']' EXPR                                                      {% TC.buildAndCheckExpr $3 $ AST.TupleIndex $4 ((read $ Tk.cleanedString $2) :: Int) }
     | EXPR cast TYPE                                                                {% TC.buildAndCheckExpr $2 $ AST.Cast $1 $3 }
     | '(' EXPR ')'                                                                  { $2 }

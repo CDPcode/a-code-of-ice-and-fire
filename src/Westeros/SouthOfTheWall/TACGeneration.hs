@@ -17,6 +17,9 @@ module Westeros.SouthOfTheWall.TACGeneration (
     , generateCodeLogicalNot
     , generateCodeLiteral
     , generateCodeId
+    , generateCodeStructAccess
+    , generateCodeUnionAccess
+    , generateCodeUnionQuery
     ) where
 
 
@@ -489,4 +492,136 @@ generateCodeId astExpr offset = do
         , getTrueList   = trueList
         , getFalseList  = falseList
         , getAddress    = Memory temp
+        }
+
+generateCodeStructAccess :: AST.Expression -> String -> Expression -> MonadParser Expression
+generateCodeStructAccess astExpr sym structExpr = do
+    let sc = case AST.getType $ getExpr structExpr of
+            T.StructT n _ -> n
+            _             -> 0
+
+    mInfo <- ST.lookupInScopeST sym sc
+    offset <- case mInfo of
+        Just ST.SymbolInfo { ST.offset = Just o } -> return o
+        _ -> return 0
+
+    temp <- getNextTemp
+
+    let (r0, address) = case getAddress structExpr of
+            Temp t   -> (t, Temp temp)
+            Memory t -> (t, Memory temp)
+            Heap t   -> (t, Heap temp)
+
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = TAC.Add
+        , TAC.tacLValue     = Just $ TAC.Id temp
+        , TAC.tacRValue1    = Just $ TAC.Id r0
+        , TAC.tacRValue2    = Just $ TAC.Constant $ TAC.Int offset
+        }
+
+    (trueList, falseList) <- case AST.getType astExpr of
+        T.BoolT -> do
+            temp' <- getTempFromAddress address
+            trueInst <- getNextInstruction
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation  = TAC.Goif
+                , TAC.tacLValue     = Just $ TAC.Label "_"
+                , TAC.tacRValue1    = Just $ TAC.Id temp'
+                , TAC.tacRValue2    = Nothing
+                }
+            falseInst <- getNextInstruction
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation  = TAC.Goto
+                , TAC.tacLValue     = Just $ TAC.Label "_"
+                , TAC.tacRValue1    = Nothing
+                , TAC.tacRValue2    = Nothing
+                }
+            return ([trueInst], [falseInst])
+        _ -> return ([], [])
+
+    return $ Expression
+        { getExpr       = astExpr
+        , getTrueList   = trueList
+        , getFalseList  = falseList
+        , getAddress    = address
+        }
+
+generateCodeUnionAccess :: AST.Expression -> Expression -> MonadParser Expression
+generateCodeUnionAccess astExpr unionExpr = do
+    temp <- getNextTemp
+
+    let (r0, address) = case getAddress unionExpr of
+            Temp t   -> (t, Temp temp)
+            Memory t -> (t, Memory temp)
+            Heap t   -> (t, Heap temp)
+
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = TAC.Add
+        , TAC.tacLValue     = Just $ TAC.Id temp
+        , TAC.tacRValue1    = Just $ TAC.Id r0
+        , TAC.tacRValue2    = Just $ TAC.Constant $ TAC.Int 4
+        }
+
+    (trueList, falseList) <- case AST.getType astExpr of
+        T.BoolT -> do
+            temp' <- getTempFromAddress address
+            trueInst <- getNextInstruction
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation  = TAC.Goif
+                , TAC.tacLValue     = Just $ TAC.Label "_"
+                , TAC.tacRValue1    = Just $ TAC.Id temp'
+                , TAC.tacRValue2    = Nothing
+                }
+            falseInst <- getNextInstruction
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation  = TAC.Goto
+                , TAC.tacLValue     = Just $ TAC.Label "_"
+                , TAC.tacRValue1    = Nothing
+                , TAC.tacRValue2    = Nothing
+                }
+            return ([trueInst], [falseInst])
+        _ -> return ([], [])
+
+    return $ Expression
+        { getExpr       = astExpr
+        , getTrueList   = trueList
+        , getFalseList  = falseList
+        , getAddress    = address
+        }
+
+generateCodeUnionQuery :: AST.Expression -> String -> Expression -> MonadParser Expression
+generateCodeUnionQuery astExpr sym unionExpr = do
+    let idx = case AST.getType astExpr of
+            T.UnionT _ ids -> length $ takeWhile (\p -> fst p /= sym) ids
+            _              -> 0
+
+    temp <- getNextTemp
+
+    temp' <- getTempFromAddress $ getAddress unionExpr
+
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = TAC.Eq
+        , TAC.tacLValue     = Just $ TAC.Id temp
+        , TAC.tacRValue1    = Just $ TAC.Id temp'
+        , TAC.tacRValue2    = Just $ TAC.Constant $ TAC.Int idx
+        }
+    trueInst <- getNextInstruction
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = TAC.Goif
+        , TAC.tacLValue     = Just $ TAC.Label "_"
+        , TAC.tacRValue1    = Just $ TAC.Id temp
+        , TAC.tacRValue2    = Nothing
+        }
+    falseInst <- getNextInstruction
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = TAC.Goto
+        , TAC.tacLValue     = Just $ TAC.Label "_"
+        , TAC.tacRValue1    = Nothing
+        , TAC.tacRValue2    = Nothing
+        }
+    return $ Expression
+        { getExpr       = astExpr
+        , getTrueList   = [trueInst]
+        , getFalseList  = [falseInst]
+        , getAddress    = Temp temp
         }

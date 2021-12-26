@@ -34,6 +34,7 @@ module Westeros.SouthOfTheWall.Symtable (
     , openFunction
     , findBest
     , lookupST
+    , lookupInScopeST
     , lookupFunction
     , findFunctionDec
     , functionDecEntry
@@ -291,6 +292,15 @@ lookupST :: Symbol -> MonadParser (Maybe SymbolInfo)
 lookupST sym = do
     symT <- get
     let stack = scopeStack symT
+        mBucket = findSymbol symT sym
+    case mBucket of
+        Nothing -> return Nothing
+        Just bucket -> return $ findBest bucket stack
+
+lookupInScopeST :: Symbol -> Scope -> MonadParser (Maybe SymbolInfo)
+lookupInScopeST sym sc = do
+    symT <- get
+    let stack = [sc]
         mBucket = findSymbol symT sym
     case mBucket of
         Nothing -> return Nothing
