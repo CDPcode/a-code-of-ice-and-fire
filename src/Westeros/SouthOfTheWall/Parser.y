@@ -744,22 +744,24 @@ EXPR :: { TAC.Expression }
                                                                                         TC.generateCodeLiteral astExpr
                                                                                     }
     | id                                                                            {% do
-
                                                                                         let symbol = Tk.cleanedString $1
-                                                                                        expr <- TC.buildAndCheckExpr $1 $ AST.IdExpr symbol
+                                                                                        astExpr <- TC.buildAndCheckExpr $1 $ AST.IdExpr symbol
                                                                                         maybeEntry <- ST.lookupST symbol
-                                                                                        case maybeEntry of
-                                                                                            Just ST.SymbolInfo{ST.category=category, ST.symbolType=tp} -> do
+                                                                                        maybeOffset <- case maybeEntry of
+                                                                                            Just ST.SymbolInfo{ST.category=category, ST.symbolType=tp, ST.offset=mOffset} -> do
                                                                                                 if category `elem` [ST.Variable, ST.Constant, ST.Parameter]
-                                                                                                    then return ()
+                                                                                                    then return mOffset
                                                                                                     else do
                                                                                                         let err = Err.UndeclaredName symbol (Tk.position $1)
                                                                                                         ST.insertError $ Err.PE err
+                                                                                                        return Nohting
                                                                                             Nothing -> do
                                                                                                 let err = Err.UndeclaredName symbol (Tk.position $1)
                                                                                                 ST.insertError $ Err.PE err
-                                                                                        return expr
-                                                                                        }
+                                                                                                return Nohting
+                                                                                        let offset = maybe 0 id maybeOffset
+                                                                                        TAC.generateCodeId astExpr offset
+                                                                                    }
 
 FUNCTIONCALL :: { AST.Expression }
     : id '((' procCallArgs EXPRLIST '))'                                            {% TC.buildAndCheckExpr $1 $ AST.FuncCall (Tk.cleanedString $1) (reverse $4) }

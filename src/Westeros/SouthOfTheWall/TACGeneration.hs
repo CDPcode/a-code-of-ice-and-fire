@@ -16,6 +16,7 @@ module Westeros.SouthOfTheWall.TACGeneration (
     , generateCodeLogicalOr
     , generateCodeLogicalNot
     , generateCodeLiteral
+    , generateCodeId
     ) where
 
 
@@ -450,4 +451,42 @@ generateCodeLiteral astExpr = do
         , getTrueList  = trueList
         , getFalseList = falseList
         , getAddress   = Temp temp
+        }
+
+generateCodeId :: AST.Expression -> Int -> MonadParser Expression
+generateCodeId astExpr offset = do
+    temp <- getNextTemp
+
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = TAC.Assign
+        , TAC.tacLValue     = Just $ TAC.Id temp
+        , TAC.tacRValue1    = Just $ TAC.Constant $ TAC.Int offset
+        , TAC.tacRValue2    = Nothing
+        }
+
+    (trueList, falseList) <- case AST.getType astExpr of
+        T.BoolT -> do
+            temp' <- getTempFromAddress (Memory temp)
+            trueInst <- getNextInstruction
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation  = TAC.Goif
+                , TAC.tacLValue     = Just $ TAC.Label "_"
+                , TAC.tacRValue1    = Just $ TAC.Id temp'
+                , TAC.tacRValue2    = Nothing
+                }
+            falseInst <- getNextInstruction
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation  = TAC.Goto
+                , TAC.tacLValue     = Just $ TAC.Label "_"
+                , TAC.tacRValue1    = Nothing
+                , TAC.tacRValue2    = Nothing
+                }
+            return ([trueInst], [falseInst])
+        _ -> return ([], [])
+
+    return $ Expression
+        { getExpr       = astExpr
+        , getTrueList   = trueList
+        , getFalseList  = falseList
+        , getAddress    = Memory temp
         }
