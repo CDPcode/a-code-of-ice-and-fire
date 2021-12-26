@@ -61,6 +61,7 @@ module Westeros.SouthOfTheWall.Symtable (
     , atom
     , int
     , float
+    , getAtomNumber
     ) where
 
 import Data.Bifunctor       (second)
@@ -155,6 +156,8 @@ data SymbolTable = SymbolTable
     , tacCode         :: Seq TACCode
     , nextLabel       :: Int
     , nextTemp        :: Int
+    , nextAtom        :: Int
+    , atomMapping     :: M.Map String Int
     }
 
 
@@ -482,6 +485,8 @@ initialST = foldl' insertST st (tErrorEntry:entries)
         , tacCode         = Seq.empty
         , nextLabel       = 0
         , nextTemp        = 0
+        , nextAtom        = 0
+        , atomMapping     = M.empty
         }
 
 typesSymbolInfo :: TypeInfo -> SymbolInfo
@@ -604,3 +609,14 @@ insertAlias tk name aliasType tp = do
 
 checkNotRepeated :: SymbolInfo -> Scope -> Bool
 checkNotRepeated symInf sc = scope symInf /= sc && category symInf `notElem` [Function, Alias]
+
+getAtomNumber :: String -> MonadParser Int
+getAtomNumber atomStr = do
+    st <- get
+    let atomMap = atomMapping st
+    case M.lookup atomStr atomMap of
+        Just n -> return n
+        Nothing -> do
+            let n = nextAtom st
+            put st { nextAtom = n + 1, atomMapping = M.insert atomStr n atomMap }
+            return n

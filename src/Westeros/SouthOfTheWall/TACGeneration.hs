@@ -15,6 +15,8 @@ module Westeros.SouthOfTheWall.TACGeneration (
     , generateCodeLogicalAnd
     , generateCodeLogicalOr
     , generateCodeLogicalNot
+    , generateCodeLiteral
+    , generateCodeId
     ) where
 
 
@@ -34,6 +36,7 @@ type Label = String
 data Address
     = Temp String
     | Memory String
+    | Heap String
 
 data Expression = Expression
     { getExpr       :: AST.Expression
@@ -112,12 +115,20 @@ getTempFromAddress (Memory offset) = do
     temp <- getNextTemp
     generateCode $ TAC.TACCode TAC.RDeref (Just $ TAC.Id temp) (Just $ TAC.Id TAC.base) (Just $ TAC.Id offset)
     return temp
+getTempFromAddress (Heap offset) = do
+    temp <- getNextTemp
+    generateCode $ TAC.TACCode TAC.RDeref (Just $ TAC.Id temp) (Just $ TAC.Id offset) (Just $ TAC.Constant $ TAC.Int 0)
+    return temp
 
 getFloatFromAddress :: Address -> MonadParser String
 getFloatFromAddress (Temp temp) = return temp
 getFloatFromAddress (Memory offset) = do
     temp <- getNextFloat
     generateCode $ TAC.TACCode TAC.RDeref (Just $ TAC.Id temp) (Just $ TAC.Id TAC.base) (Just $ TAC.Id offset)
+    return temp
+getFloatFromAddress (Heap offset) = do
+    temp <- getNextFloat
+    generateCode $ TAC.TACCode TAC.RDeref (Just $ TAC.Id temp) (Just $ TAC.Id offset) (Just $ TAC.Constant $ TAC.Int 0)
     return temp
 
 generateCodeArithmeticBin :: AST.Expression -> Expression -> Expression -> MonadParser Expression
@@ -371,4 +382,111 @@ generateCodeLogicalNot astExpr expr = do
         , getTrueList   = [trueInst]
         , getFalseList  = [falseInst]
         , getAddress    = Temp temp
+        }
+
+-- generateCodeDeref :: AST.Expression -> Expression -> MonadParser Expression
+-- generateCodeDeref astExpr expr = do
+--
+--     if AST.getType astExpr == T.BoolT
+--         then
+--
+--         else
+--             t <-
+--             return % Expression
+--                 { getExpr       = astExpr
+--                 , getTrueList   = []
+--                 , getFalseList  = []
+--                 , getAddress    =
+--                 }
+
+generateCodeLiteral :: AST.Expression -> MonadParser Expression
+generateCodeLiteral astExpr = do
+    temp <- case AST.getType astExpr of
+        T.FloatT -> getNextFloat
+        _        -> getNextTemp
+
+    let constant = case AST.getExpr astExpr of
+            AST.IntLit n    -> TAC.Constant $ TAC.Int n
+            AST.FloatLit f  -> TAC.Constant $ TAC.Float f
+            AST.CharLit c   -> TAC.Constant $ TAC.Char c
+            AST.TrueLit     -> TAC.Constant $ TAC.Bool True
+            AST.FalseLit    -> TAC.Constant $ TAC.Bool False
+            AST.AtomLit n   -> TAC.Constant $ TAC.Int n
+            AST.NullLit     -> TAC.Constant $ TAC.Int 0
+            _               -> error "Function 'generateCodeLiteral' called without a literal"
+
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = TAC.Assign
+        , TAC.tacLValue     = Just $ TAC.Id temp
+        , TAC.tacRValue1    = Just $ constant
+        , TAC.tacRValue2    = Nothing
+        }
+
+    trueList <- case AST.getExpr astExpr of
+        AST.TrueLit -> do
+            trueInst <- getNextInstruction
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation  = TAC.Goto
+                , TAC.tacLValue     = Just $ TAC.Label "_"
+                , TAC.tacRValue1    = Nothing
+                , TAC.tacRValue2    = Nothing
+                }
+            return [trueInst]
+        _ -> return []
+
+    falseList <- case AST.getExpr astExpr of
+        AST.TrueLit -> do
+            falseList <- getNextInstruction
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation  = TAC.Goto
+                , TAC.tacLValue     = Just $ TAC.Label "_"
+                , TAC.tacRValue1    = Nothing
+                , TAC.tacRValue2    = Nothing
+                }
+            return [falseList]
+        _ -> return []
+
+    return $ Expression
+        { getExpr      = astExpr
+        , getTrueList  = trueList
+        , getFalseList = falseList
+        , getAddress   = Temp temp
+        }
+
+generateCodeId :: AST.Expression -> Int -> MonadParser Expression
+generateCodeId astExpr offset = do
+    temp <- getNextTemp
+
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation  = TAC.Assign
+        , TAC.tacLValue     = Just $ TAC.Id temp
+        , TAC.tacRValue1    = Just $ TAC.Constant $ TAC.Int offset
+        , TAC.tacRValue2    = Nothing
+        }
+
+    (trueList, falseList) <- case AST.getType astExpr of
+        T.BoolT -> do
+            temp' <- getTempFromAddress (Memory temp)
+            trueInst <- getNextInstruction
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation  = TAC.Goif
+                , TAC.tacLValue     = Just $ TAC.Label "_"
+                , TAC.tacRValue1    = Just $ TAC.Id temp'
+                , TAC.tacRValue2    = Nothing
+                }
+            falseInst <- getNextInstruction
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation  = TAC.Goto
+                , TAC.tacLValue     = Just $ TAC.Label "_"
+                , TAC.tacRValue1    = Nothing
+                , TAC.tacRValue2    = Nothing
+                }
+            return ([trueInst], [falseInst])
+        _ -> return ([], [])
+
+    return $ Expression
+        { getExpr       = astExpr
+        , getTrueList   = trueList
+        , getFalseList  = falseList
+        , getAddress    = Memory temp
         }

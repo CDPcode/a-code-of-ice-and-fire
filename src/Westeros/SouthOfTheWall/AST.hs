@@ -42,7 +42,7 @@ data Expr
     | CharLit   Char
     | FloatLit  Float
     | StringLit String
-    | AtomLit   String
+    | AtomLit   Int
     | TrueLit
     | FalseLit
     | NullLit
@@ -101,7 +101,7 @@ data Instruction
     deriving (Show, Eq)
 
 data Case
-    = Case    String [Instruction]
+    = Case    Int [Instruction]
     | Default [Instruction]
     deriving (Show, Eq)
 
@@ -221,7 +221,7 @@ prettyPrintExpression n expr@Expression{getExpr = (IntLit x)} = putStrIdent n $ 
 prettyPrintExpression n expr@Expression{getExpr = (FloatLit x)} = putStrIdent n $ show x ++ " (" ++ show (getType expr) ++ ")"
 prettyPrintExpression n expr@Expression{getExpr = (CharLit x)} = putStrIdent n $ "\'" ++ show x ++ "\'" ++ " (" ++ show (getType expr) ++ ")"
 prettyPrintExpression n expr@Expression{getExpr = (StringLit x)} = putStrIdent n $ "\"" ++ x ++ "\"" ++ " (" ++ show (getType expr) ++ ")"
-prettyPrintExpression n expr@Expression{getExpr = (AtomLit x)} = putStrIdent n $ "atom " ++ x ++ " (" ++ show (getType expr) ++ ")"
+prettyPrintExpression n expr@Expression{getExpr = (AtomLit x)} = putStrIdent n $ "atom " ++ show x ++ " (" ++ show (getType expr) ++ ")"
 prettyPrintExpression n expr@Expression{getExpr = TrueLit} = putStrIdent n $ "True" ++ " (" ++ show (getType expr) ++ ")"
 prettyPrintExpression n expr@Expression{getExpr = FalseLit} = putStrIdent n  $"False" ++ " (" ++ show (getType expr) ++ ")"
 prettyPrintExpression n expr@Expression{getExpr = NullLit} = putStrIdent n $ "Null" ++ " (" ++ show (getType expr) ++ ")"
@@ -279,7 +279,7 @@ prettyPrintIf n (IfThenElse cond ifBlock elseBlock) = do
 
 prettyPrintCase :: Int -> Case -> IO ()
 prettyPrintCase n (Case atom block) = do
-    putStrIdent n $ "Case " ++ atom
+    putStrIdent n $ "Case " ++ show atom
     mapM_ (prettyPrintInstruction (n+1)) block
 prettyPrintCase n (Default block) = do
     putStrIdent n "Default"
