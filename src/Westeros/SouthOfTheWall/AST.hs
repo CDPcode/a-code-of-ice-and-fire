@@ -35,6 +35,7 @@ data Expression = Expression
        { getExpr :: Expr
        , getType :: T.Type
        , getToken :: Tk.Token
+       , getTypeStr :: String
        } deriving (Show, Eq)
 
 data Expr
