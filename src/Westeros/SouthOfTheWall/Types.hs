@@ -19,6 +19,7 @@ module Westeros.SouthOfTheWall.Types (
     , getPointedTypeString
     , getContainedTypeString
     , getTupleContainedTypeString
+    , getTypeWidth
     ) where
 
 import qualified Westeros.SouthOfTheWall.Symtable as ST
@@ -144,6 +145,14 @@ getTupleContainedTypeString base idx = case base of
                     _ -> return Nothing
                 Nothing -> return Nothing
             Nothing -> return Nothing
+
+getTypeWidth :: ST.Type -> ST.MonadParser (Maybe Int)
+getTypeWidth typeString = do
+    espType <- ST.lookupST typeString
+    case espType of
+        Just ST.SymbolInfo { ST.typeInfo = Just ST.TypeInfo { ST.width = w } } -> return $ Just w
+        _ -> return Nothing
+
 
 buildTypesFromDict :: [(String, ST.SymbolInfo)] -> ST.MonadParser [(String, Type)]
 buildTypesFromDict [] = return []

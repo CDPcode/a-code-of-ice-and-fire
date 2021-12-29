@@ -643,15 +643,18 @@ generateCodeArrayAccess astExpr arrayExpr indexList = do
         , TAC.tacRValue2    = Just $ TAC.Constant $ TAC.Int 4
         }
 
-    width <- getTypeWidth $ AST.getTypeStr astExpr
+    mWidth <- T.getTypeWidth $ AST.getTypeStr astExpr
+    let width = case mWidth of
+            Just w -> w
+            Nothing -> error "This should not be happening"
 
     indexTemp <- generateIndex address Nothing indexList width
     arrayStart <- getTempFromAddress $ getAddress arrayExpr
     resultTemp <- getNextTemp
     let resultAddress = case getAddress arrayExpr of
-            Temp t   -> Temp resultTemp
-            Memory t -> Memory resultTemp
-            Heap t   -> Heap resultTemp
+            Temp _   -> Temp resultTemp
+            Memory _ -> Memory resultTemp
+            Heap _   -> Heap resultTemp
 
     generateCode $ TAC.TACCode
         { TAC.tacOperation  = TAC.Add
@@ -682,89 +685,89 @@ generateCodeArrayAccess astExpr arrayExpr indexList = do
 
     return $ Expression
         { getExpr       = astExpr
-        , getTrueList   = truelist
-        , getFalseList  = falselist
+        , getTrueList   = trueList
+        , getFalseList  = falseList
         , getAddress    = resultAddress
         }
 
-    where
-        generateIndex :: Address -> Maybe String -> [Expression] -> Int -> MonadParser String
-        generateIndex _ previousTemp [indx]  width = do
+  where
+    generateIndex :: Address -> Maybe String -> [Expression] -> Int -> MonadParser String
+    generateIndex _ previousTemp [indx]  width = do
 
-            indexTemp <- getTempFromAddress $ getAddress indx
+        indexTemp <- getTempFromAddress $ getAddress indx
 
-            temp <- case previousTemp of
-                Nothing -> return indexTemp
-                Just t  -> do
-                    temp <- getNextTemp
-                    generateCode $ TAC.TACCode
-                        { TAC.tacOperation  = TAC.Add
-                        , TAC.tacLValue     = Just $ TAC.Id temp
-                        , TAC.tacRValue1    = Just $ TAC.Id t
-                        , TAC.tacRValue2    = Just $ TAC.Id indexTemp
-                        }
-                    return temp
+        temp <- case previousTemp of
+            Nothing -> return indexTemp
+            Just t  -> do
+                temp <- getNextTemp
+                generateCode $ TAC.TACCode
+                    { TAC.tacOperation  = TAC.Add
+                    , TAC.tacLValue     = Just $ TAC.Id temp
+                    , TAC.tacRValue1    = Just $ TAC.Id t
+                    , TAC.tacRValue2    = Just $ TAC.Id indexTemp
+                    }
+                return temp
 
-            result <- getNextTemp
-            generateCode $ TAC.TACCode
-                { TAC.tacOperation  = TAC.Mult
-                , TAC.tacLValue     = Just $ TAC.Id result
-                , TAC.tacRValue1    = Just $ TAC.Id temp
-                , TAC.tacRValue2    = Just $ TAC.Constant $ TAC.Int width
-                }
-            return result
+        result <- getNextTemp
+        generateCode $ TAC.TACCode
+            { TAC.tacOperation  = TAC.Mult
+            , TAC.tacLValue     = Just $ TAC.Id result
+            , TAC.tacRValue1    = Just $ TAC.Id temp
+            , TAC.tacRValue2    = Just $ TAC.Constant $ TAC.Int width
+            }
+        return result
 
-        generateIndex dimAddress previousTemp (indx:indxs) width = do
+    generateIndex dimAddress previousTemp (indx:indxs) width = do
 
-            newDimTemp <- getNextTemp
-            let (dimTemp, newDimAddress) = case dimAddress of
-                    Temp t   -> (t, Temp newDimTemp)
-                    Memory t -> (t, Memory newDimTemp)
-                    Heap t   -> (t, Heap newDimTemp)
+        newDimTemp <- getNextTemp
+        let (dimTemp, newDimAddress) = case dimAddress of
+                Temp t   -> (t, Temp newDimTemp)
+                Memory t -> (t, Memory newDimTemp)
+                Heap t   -> (t, Heap newDimTemp)
 
-            generateCode $ TAC.TACCode
-                { TAC.tacOperation  = TAC.Add
-                , TAC.tacLValue     = Just $ TAC.Id newDimTemp
-                , TAC.tacRValue1    = Just $ TAC.Id dimTemp
-                , TAC.tacRValue2    = Just $ TAC.Constant $ TAC.Int 4
-                }
+        generateCode $ TAC.TACCode
+            { TAC.tacOperation  = TAC.Add
+            , TAC.tacLValue     = Just $ TAC.Id newDimTemp
+            , TAC.tacRValue1    = Just $ TAC.Id dimTemp
+            , TAC.tacRValue2    = Just $ TAC.Constant $ TAC.Int 4
+            }
 
-            dimSize <- getTempFromAddress newDimAddress
-            indexTemp <- getTempFromAddress $ getAddress indx
+        dimSize <- getTempFromAddress newDimAddress
+        indexTemp <- getTempFromAddress $ getAddress indx
 
-            temp <- case previousTemp of
-                Nothing -> return indexTemp
-                Just t  -> do
-                    temp <- getNextTemp
-                    generateCode $ TAC.TACCode
-                        { TAC.tacOperation  = TAC.Add
-                        , TAC.tacLValue     = Just $ TAC.Id temp
-                        , TAC.tacRValue1    = Just $ TAC.Id t
-                        , TAC.tacRValue2    = Just $ TAC.Id indexTemp
-                        }
-                    return temp
+        temp <- case previousTemp of
+            Nothing -> return indexTemp
+            Just t  -> do
+                temp <- getNextTemp
+                generateCode $ TAC.TACCode
+                    { TAC.tacOperation  = TAC.Add
+                    , TAC.tacLValue     = Just $ TAC.Id temp
+                    , TAC.tacRValue1    = Just $ TAC.Id t
+                    , TAC.tacRValue2    = Just $ TAC.Id indexTemp
+                    }
+                return temp
 
-            result <- getNextTemp
-            generateCode $ TAC.TACCode
-                { TAC.tacOperation  = TAC.Mult
-                , TAC.tacLValue     = Just $ TAC.Id result
-                , TAC.tacRValue1    = Just $ TAC.Id temp
-                , TAC.tacRValue2    = Just $ TAC.Id dimSize
-                }
+        result <- getNextTemp
+        generateCode $ TAC.TACCode
+            { TAC.tacOperation  = TAC.Mult
+            , TAC.tacLValue     = Just $ TAC.Id result
+            , TAC.tacRValue1    = Just $ TAC.Id temp
+            , TAC.tacRValue2    = Just $ TAC.Id dimSize
+            }
 
-            generateIndex newDimAddress (Just result) indxs width
+        generateIndex newDimAddress (Just result) indxs width
 
-        generateIndex _ _ _ _ = return "error"
+    generateIndex _ _ _ _ = return "error"
 
 generateCodeTupleAccess :: AST.Expression -> Expression -> Int -> MonadParser Expression
 generateCodeTupleAccess astExpr tupleExpr index = do
 
-    indexTemp <- getIndexOffset (AST.getTypeStr tupleExpr) index
+    indexTemp <- getIndexOffset (AST.getTypeStr astExpr) index
 
     let (r0, address) = case getAddress tupleExpr of
-            Temp t   -> (t, Temp temp)
-            Memory t -> (t, Memory temp)
-            Heap t   -> (t, Heap temp)
+            Temp t   -> (t, Temp indexTemp)
+            Memory t -> (t, Memory indexTemp)
+            Heap t   -> (t, Heap indexTemp)
 
     temp <- getNextTemp
     generateCode $ TAC.TACCode
@@ -796,28 +799,33 @@ generateCodeTupleAccess astExpr tupleExpr index = do
 
     return $ Expression
         { getExpr       = astExpr
-        , getTrueList   = truelist
-        , getFalseList  = falselist
+        , getTrueList   = trueList
+        , getFalseList  = falseList
         , getAddress    = address
         }
 
-    where
-        getIndexOffset :: String -> Int -> MonadParser String
-        getIndexOffset tp index = do
+  where
+    getIndexOffset :: String -> Int -> MonadParser String
+    getIndexOffset tp idx = do
 
-            symT <- get
-            case ST.lookupST tp of
-                Just ST.SymbolInfo{ST.additional = ST.TupleTypes tps} -> do
-                    offset <- computeOffset (take index tps)
-                    temp <- getNextTemp
-                    generateCode $ TAC.TACCode
-                        { TAC.tacOperation  = TAC.Assign
-                        , TAC.tacLValue     = Just $ TAC.Id temp
-                        , TAC.tacRValue1    = Just % TAC.Constant offset
-                        , TAC.tacRValue2    = Nothing
-                        }
-                _ -> return "error"
-        computeOffset :: [String] -> MonadParser Int
-        computeOffset [] = return 0
-        computeOffset (tp:tps) = do
-            return getTypeWidth tp + computeOffset tps
+        typeEntry <- ST.lookupST tp
+        case typeEntry of
+            Just ST.SymbolInfo{ ST.additional = Just (ST.TupleTypes tps) } -> do
+                offset <- computeOffset (take idx tps)
+                temp <- getNextTemp
+                generateCode $ TAC.TACCode
+                    { TAC.tacOperation  = TAC.Assign
+                    , TAC.tacLValue     = Just $ TAC.Id temp
+                    , TAC.tacRValue1    = Just $ TAC.Constant $ TAC.Int offset
+                    , TAC.tacRValue2    = Nothing
+                    }
+                return temp
+            _ -> return "error"
+    computeOffset :: [String] -> MonadParser Int
+    computeOffset [] = return 0
+    computeOffset (tp:tps) = do
+        mWidth <- T.getTypeWidth tp
+        rest <- computeOffset tps
+        case mWidth of
+            Just w -> return $ w + rest
+            Nothing -> error "This should not be happening"
