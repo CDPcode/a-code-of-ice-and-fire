@@ -63,6 +63,8 @@ module Westeros.SouthOfTheWall.Symtable (
     , int
     , float
     , getAtomNumber
+    , string
+    , nullptr
     ) where
 
 import Data.Bifunctor       (second)
@@ -463,6 +465,10 @@ bool :: String
 bool = "_bool"
 atom :: String
 atom = "_atom"
+string :: String
+string = "_string"
+nullptr :: String
+nullptr = "_nullptr"
 tError :: String
 tError = "_type_error"
 
@@ -470,19 +476,30 @@ tErrorInfo :: TypeInfo
 tErrorInfo = TypeInfo { width = 0, align = 1 }
 
 initialTypes :: [Symbol]
-initialTypes = [int, float, char, bool, atom] --array, union, struct, tuple, alias
+initialTypes = [int, float, char, bool, atom, nullptr] --array, union, struct, tuple, alias
 
 initialTypesInfo :: [TypeInfo]
 initialTypesInfo = zipWith TypeInfo initWidths initWidths
   where
-    initWidths = [4, 8, 4, 1, 4]
+    initWidths = [4, 4, 4, 4, 4, 4]
 
 initialST :: SymbolTable
-initialST = foldl' insertST st (tErrorEntry:entries)
+initialST = foldl' insertST st (stringEntry:tErrorEntry:entries)
   where
     entries = zip initialTypes infos
     infos = map typesSymbolInfo initialTypesInfo
     tErrorEntry = (tError, typesSymbolInfo tErrorInfo)
+    stringEntry =
+        ( string
+        , SymbolInfo
+            { category = Type
+            , scope = pervasiveScope
+            , symbolType = Nothing
+            , additional = Just $ DopeVector char 1
+            , offset     = Nothing
+            , typeInfo   = Just TypeInfo { width = 8, align = 4 }
+            }
+        )
     st = SymbolTable
         { table           = M.empty
         , scopeStack      = [0,1]

@@ -16,6 +16,9 @@ module Westeros.SouthOfTheWall.Types (
     , isPointerType
     , isPointerToRecordOrTuple
     , isCompositeType
+    , getPointedTypeString
+    , getContainedTypeString
+    , getTupleContainedTypeString
     ) where
 
 import qualified Westeros.SouthOfTheWall.Symtable as ST
@@ -106,6 +109,41 @@ getTypeFromString base = case base of
                 Nothing -> return TypeError
             Nothing -> return TypeError
 
+getPointedTypeString :: ST.Type -> ST.MonadParser (Maybe ST.Type)
+getPointedTypeString base = case base of
+    typeString  -> do
+        espType <- ST.lookupST typeString
+        case espType of
+            Just entry  -> case ST.additional entry of
+                Just info -> case info of
+                    ST.PointedType tp -> return $ Just tp
+                    _ -> return Nothing
+                Nothing -> return Nothing
+            Nothing -> return Nothing
+
+getContainedTypeString :: ST.Type -> ST.MonadParser (Maybe ST.Type)
+getContainedTypeString base = case base of
+    typeString  -> do
+        espType <- ST.lookupST typeString
+        case espType of
+            Just entry  -> case ST.additional entry of
+                Just info -> case info of
+                    ST.DopeVector tp _ -> return $ Just tp
+                    _ -> return Nothing
+                Nothing -> return Nothing
+            Nothing -> return Nothing
+
+getTupleContainedTypeString :: ST.Type -> Int -> ST.MonadParser (Maybe ST.Type)
+getTupleContainedTypeString base idx = case base of
+    typeString  -> do
+        espType <- ST.lookupST typeString
+        case espType of
+            Just entry  -> case ST.additional entry of
+                Just info -> case info of
+                    ST.TupleTypes tps | idx < length tps -> return $ Just $ tps !! idx
+                    _ -> return Nothing
+                Nothing -> return Nothing
+            Nothing -> return Nothing
 
 buildTypesFromDict :: [(String, ST.SymbolInfo)] -> ST.MonadParser [(String, Type)]
 buildTypesFromDict [] = return []

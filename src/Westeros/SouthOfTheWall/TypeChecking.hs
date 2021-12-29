@@ -31,19 +31,19 @@ import qualified Data.Map.Strict as M
 -- the language susceptible of having a type and then performing type queries when
 -- necessary.
 class Typeable a where
-    typeQuery :: a -> ST.MonadParser T.Type
+    typeQuery :: a -> ST.MonadParser (T.Type, String)
 
 instance Typeable AST.Expr where
 
     -- Simple Types
-    typeQuery (AST.IntLit    _) = return T.IntT
-    typeQuery (AST.CharLit   _) = return T.CharT
-    typeQuery (AST.FloatLit  _) = return T.FloatT
-    typeQuery (AST.AtomLit   _) = return T.AtomT
-    typeQuery (AST.StringLit _) = return $ T.ArrayT T.CharT 1
-    typeQuery AST.TrueLit       = return T.BoolT
-    typeQuery AST.FalseLit      = return T.BoolT
-    typeQuery AST.NullLit       = return T.NullT
+    typeQuery (AST.IntLit    _) = return (T.IntT, ST.int)
+    typeQuery (AST.CharLit   _) = return (T.CharT, ST.char)
+    typeQuery (AST.FloatLit  _) = return (T.FloatT, ST.float)
+    typeQuery (AST.AtomLit   _) = return (T.AtomT, ST.atom)
+    typeQuery (AST.StringLit _) = return (T.ArrayT T.CharT 1, ST.string)
+    typeQuery AST.TrueLit       = return (T.BoolT, ST.bool)
+    typeQuery AST.FalseLit      = return (T.BoolT, ST.bool)
+    typeQuery AST.NullLit       = return (T.NullT, ST.nullptr)
 
     -- Literal Arrays
     typeQuery (AST.ArrayLit array) = do
@@ -52,23 +52,23 @@ instance Typeable AST.Expr where
         if all T.notTypeError types
             then case findIndex (/= arrType) types of
                 Nothing -> case arrType of
-                    T.ArrayT tp dim -> return $ T.ArrayT tp (dim+1)
-                    _ -> return $ T.ArrayT arrType 1
+                    T.ArrayT tp dim -> return (T.ArrayT tp (dim+1), undefined)
+                    _ -> return (T.ArrayT arrType 1, undefined)
                 Just errorInd -> do
                     let errorExpr = array !! errorInd
                         errorTk   = AST.getToken errorExpr
                         pos       = Tk.position errorTk
                     ST.insertError $ Err.TE (Err.HeterogeneusArrayType pos)
-                    return T.TypeError
-            else return T.TypeError
+                    return (T.TypeError, ST.tError)
+            else return (T.TypeError, ST.tError)
 
     -- Literal Tuples
     typeQuery (AST.TupleLit parts) = do
         let types = map AST.getType parts
             res = T.TupleT types
         if T.notTypeError res
-            then return res
-            else return T.TypeError
+            then return (res, undefined)
+            else return (T.TypeError, ST.tError)
 
     -- Function Calls
     typeQuery (AST.FuncCall symbol args) = do
@@ -96,21 +96,21 @@ instance Typeable AST.Expr where
                                     then case findIndex not $ zipWith T.checkAssignable paramTypes types of
                                         Nothing ->
                                             case returnTypes of
-                                                [] -> return T.NothingT
-                                                [t] -> return t
-                                                _ -> return $ T.MultiReturnT returnTypes
+                                                [] -> return (T.NothingT, "")
+                                                [t] -> return (t, head returns)
+                                                _ -> return (T.MultiReturnT returnTypes, "")
                                         Just idx -> do
                                             let errorExpr = args !! idx
                                                 errorTk   = AST.getToken errorExpr
                                                 errorTp   = types !! idx
                                                 err = Err.UnexpectedType (show errorTp) (show $ paramTypes !! idx) (Tk.position errorTk)
                                             ST.insertError $ Err.TE err
-                                            return T.TypeError
-                                    else return T.TypeError
+                                            return (T.TypeError, ST.tError)
+                                    else return (T.TypeError, ST.tError)
                             else
-                                return T.TypeError
-                    _ -> return T.TypeError
-            else return T.TypeError
+                                return (T.TypeError, ST.tError)
+                    _ -> return (T.TypeError, ST.tError)
+            else return (T.TypeError, ST.tError)
 
     -- Binary Operators
     typeQuery (AST.BinOp op a b)  = binOpCheck op a b
@@ -119,116 +119,137 @@ instance Typeable AST.Expr where
     typeQuery (AST.UnOp AST.Neg a) = do
         let validTypes = [T.IntT, T.FloatT]
         case AST.getType a of
-            x | x `elem` validTypes -> return x
-            T.TypeError -> return T.TypeError
+            x | x `elem` validTypes -> return (x, AST.getTypeStr a)
+            T.TypeError -> return (T.TypeError, ST.tError)
             x -> do
                 let tkErrPos = Tk.position $ AST.getToken a
                     err = Err.UnexpectedType (show x) (show Err.Bool) tkErrPos
                 ST.insertError $ Err.TE err
-                return T.TypeError
+                return (T.TypeError, ST.tError)
 
     typeQuery (AST.UnOp AST.Not a) = do
         case AST.getType a of
-            T.BoolT -> return T.BoolT
-            T.TypeError -> return T.TypeError
+            T.BoolT -> return (T.BoolT, ST.bool)
+            T.TypeError -> return (T.TypeError, ST.tError)
             x -> do
                 let tkErrPos = Tk.position $ AST.getToken a
                 let err = Err.UnexpectedType (show x) (show Err.Bool) tkErrPos
                 ST.insertError $ Err.TE err
-                return T.TypeError
+                return (T.TypeError, ST.tError)
 
     typeQuery (AST.UnOp AST.Deref p) = do
         case AST.getType p of
             T.PointerT e
-                | e == T.TypeError -> return T.TypeError
-                | otherwise        -> return e
-            T.TypeError -> return T.TypeError
+                | e == T.TypeError -> return (T.TypeError, ST.tError)
+                | otherwise        -> do
+                    let typeStr = AST.getTypeStr p
+                    pointedTypeStr <- T.getPointedTypeString typeStr
+                    case pointedTypeStr of
+                        Just tp -> return (e, tp)
+                        Nothing -> error "Pointer type got but no string pointed type :c"
+            T.TypeError -> return (T.TypeError, ST.tError)
             x          -> do
                 let err = Err.UnexpectedType (show x) (show Err.Pointer) (Tk.position $ AST.getToken p)
                 ST.insertError $ Err.TE err
-                return T.TypeError
+                return (T.TypeError, ST.tError)
 
     typeQuery (AST.AccesField expr symbol) = do
 
         case AST.getType expr of
-            T.StructT _ fields -> do
+            T.StructT sc fields -> do
                 case find (\p -> fst p == symbol) fields of
-                    Just (_, t) -> return t
+                    Just (_, t) -> do
+                        mInfo <- ST.lookupInScopeST symbol sc
+                        case mInfo of
+                            Just ST.SymbolInfo { ST.symbolType = Just typeStr } -> return (t, typeStr)
+                            _  -> error "id not found in struct that should have it"
                     Nothing -> do
                         let err = Err.InvalidField symbol (Tk.position $ AST.getToken expr)
                         ST.insertError $ Err.TE err
-                        return T.TypeError
-            T.UnionT _ fields -> do
+                        return (T.TypeError, ST.tError)
+            T.UnionT sc fields -> do
                 case find (\p -> fst p == symbol) fields of
-                    Just (_, t) -> return t
+                    Just (_, t) -> do
+                        mInfo <- ST.lookupInScopeST symbol sc
+                        case mInfo of
+                            Just ST.SymbolInfo { ST.symbolType = Just typeStr } -> return (t, typeStr)
+                            _  -> error "id not found in struct that should have it"
                     Nothing -> do
                         let err = Err.InvalidField symbol (Tk.position $ AST.getToken expr)
                         ST.insertError $ Err.TE err
-                        return T.TypeError
-            _ -> return T.TypeError
+                        return (T.TypeError, ST.tError)
+            _ -> return (T.TypeError, ST.tError)
 
     typeQuery (AST.ActiveField expr symbol) = do
 
         case AST.getType expr of
             T.UnionT _ fields -> do
                 case find (\(s,_) -> s == symbol) fields of
-                    Just _ -> return T.BoolT
+                    Just _ -> return (T.BoolT, ST.bool)
                     Nothing -> do
                         let err = Err.InvalidField symbol (Tk.position $ AST.getToken expr)
                         ST.insertError $ Err.TE err
-                        return T.TypeError
-            _ -> return T.TypeError
+                        return (T.TypeError, ST.tError)
+            _ -> return (T.TypeError, ST.tError)
 
     typeQuery (AST.AccesIndex arr inds)  = do
 
-        let arrType  = AST.getType arr
-            indTypes = map AST.getType inds
+        let arrType    = AST.getType arr
+            arrTypeStr = AST.getTypeStr arr
+            indTypes   = map AST.getType inds
         if T.notTypeError arrType && all T.notTypeError indTypes
             then case arrType of
                 T.ArrayT tp dim -> do
                     case findIndex (/= T.IntT) indTypes of
                         Nothing -> do
                             if length inds == dim
-                                then return tp
-                                else if length inds < dim
-                                    then return $ T.ArrayT tp (dim - length inds)
-                                    else do
-                                        let pos = Tk.position $ AST.getToken arr
-                                        ST.insertError $ Err.PE $ Err.IndexOutOfBounds dim (length inds) pos
-                                        return T.TypeError
+                                then do
+                                    mTypeStr <- T.getContainedTypeString arrTypeStr
+                                    case mTypeStr of
+                                        Just typeStr -> return (tp, typeStr)
+                                        Nothing -> error "Array does not contain type string in symbol table"
+                                else do
+                                    let pos = Tk.position $ AST.getToken arr
+                                    ST.insertError $ Err.PE $ Err.IndexOutOfBounds dim (length inds) pos
+                                    return (T.TypeError, ST.tError)
                         Just idx -> do
                             let errorTp       = show $ indTypes !! idx
                                 pos           = Tk.position $ AST.getToken $ inds !! idx
                                 err         = Err.UnexpectedType errorTp (show Err.Int) pos
                             ST.insertError $ Err.TE err
-                            return T.TypeError
+                            return (T.TypeError, ST.tError)
                 _ -> do
                     let errorTp = show arrType
                         pos = Tk.position $ AST.getToken arr
                     ST.insertError $ Err.TE $ Err.UnexpectedType errorTp (show Err.Array) pos
-                    return T.TypeError
-            else return T.TypeError
+                    return (T.TypeError, ST.tError)
+            else return (T.TypeError, ST.tError)
 
 
     typeQuery (AST.TupleIndex tupleExpr ind) = do
 
-        let tupleType = AST.getType tupleExpr
+        let tupleType    = AST.getType tupleExpr
+            tupleTypeStr = AST.getTypeStr tupleExpr
         if T.notTypeError tupleType then
             case tupleType of
                 T.TupleT xs -> do
                     if ind < length xs
-                        then return $ xs !! ind
+                        then do
+                            mTypeStr <- T.getTupleContainedTypeString tupleTypeStr ind
+                            case mTypeStr of
+                                Just typeStr -> return (xs !! ind, typeStr)
+                                Nothing -> error "Tuple does not contain type string in symbol table"
                         else do
                             let pos = Tk.position $ AST.getToken tupleExpr
                             ST.insertError $ Err.PE $ Err.IndexOutOfBounds ind (length xs) pos
-                            return T.TypeError
+                            return (T.TypeError, ST.tError)
                 _       -> do
                     let invalidType = Tk.cleanedString $ AST.getToken tupleExpr
                         pos         = Tk.position $ AST.getToken tupleExpr
                         err       = Err.InvalidExprType invalidType pos
                     ST.insertError $ Err.TE err
-                    return T.TypeError
-            else return T.TypeError
+                    return (T.TypeError, ST.tError)
+            else return (T.TypeError, ST.tError)
 
     typeQuery (AST.Cast expr symbol) = do
 
@@ -236,13 +257,13 @@ instance Typeable AST.Expr where
         let exprType = AST.getType expr
         if T.notTypeError destType && T.notTypeError exprType
             then if T.isCasteable exprType destType
-                then return destType
+                then return (destType, symbol)
                 else do
                     let position = Tk.position $ AST.getToken expr
                         err = Err.NonCasteableTypes (show exprType) (show destType) position
                     ST.insertError $ Err.TE err
-                    return T.TypeError
-            else return T.TypeError
+                    return (T.TypeError, ST.tError)
+            else return (T.TypeError, ST.tError)
 
     typeQuery (AST.IdExpr symbol) = do
 
@@ -250,13 +271,13 @@ instance Typeable AST.Expr where
         case maybeEntry of
             Just ST.SymbolInfo{ST.category=category, ST.symbolType=tp} -> do
                 if category `elem` [ST.Variable, ST.Constant, ST.Parameter]
-                    then T.getTypeFromString $ fromJust tp
-                    else do
-                        return T.TypeError
-            Nothing -> do
-                return T.TypeError
+                    then do
+                        t <- T.getTypeFromString $ fromJust tp
+                        return (t, fromJust tp)
+                    else return (T.TypeError, ST.tError)
+            Nothing -> return (T.TypeError, ST.tError)
 
-binOpCheck :: AST.BinOp -> AST.Expression -> AST.Expression -> ST.MonadParser T.Type
+binOpCheck :: AST.BinOp -> AST.Expression -> AST.Expression -> ST.MonadParser (T.Type, String)
 binOpCheck bop a b = do
 
     let firstType = AST.getType a
@@ -270,15 +291,19 @@ binOpCheck bop a b = do
     if firstType `elem` validTypes
         then if secondType `elem` validTypes
             then if firstType == secondType
-                then return returnType
+                then case returnType of
+                    T.IntT   -> return (returnType, ST.int)
+                    T.FloatT -> return (returnType, ST.int)
+                    T.BoolT  -> return (returnType, ST.int)
+                    _        -> error "Binary operator returning something other than int, float or bool"
                 else do
                     let err = Err.IncompatibleTypes (show firstType) (show secondType) (Tk.position $ AST.getToken b)
                     ST.insertError $ Err.TE err
-                    return T.TypeError
+                    return (T.TypeError, ST.tError)
             else do
                 let err = Err.InvalidExprType (show secondType) (Tk.position $ AST.getToken b)
                 ST.insertError $ Err.TE err
-                return T.TypeError
+                return (T.TypeError, ST.tError)
         else do
             let err = Err.InvalidExprType (show firstType) (Tk.position $ AST.getToken a)
             ST.insertError $ Err.TE err
@@ -286,7 +311,7 @@ binOpCheck bop a b = do
             unless (secondType `elem` validTypes) $ do
                 let er = Err.InvalidExprType (show secondType) (Tk.position $ AST.getToken b)
                 ST.insertError $ Err.TE er
-            return T.TypeError
+            return (T.TypeError, ST.tError)
     where
         numericalOp = [AST.Sum, AST.Sub, AST.Prod, AST.Div]
         numericalTypes = [T.IntT, T.FloatT]
@@ -296,12 +321,13 @@ binOpCheck bop a b = do
 
 buildAndCheckExpr :: Tk.Token -> AST.Expr -> ST.MonadParser AST.Expression
 buildAndCheckExpr tk expr = do
-    exprType <- typeQuery expr
+    (exprType, typeStr) <- typeQuery expr
 
-    return $ AST.Expression {
-           AST.getToken = tk,
-           AST.getExpr  = expr,
-           AST.getType  = exprType
+    return $ AST.Expression
+        {  AST.getToken = tk
+        ,  AST.getExpr  = expr
+        ,  AST.getType  = exprType
+        ,  AST.getTypeStr = typeStr
         }
 
 checkPrimitiveType :: AST.Expression -> ST.MonadParser ()

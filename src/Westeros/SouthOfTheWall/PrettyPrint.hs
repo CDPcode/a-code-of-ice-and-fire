@@ -175,11 +175,11 @@ parseErrorChunks (ReturnLengthMissmatch str nArgs nRet nVars pos) =
     , chunk " ."
     ] ++ positionChunks pos
 parseErrorChunks (IndexOutOfBounds nArgs nVars pos) =
-    [ chunk "You are trying to tell the story of the soldier "
+    [ chunk "You are trying to tell the story of "
     , chunkFromStr (show nArgs) & fore brightBlue
-    , chunk " of an army with "
+    , chunk " batallions of an army with "
     , chunkFromStr (show nVars) & fore brightBlue
-    , chunk " soldiers"
+    , chunk " batallions"
     ] ++ positionChunks pos
 parseErrorChunks (SyntaxErr str pos) =
     [ chunk "The scriptures do not follow the desired structure in the word "
