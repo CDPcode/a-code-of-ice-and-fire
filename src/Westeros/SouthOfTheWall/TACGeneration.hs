@@ -26,10 +26,20 @@ module Westeros.SouthOfTheWall.TACGeneration (
     , generateCodeIf
     , generateCodeIfElse
     , generateCodeSingleJump
+    , generateCodeWhile
+    , generateCodeFor
+    , generateCodeForInit
+    , generateCodeRead
+    , generateCodePrint
+    , generateCodeNew
+    , generateCodeFree
+    , generateCodeContinue
+    , generateCodeBreak
     ) where
 
 
 import Control.Monad.RWS                (get, put, gets)
+import Data.Maybe                       (fromMaybe)
 import Data.Sequence                    (Seq, (|>))
 import Westeros.SouthOfTheWall.Symtable (MonadParser)
 
@@ -876,7 +886,7 @@ generateCodeSingleJump = do
         }
     return nextInst
 
-generateCodeIfElse :: AST.Instruction -> Expression -> CodeBlock -> String -> MonadParser Instruction
+generateCodeIfElse :: AST.Instruction -> Expression -> CodeBlock -> CodeBlock -> String -> String -> Int -> MonadParser Instruction
 generateCodeIfElse astInst boolExpr codeBlockThen codeBlockElse thenLabel elseLabel jumpInstr = do
 
     backpatch (getTrueList boolExpr) thenLabel
@@ -905,7 +915,7 @@ generateCodeWhile astInst boolExpr codeBlock beginLabel blockLabel = do
 
     return $ Instruction
         {   getInstruction   = astInst
-        ,   getNextList      = getFalseList boolExpr ++ getBreakList CodeBlock
+        ,   getNextList      = getFalseList boolExpr ++ getBlockBreakList codeBlock
         ,   getBreakList     = []
         ,   getContinueList  = []
         }
@@ -920,7 +930,7 @@ generateCodeForInit lbExpr ubExpr offset = do
     generateCode $ TAC.TACCode
         { TAC.tacOperation  = TAC.Assign
         , TAC.tacLValue     = Just $ TAC.Id t1
-        , TAC.tacRValue1    = Just $ TAC.Constant offset
+        , TAC.tacRValue1    = Just $ TAC.Constant $ TAC.Int offset
         , TAC.tacRValue2    = Nothing
         }
 
@@ -928,7 +938,7 @@ generateCodeForInit lbExpr ubExpr offset = do
         {   TAC.tacOperation  = TAC.LDeref
         ,   TAC.tacLValue     = Just $ TAC.Id TAC.base
         ,   TAC.tacRValue1    = Just $ TAC.Id t1
-        ,   TAC.tacRValue2    = t0
+        ,   TAC.tacRValue2    = Just $ TAC.Id t0
         }
 
     t2 <- getTempFromAddress $ getAddress ubExpr
@@ -948,7 +958,7 @@ generateCodeForInit lbExpr ubExpr offset = do
         { TAC.tacOperation  = TAC.Geq
         , TAC.tacLValue     = Just $ TAC.Id cond
         , TAC.tacRValue1    = Just $ TAC.Id t3
-        , TAC.tacRValue2    = Just $ TAC.id t2
+        , TAC.tacRValue2    = Just $ TAC.Id t2
         }
 
     endCycle <- getNextInstruction
@@ -972,7 +982,7 @@ generateCodeFor astInst codeBlock blockLabel iterOffset endInst = do
     generateCode $ TAC.TACCode
         { TAC.tacOperation  = TAC.Assign
         , TAC.tacLValue     = Just $ TAC.Id t0
-        , TAC.tacRValue1    = Just $ TAC.Constant iterOffset
+        , TAC.tacRValue1    = Just $ TAC.Constant $ TAC.Int iterOffset
         , TAC.tacRValue2    = Nothing
         }
 
@@ -989,7 +999,7 @@ generateCodeFor astInst codeBlock blockLabel iterOffset endInst = do
         {   TAC.tacOperation  = TAC.Add
         ,   TAC.tacLValue     = Just $ TAC.Id t2
         ,   TAC.tacRValue1    = Just $ TAC.Id t1
-        ,   TAC.tacRValue2    = Just $ TAC.Constant 1
+        ,   TAC.tacRValue2    = Just $ TAC.Constant $ TAC.Int 1
         }
 
     generateCode $ TAC.TACCode
@@ -1016,11 +1026,11 @@ generateCodeFor astInst codeBlock blockLabel iterOffset endInst = do
 generateCodeRead :: AST.Instruction -> Expression -> MonadParser Instruction
 generateCodeRead astInst expr = do
 
-    t0 <- case AST.getType expr of
-        T.ArrayT T.CharT 1 -> return getTempFromAddress $ getAddress expr
+    t0 <- case AST.getType (getExpr expr) of
+        T.ArrayT T.CharT 1 -> getTempFromAddress $ getAddress expr
         _ -> getNextTemp
 
-    op <- case AST.getType expr of
+    op <- case AST.getType (getExpr expr) of
         T.IntT -> return TAC.Readi
         T.FloatT -> return TAC.Readf
         T.CharT -> return TAC.Readc
@@ -1033,7 +1043,7 @@ generateCodeRead astInst expr = do
         ,   TAC.tacRValue2   = Nothing
        }
 
-    case AST.getType expr of
+    case AST.getType (getExpr expr) of
         T.ArrayT T.CharT 1 -> return ()
         _ -> storeFromTemp t0 $ getAddress expr
 
@@ -1048,7 +1058,7 @@ generateCodePrint :: AST.Instruction -> Expression -> MonadParser Instruction
 generateCodePrint astInst expr = do
 
     t0 <- getTempFromAddress $ getAddress expr
-    op <- case AST.getType expr of
+    op <- case AST.getType (getExpr expr) of
         T.IntT -> return TAC.Printi
         T.FloatT -> return TAC.Printf
         T.CharT -> return TAC.Printc
@@ -1071,13 +1081,15 @@ generateCodePrint astInst expr = do
 generateCodeNew :: AST.Instruction -> Expression -> MonadParser Instruction
 generateCodeNew astInst expr = do
 
-    width <- T.getTypeWidth $ AST.getTypeStr expr
+    mWidth <- T.getTypeWidth $ AST.getTypeStr (getExpr expr)
+
+    let width = fromMaybe 0 mWidth
 
     t0 <- getNextTemp
     generateCode $ TAC.TACCode
-        {   TAC.tacOperation  = TAC.Assignw
+        {   TAC.tacOperation  = TAC.Assign
         ,   TAC.tacLValue    = Just $ TAC.Id t0
-        ,   TAC.tacRValue1   = Just $ TAC.Constant width
+        ,   TAC.tacRValue1   = Just $ TAC.Constant $ TAC.Int width
         ,   TAC.tacRValue2   = Nothing
         }
 
@@ -1154,3 +1166,26 @@ generateCodeBreak astInst = do
         ,  getBreakList     = [nextInst]
         ,  getContinueList  = []
     }
+
+storeFromTemp :: String -> Address -> MonadParser ()
+storeFromTemp temp (Temp t0) =
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation = TAC.Assign
+        , TAC.tacLValue = Just $ TAC.Id t0
+        , TAC.tacRValue1 = Just $ TAC.Id temp
+        , TAC.tacRValue2 = Nothing
+        }
+storeFromTemp temp (Memory t0) =
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation = TAC.LDeref
+        , TAC.tacLValue = Just $ TAC.Id t0
+        , TAC.tacRValue1 = Just $ TAC.Id TAC.base
+        , TAC.tacRValue2 = Just $ TAC.Id temp
+        }
+storeFromTemp temp (Heap t0) =
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation = TAC.LDeref
+        , TAC.tacLValue = Just $ TAC.Id t0
+        , TAC.tacRValue1 = Just $ TAC.Constant $ TAC.Int 0
+        , TAC.tacRValue2 = Just $ TAC.Id temp
+        }
