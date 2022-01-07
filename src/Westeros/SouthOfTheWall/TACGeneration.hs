@@ -128,15 +128,17 @@ generateLabel = do
     return label
 
 -- TODO: Consider chars when loading to temp
-getTempFromAddress :: Address -> MonadParser String
-getTempFromAddress (Temp temp) = return temp
-getTempFromAddress (Memory offset) = do
+getTempFromAddress :: Bool -> Address -> MonadParser String
+getTempFromAddress _ (Temp temp) = return temp
+getTempFromAddress isByte (Memory offset) = do
     temp <- getNextTemp
-    generateCode $ TAC.TACCode TAC.RDeref (Just $ TAC.Id temp) (Just $ TAC.Id TAC.base) (Just $ TAC.Id offset)
+    let operation = if isByte then TAC.RDerefb else TAC.RDeref
+    generateCode $ TAC.TACCode operation (Just $ TAC.Id temp) (Just $ TAC.Id TAC.base) (Just $ TAC.Id offset)
     return temp
-getTempFromAddress (Heap offset) = do
+getTempFromAddress isByte (Heap offset) = do
     temp <- getNextTemp
-    generateCode $ TAC.TACCode TAC.RDeref (Just $ TAC.Id temp) (Just $ TAC.Id offset) (Just $ TAC.Constant $ TAC.Int 0)
+    let operation = if isByte then TAC.RDerefb else TAC.RDeref
+    generateCode $ TAC.TACCode operation (Just $ TAC.Id temp) (Just $ TAC.Id offset) (Just $ TAC.Constant $ TAC.Int 0)
     return temp
 
 getFloatFromAddress :: Address -> MonadParser String
@@ -166,11 +168,11 @@ generateCodeArithmeticBin astExpr exp1 exp2 = do
         _        -> return "error"
     t1 <- case t of
         T.FloatT -> getFloatFromAddress $ getAddress exp1
-        T.IntT   -> getTempFromAddress $ getAddress exp1
+        T.IntT   -> getTempFromAddress False $ getAddress exp1
         _        -> return "error"
     t2 <- case t of
         T.FloatT -> getFloatFromAddress $ getAddress exp2
-        T.IntT   -> getTempFromAddress $ getAddress exp2
+        T.IntT   -> getTempFromAddress False $ getAddress exp2
         _        -> return "error"
     generateCode $ TAC.TACCode
         { TAC.tacOperation  = op
@@ -197,7 +199,7 @@ generateCodeArithmeticUnary astExpr expr = do
         _        -> return "error"
     t1 <- case t of
         T.FloatT -> getFloatFromAddress $ getAddress expr
-        T.IntT   -> getTempFromAddress $ getAddress expr
+        T.IntT   -> getTempFromAddress False $ getAddress expr
         _        -> return "error"
     generateCode $ TAC.TACCode
         { TAC.tacOperation  = op
@@ -227,15 +229,15 @@ generateCodeComparison astExpr exp1 exp2 = do
     temp <- getNextTemp
     t1 <- case t of
         T.FloatT -> getFloatFromAddress $ getAddress exp1
-        T.IntT   -> getTempFromAddress $ getAddress exp1
-        T.BoolT  -> getTempFromAddress $ getAddress exp1
-        T.CharT  -> getTempFromAddress $ getAddress exp1
+        T.IntT   -> getTempFromAddress False $ getAddress exp1
+        T.BoolT  -> getTempFromAddress False $ getAddress exp1
+        T.CharT  -> getTempFromAddress True $ getAddress exp1
         _        -> return "error"
     t2 <- case t of
         T.FloatT -> getFloatFromAddress $ getAddress exp2
-        T.IntT   -> getTempFromAddress $ getAddress exp2
-        T.BoolT  -> getTempFromAddress $ getAddress exp2
-        T.CharT  -> getTempFromAddress $ getAddress exp2
+        T.IntT   -> getTempFromAddress False $ getAddress exp2
+        T.BoolT  -> getTempFromAddress False $ getAddress exp2
+        T.CharT  -> getTempFromAddress True $ getAddress exp2
         _        -> return "error"
     generateCode $ TAC.TACCode
         { TAC.tacOperation  = op
@@ -408,7 +410,7 @@ generateCodeDeref astExpr expr = do
 
     (trueList, falseList) <- case AST.getType astExpr of
         T.BoolT -> do
-            temp <- getTempFromAddress $ getAddress expr
+            temp <- getTempFromAddress False $ getAddress expr
             trueInst <- getNextInstruction
             generateCode $ TAC.TACCode
                 { TAC.tacOperation  = TAC.Goif
@@ -501,7 +503,7 @@ generateCodeId astExpr offset = do
 
     (trueList, falseList) <- case AST.getType astExpr of
         T.BoolT -> do
-            temp' <- getTempFromAddress (Memory temp)
+            temp' <- getTempFromAddress False (Memory temp)
             trueInst <- getNextInstruction
             generateCode $ TAC.TACCode
                 { TAC.tacOperation  = TAC.Goif
@@ -553,7 +555,7 @@ generateCodeStructAccess astExpr sym structExpr = do
 
     (trueList, falseList) <- case AST.getType astExpr of
         T.BoolT -> do
-            temp' <- getTempFromAddress address
+            temp' <- getTempFromAddress False address
             trueInst <- getNextInstruction
             generateCode $ TAC.TACCode
                 { TAC.tacOperation  = TAC.Goif
@@ -596,7 +598,7 @@ generateCodeUnionAccess astExpr unionExpr = do
 
     (trueList, falseList) <- case AST.getType astExpr of
         T.BoolT -> do
-            temp' <- getTempFromAddress address
+            temp' <- getTempFromAddress False address
             trueInst <- getNextInstruction
             generateCode $ TAC.TACCode
                 { TAC.tacOperation  = TAC.Goif
@@ -629,7 +631,7 @@ generateCodeUnionQuery astExpr sym unionExpr = do
 
     temp <- getNextTemp
 
-    temp' <- getTempFromAddress $ getAddress unionExpr
+    temp' <- getTempFromAddress False $ getAddress unionExpr
 
     generateCode $ TAC.TACCode
         { TAC.tacOperation  = TAC.Eq
@@ -681,7 +683,7 @@ generateCodeArrayAccess astExpr arrayExpr indexList = do
             Nothing -> error "This should not be happening"
 
     indexTemp <- generateIndex address Nothing indexList width
-    arrayStart <- getTempFromAddress $ getAddress arrayExpr
+    arrayStart <- getTempFromAddress False $ getAddress arrayExpr
     resultTemp <- getNextTemp
     let resultAddress = case getAddress arrayExpr of
             Temp _   -> Temp resultTemp
@@ -697,7 +699,7 @@ generateCodeArrayAccess astExpr arrayExpr indexList = do
 
     (trueList, falseList) <- case AST.getType astExpr of
         T.BoolT -> do
-            temp' <- getTempFromAddress address
+            temp' <- getTempFromAddress False address
             trueInst <- getNextInstruction
             generateCode $ TAC.TACCode
                 { TAC.tacOperation  = TAC.Goif
@@ -726,7 +728,7 @@ generateCodeArrayAccess astExpr arrayExpr indexList = do
     generateIndex :: Address -> Maybe String -> [Expression] -> Int -> MonadParser String
     generateIndex _ previousTemp [indx]  width = do
 
-        indexTemp <- getTempFromAddress $ getAddress indx
+        indexTemp <- getTempFromAddress False $ getAddress indx
 
         temp <- case previousTemp of
             Nothing -> return indexTemp
@@ -764,8 +766,8 @@ generateCodeArrayAccess astExpr arrayExpr indexList = do
             , TAC.tacRValue2    = Just $ TAC.Constant $ TAC.Int 4
             }
 
-        dimSize <- getTempFromAddress newDimAddress
-        indexTemp <- getTempFromAddress $ getAddress indx
+        dimSize <- getTempFromAddress False newDimAddress
+        indexTemp <- getTempFromAddress False $ getAddress indx
 
         temp <- case previousTemp of
             Nothing -> return indexTemp
@@ -811,7 +813,7 @@ generateCodeTupleAccess astExpr tupleExpr index = do
 
     (trueList, falseList) <- case AST.getType astExpr of
         T.BoolT -> do
-            temp' <- getTempFromAddress address
+            temp' <- getTempFromAddress False address
             trueInst <- getNextInstruction
             generateCode $ TAC.TACCode
                 { TAC.tacOperation  = TAC.Goif
@@ -924,7 +926,7 @@ generateCodeWhile astInst boolExpr codeBlock beginLabel blockLabel = do
 generateCodeForInit :: Expression -> Expression -> Int -> MonadParser (String, Int)
 generateCodeForInit lbExpr ubExpr offset = do
 
-    t0 <- getTempFromAddress $ getAddress lbExpr
+    t0 <- getTempFromAddress False $ getAddress lbExpr
 
     t1 <- getNextTemp
     generateCode $ TAC.TACCode
@@ -941,7 +943,7 @@ generateCodeForInit lbExpr ubExpr offset = do
         ,   TAC.tacRValue2    = Just $ TAC.Id t0
         }
 
-    t2 <- getTempFromAddress $ getAddress ubExpr
+    t2 <- getTempFromAddress False $ getAddress ubExpr
 
     blockLabel <- generateLabel
 
@@ -1027,7 +1029,7 @@ generateCodeRead :: AST.Instruction -> Expression -> MonadParser Instruction
 generateCodeRead astInst expr = do
 
     t0 <- case AST.getType (getExpr expr) of
-        T.ArrayT T.CharT 1 -> getTempFromAddress $ getAddress expr
+        T.ArrayT T.CharT 1 -> getTempFromAddress False $ getAddress expr
         _ -> getNextTemp
 
     op <- case AST.getType (getExpr expr) of
@@ -1045,7 +1047,8 @@ generateCodeRead astInst expr = do
 
     case AST.getType (getExpr expr) of
         T.ArrayT T.CharT 1 -> return ()
-        _ -> storeFromTemp t0 $ getAddress expr
+        T.CharT -> storeFromTemp True t0 $ getAddress expr
+        _ -> storeFromTemp False t0 $ getAddress expr
 
     return $ Instruction
         {  getInstruction   = astInst
@@ -1057,7 +1060,11 @@ generateCodeRead astInst expr = do
 generateCodePrint :: AST.Instruction -> Expression -> MonadParser Instruction
 generateCodePrint astInst expr = do
 
-    t0 <- getTempFromAddress $ getAddress expr
+    t0 <- case AST.getType (getExpr expr) of
+        T.FloatT -> getFloatFromAddress $ getAddress expr
+        T.CharT -> getTempFromAddress True $ getAddress expr
+        _ -> getTempFromAddress False $ getAddress expr
+
     op <- case AST.getType (getExpr expr) of
         T.IntT -> return TAC.Printi
         T.FloatT -> return TAC.Printf
@@ -1101,7 +1108,7 @@ generateCodeNew astInst expr = do
         ,   TAC.tacRValue2   = Nothing
         }
 
-    storeFromTemp t1 $ getAddress expr
+    storeFromTemp False t1 $ getAddress expr
 
     return $ Instruction
         {  getInstruction   = astInst
@@ -1114,7 +1121,7 @@ generateCodeNew astInst expr = do
 generateCodeFree :: AST.Instruction -> Expression -> MonadParser Instruction
 generateCodeFree astInst expr = do
 
-    t0 <- getTempFromAddress $ getAddress expr
+    t0 <- getTempFromAddress False $ getAddress expr
 
     generateCode $ TAC.TACCode
         {   TAC.tacOperation  = TAC.Free
@@ -1167,24 +1174,27 @@ generateCodeBreak astInst = do
         ,  getContinueList  = []
     }
 
-storeFromTemp :: String -> Address -> MonadParser ()
-storeFromTemp temp (Temp t0) =
+storeFromTemp :: Bool -> String -> Address -> MonadParser ()
+storeFromTemp isByte temp (Temp t0) = do
+    let operation = if isByte then TAC.Assignb else TAC.Assign
     generateCode $ TAC.TACCode
-        { TAC.tacOperation = TAC.Assign
+        { TAC.tacOperation = operation
         , TAC.tacLValue = Just $ TAC.Id t0
         , TAC.tacRValue1 = Just $ TAC.Id temp
         , TAC.tacRValue2 = Nothing
         }
-storeFromTemp temp (Memory t0) =
+storeFromTemp isByte temp (Memory t0) = do
+    let operation = if isByte then TAC.LDerefb else TAC.LDeref
     generateCode $ TAC.TACCode
-        { TAC.tacOperation = TAC.LDeref
+        { TAC.tacOperation = operation
         , TAC.tacLValue = Just $ TAC.Id t0
         , TAC.tacRValue1 = Just $ TAC.Id TAC.base
         , TAC.tacRValue2 = Just $ TAC.Id temp
         }
-storeFromTemp temp (Heap t0) =
+storeFromTemp isByte temp (Heap t0) = do
+    let operation = if isByte then TAC.LDerefb else TAC.LDeref
     generateCode $ TAC.TACCode
-        { TAC.tacOperation = TAC.LDeref
+        { TAC.tacOperation = operation
         , TAC.tacLValue = Just $ TAC.Id t0
         , TAC.tacRValue1 = Just $ TAC.Constant $ TAC.Int 0
         , TAC.tacRValue2 = Just $ TAC.Id temp
