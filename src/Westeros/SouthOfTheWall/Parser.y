@@ -268,7 +268,7 @@ TYPES :: { [ST.Type] }
     | TYPES ',' TYPE                                                                { $3 : $1 }
 
 FUNCTION_BODY :: { [AST.Instruction] }
-    : '{' INSTRUCTIONS '}'                                                          { reverse $2 }
+    : '{' CODE_BLOCK '}'                                                            { reverse $2 }
 
 TYPE :: { ST.Type }
     : PRIMITIVE_TYPE                                                                { $1 }
@@ -524,7 +524,7 @@ INSTRUCTION :: { AST.Instruction }
                                                                                     }
 
 IF :: { AST.IfInst }
-    : if EXPR then CODE_BLOCK endif                                                 {% do
+    : if EXPR then GEN_LABEL CODE_BLOCK endif                                       {% do
                                                                                         let exprType = AST.getType $2
                                                                                         unless (exprType `elem` [T.BoolT, T.TypeError]) $ do
                                                                                             let exprType = AST.getType $2
@@ -533,7 +533,7 @@ IF :: { AST.IfInst }
 
                                                                                         return $ AST.IfThen $2 (reverse $4)
                                                                                     }
-    | if EXPR then CODE_BLOCK else CODE_BLOCK endif                                 {% do
+    | if EXPR then GEN_LABEL GEN_JUMP CODE_BLOCK else GEN_LABEL CODE_BLOCK endif    {% do
 
                                                                                         let exprType = AST.getType $2
                                                                                         unless (exprType `elem` [T.BoolT, T.TypeError]) $ do
@@ -791,6 +791,9 @@ EXPRLIST :: { [AST.Expression] }
 
 GEN_LABEL :: { TAC.Label }
     : {- empty -}                                                                   {% TAC.generateLabel }
+
+GEN_JUMP :: { Int }
+    : {- empty -}                                                                   {% TAC.generateSingleJump }
 
 OPEN_SCOPE :: { Int }
     :  {- empty -}                                                                  {% do
