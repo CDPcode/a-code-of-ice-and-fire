@@ -77,6 +77,12 @@ data CodeBlock = CodeBlock
     , getBlockContinueList  :: [Int]
     }
 
+data Case = Case
+    { getAtomId :: Int
+    , getStartLabel :: Label
+    , getJumpInst
+    }
+
 backpatch :: [Int] -> Label -> MonadParser ()
 backpatch list label = do
     st <- get
