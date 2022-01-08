@@ -34,7 +34,8 @@ module Westeros.SouthOfTheWall.TACGeneration (
     , generateCodeNew
     , generateCodeFree
     , generateCodeContinue
-    , generateCodeBreak
+    , generateCodeBreak,
+    , generateCodeCaseInit
     ) where
 
 
@@ -77,23 +78,32 @@ data CodeBlock = CodeBlock
     , getBlockContinueList  :: [Int]
     }
 
-data Case = Case
-    { getAtomId :: Int
-    , getStartLabel :: Label
-    , getJumpInst
+data CaseInit = CaseInit
+    { getAtomId :: Maybe Int
+    , getCaseLabel :: Label
+    , getCompInst :: Maybe Int
+    , getJumpInst :: Maybe Int
     }
 
-backpatch :: [Int] -> Label -> MonadParser ()
-backpatch list label = do
+data Case = Case
+    { getAstCaseExpr    :: AST.Case
+    , getCaseInit       :: CaseInit
+    , getCaseCodeBlock  :: CodeBlock
+    , getCaseJumpInst   :: Int
+    }
+
+backpatch :: [Int] -> String -> MonadParser ()
+backpatch list op = do
     st <- get
     put st { ST.tacCode = foldr backpatch' (ST.tacCode st) list }
   where
-    updateJump :: TAC.TACCode -> TAC.TACCode
-    updateJump tac@TAC.TACCode { TAC.tacOperation = TAC.Goto } = tac { TAC.tacLValue = Just $ TAC.Label label }
-    updateJump tac@TAC.TACCode { TAC.tacOperation = TAC.Goif } = tac { TAC.tacLValue = Just $ TAC.Label label }
-    updateJump tac = tac
+    updateCode :: TAC.TACCode -> TAC.TACCode
+    updateCode tac@TAC.TACCode { TAC.tacOperation = TAC.Goto } = tac { TAC.tacLValue  = Just $ TAC.Label op }
+    updateCode tac@TAC.TACCode { TAC.tacOperation = TAC.Goif } = tac { TAC.tacLValue  = Just $ TAC.Label op }
+    updateCode tac@TAC.TACCode { TAC.tacOperation = TAC.Neq  } = tac { TAC.tacRValue1 = Just $ TAC.Id    op }
+    updateCode tac = tac
     backpatch' :: Int -> Seq TAC.TACCode -> Seq TAC.TACCode
-    backpatch' n s = Seq.adjust' updateJump n s
+    backpatch' n s = Seq.adjust' updateCode n s
 
 generateCode :: TAC.TACCode -> MonadParser ()
 generateCode tac = do
@@ -1205,3 +1215,90 @@ storeFromTemp isByte temp (Heap t0) = do
         , TAC.tacRValue1 = Just $ TAC.Constant $ TAC.Int 0
         , TAC.tacRValue2 = Just $ TAC.Id temp
         }
+
+generateCodeCaseInit :: Maybe Int -> MonadParser CaseInit
+generateCodeCaseInit maybeAtom = do
+
+    caseLabel <- generateLabel
+    case maybeAtom of
+        Nothing -> return $ CaseInit
+            { getAtomId     = Nothing
+            , getCaseLabel  = caseLabel
+            , getCompInst   = Nothing
+            , getJumpInst   = Nothing
+            }
+        Just atom -> do
+            compInst <- getNextInstruction
+            t0 <- getNextTemp
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation = TAC.Neq
+                , TAC.tacLValue    = Just $ TAC.Id t0
+                , TAC.tacRValue1   = Just $ TAC.Id "_"
+                , TAC.tacRValue2   = Just $ TAC.Constant $ TAC.Int atom
+                }
+            jumpInst <- getNextInstruction
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation = TAC.Goif
+                , TAC.tacLValue    = Just $ TAC.Label "_"
+                , TAC.tacRValue1   = Just $ TAC.Id t0
+                , TAC.tacRValue2   = Nothing
+                }
+            return $ CaseInit
+                { getAtomId     = Just atom
+                , getCaseLabel  = caseLabel
+                , getCompInst   = Just compInst
+                , getJumpInst   = Just jumpInst
+                }
+
+generateCodeCase :: AST.Case -> CaseInit -> CodeBlock -> Label -> Int -> MonadParser Case
+generateCodeCase astCaseExpr caseInit codeBlock label jumpInst = do
+
+    backpatch (getBlockNextList codeBlock) label
+
+    return $ Case
+        { getAstCaseExpr = astCaseExpr
+        , getCaseInit = caseInit
+        , getCodeBlock = codeBlock
+        , getJumpInst = jumpInst
+        }
+
+generateCodeSwitch :: AST.Switch -> Expression -> [Case] -> MonadParser Instruction
+generateCodeSwitch astInst expr cases = do
+
+    t0 <- getTempFromAddress False $ getAddress expr
+
+    backpatchCompInst cases t0
+    backpatchJumpInsts cases
+    (nextList, continueList, breakList) <- getBackPatchLists cases
+
+    return $ Instruction
+        { getInstruction   = astInst
+        , getNextList      = nextList
+        , getBreakList     = breakList
+        , getContinueList  = continueList
+        }
+
+    where
+        backpatchCompInst :: [Case] -> String -> ModadParser ()
+        backpatchCompInst cases t0 = do
+            maybeInst <- mapM (getCompInst . getCaseInit) cases
+            insts <- mapM fromJust $ filter isJust maybeInst
+            backpatch insts t0
+        backpatchJumpInsts :: [Case] -> ModadParser ()
+        backpatchJumpInsts cases = do
+            maybeInsts <- mapM (getJumpInst . getCaseInit) cases
+            insts <- mapM fromJust $ filter isJust maybeInst
+            labels <- mapM (fromJust . getCaseLabel . getCaseInit) cases
+            backpatchJumpInsts' insts (tail labels)
+        backpatchJumpInsts' :: [Int] -> [String] -> ModadParser ()
+        backpatchJumpInsts' [] _ = return ()
+        backpatchJumpInsts' (inst:insts) (label:labels) = do
+            backpatch [inst] label
+            backpatchJumpInsts' insts labels
+        getBackPatchLists :: [Case] -> ModadParser ([Int], [Int], [Int])
+        getBackPatchLists cases = do
+            nextList <- mapM getCaseJumpInst cases
+            continueList <- mapM (getBlockContinueList . getCaseCodeBlock) cases
+            breakList <- mapM (getBlockBreakList . getCaseCodeBlock) cases
+            return (nextList, continueList, breakList)
+

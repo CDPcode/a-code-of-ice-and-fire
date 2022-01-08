@@ -582,19 +582,33 @@ SWITCHCASE :: { AST.Instruction }
                                                                                         unless (exprType `elem` [T.AtomT, T.TypeError]) $ do
                                                                                             let err = Err.UnexpectedType (show exprType) (show Err.Atom) (Tk.position $ AST.getToken $2)
                                                                                             ST.insertError $ Err.TE err
-                                                                                        return $ AST.Switch $2 (reverse $5)
-                                                                                    }
 
-CASES :: { [AST.Case] }
+                                                                                        let cases = map TAC.getAstCaseExpr $ reverse $5
+                                                                                            astExpr = AST.Switch (TAc.getExpr $2) cases
+
+                                                                                        generateCodeSwitch astExpr $2 $5
+                                                                                    }
+-- TODO: Fix case grammar. It doesn't force the default case to be the last. It also
+-- doesn't foce default case to be only one.
+CASES :: { [TAC.Case] }
     : CASE                                                                          { [$1] }
     | CASES CASE                                                                    { $2 : $1 }
 
-CASE :: { AST.Case }
-    : case atomLit '.' CODE_BLOCK                                                   {% do
-                                                                                        atom <- ST.getAtomNumber $ Tk.cleanedString $2
-                                                                                        return AST.Case atom (reverse $4)
+CASE :: { TAC.Case }
+    : CASE_INIT CODE_BLOCK GEN_LABEL GEN_JUMP                                       {% do
+                                                                                        let astInsts = reverse $ TAC.getInstructions $2
+                                                                                        astCaseExpr <- case TAC.getAtomId $1 of
+                                                                                            Nothing -> return AST.Default astInsts
+                                                                                            Just atomId -> return AST.Case atomId astInsts
+
+                                                                                        generateCodeCase astCaseExpr $1 $2 $3 $4
                                                                                     }
-    | case nothing '.' CODE_BLOCK                                                   {% return $ AST.Default (reverse $4) }
+CASE_INIT :: { TAC.CaseInit }
+    : case atomLit '.'                                                              {% do
+                                                                                        atom <- ST.getAtomNumber $ Tk.cleanedString $2
+                                                                                        TAC.generateCodeCaseInit $ Just atom
+                                                                                    }
+    | case nothing '.'                                                              {% TAC.generateCodeCaseInit Nothing }
 
 FOR :: { TAC.Instruction }
     : OPEN_SCOPE OPEN_LOOP FOR_DEC INSTRUCTIONS endFor CLOSE_SCOPE CLOSE_LOOP       {% do
