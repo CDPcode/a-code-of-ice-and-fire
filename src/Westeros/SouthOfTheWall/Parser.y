@@ -674,8 +674,17 @@ EXPR :: { TAC.Expression }
                                                                                         astExpr <- TC.buildAndCheckExpr $2 $ AST.UnOp AST.Neg Expr
                                                                                         TAC.generateCodeArithmeticUnary astExpr $1
                                                                                     }
-    | deref EXPR                                                                    {% TC.buildAndCheckExpr $1 $ AST.UnOp AST.Deref $2 }
-    | '[' EXPRLIST ']' EXPR                                                         {% TC.buildAndCheckExpr $3 $ AST.AccesIndex $4 (reverse $2) }
+    | deref EXPR                                                                    {% do
+                                                                                        let expr = TAC.getExpr $2
+                                                                                        astExpr <- TC.buildAndCheckExpr $1 $ AST.UnOp AST.Deref expr
+                                                                                        TAC.generateCodeDeref astExpr $2
+                                                                                    }
+    | '[' EXPRLIST ']' EXPR                                                         {% do
+                                                                                        let arrExpr = TAC.getExpr $4
+                                                                                            exprList = map TAC.getExpr (reverse $2)
+                                                                                        astExpr <- TC.buildAndCheckExpr $3 $ AST.AccesIndex arrExpr exprList
+                                                                                        TAC.generateCodeArrayAccess astExpr $4 $2
+                                                                                    }
     | id '<-' EXPR                                                                  {% do
                                                                                         let astExpr = TAC.getExpr $3
                                                                                             sym = Tk.cleanedString $1
@@ -706,7 +715,12 @@ EXPR :: { TAC.Expression }
                                                                                         expr <- TC.buildAndCheckExpr $2 $ AST.ActiveField astExpr sym
                                                                                         TAC.generateCodeUnionQuery expr sym $1
                                                                                     }
-    | '[(' naturalLit ']' EXPR                                                      {% TC.buildAndCheckExpr $3 $ AST.TupleIndex $4 ((read $ Tk.cleanedString $2) :: Int) }
+    | '[(' naturalLit ']' EXPR                                                      {% do
+                                                                                        let tupleExpr = TAC.getExpr $4
+                                                                                            idx = (read $ Tk.cleanedString $2) :: Int
+                                                                                        astExpr <- TC.buildAndCheckExpr $3 $ AST.TupleIndex tupleExpr idx
+                                                                                        TAC.generateCodeTupleAccess astExpr $4 idx
+                                                                                    }
     | EXPR cast TYPE                                                                {% TC.buildAndCheckExpr $2 $ AST.Cast $1 $3 }
     | '(' EXPR ')'                                                                  { $2 }
     | ARRAYLIT                                                                      { $1 }
