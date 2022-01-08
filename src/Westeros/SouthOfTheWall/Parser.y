@@ -421,15 +421,32 @@ ALIAS_TYPE :: { }
 
 -- Instructions --
 
-CODE_BLOCK :: { [AST.Instruction] }
+CODE_BLOCK :: { TAC.CodeBlock }
     : OPEN_SCOPE INSTRUCTIONS CLOSE_SCOPE                                           { $2 }
 
-INSTRUCTIONS :: { [AST.Instruction] }
-    : {- empty -}                                                                   { [] }
-    | INSTRUCTIONS INSTRUCTION                                                      { $2 : $1 }
-    | INSTRUCTIONS comment                                                          { $1 }
+INSTRUCTIONS :: { TAC.CodeBlock }
+    : {- empty -}                                                                   {% return TAC.CodeBlock [] [] [] [] }
+    | INSTRUCTIONS INSTRUCTION                                                      {% do
+                                                                                        let insts = (TAC.getInstruction $2) : (TAC.getInstructions $1)
+                                                                                            backpatchList = TAC.getBlockNextList $1
+                                                                                            nextList = TAC.getNextList $2
+                                                                                            breakList = (TAC.getBreakList $2) ++ (TAC.getBlockBreakList $1)
+                                                                                            continueList = (TAC.getContinueList $2) ++ (TAC.getBlockContinueList $1)
 
-INSTRUCTION :: { AST.Instruction }
+                                                                                        unless (null backpatchList) $ do
+                                                                                            label <- TAC.generateLabel
+                                                                                            TAC.backpatch backpatchList label
+
+                                                                                        return $ TAC.CodeBlock
+                                                                                            { TAC.getInstructions = insts
+                                                                                            , TAC.getBlockNextList = nextList
+                                                                                            , TAC.getBlockBreaklist = breakList
+                                                                                            , TAC.getBlockContinueList = continueList
+                                                                                            }
+                                                                                    }
+    | INSTRUCTIONS comment                                                          {% return $1 }
+
+INSTRUCTION :: { TAC.Instruction }
     : EXPR ':=' EXPR '.'                                                            {% do
                                                                                         checkAssignment $2 [$1] $3 False
                                                                                         return $ AST.SimpleAssign $1 $3
@@ -454,56 +471,62 @@ INSTRUCTION :: { AST.Instruction }
     | pass '.'                                                                      {% return AST.EmptyInst }
     | beginExit programName endExit '.'                                             {% return $ AST.ExitInst (Tk.cleanedString $3) }
     | read EXPR '.'                                                                 {% do
-                                                                                        if AST.isValidLValue $2
+                                                                                        let expr = TAC.getExpr $2
+                                                                                        if AST.isValidLValue expr
                                                                                             then do
-                                                                                                let toReadTp = AST.getType $2
+                                                                                                let toReadTp = AST.getType expr
                                                                                                 unless (T.isPrimitiveType toReadTp || T.isStringType toReadTp) $ do
-                                                                                                    let err = Err.InvalidExprType (show $ AST.getType $2) (Tk.position $1)
+                                                                                                    let err = Err.InvalidExprType (show $ AST.getType expr) (Tk.position $1)
                                                                                                     ST.insertError $ Err.TE err
                                                                                                 else do
-                                                                                                    let err = Err.InvalidLValue (Tk.position $ AST.getToken $2)
+                                                                                                    let err = Err.InvalidLValue (Tk.position $ AST.getToken expr)
                                                                                                     ST.insertError $ Err.TE err
-                                                                                        return $ AST.Read $2
+                                                                                        let astInst = AST.Read expr
+                                                                                        TAC.generateCodeRead astInst $2
                                                                                     }
     | print EXPR '.'                                                                {% do
-
-                                                                                        let toPrintTp = AST.getType $2
+                                                                                        let expr = TAC.getExpr $2
+                                                                                            toPrintTp = AST.getType expr
                                                                                         unless (T.isPrimitiveType toPrintTp || T.isStringType toPrintTp) $ do
-                                                                                            let err = Err.InvalidExprType (show $ AST.getType $2) (Tk.position $1)
+                                                                                            let err = Err.InvalidExprType (show $ AST.getType expr) (Tk.position $1)
                                                                                             ST.insertError $ Err.TE err
-                                                                                        return $ AST.Print $2
+                                                                                        let astInst = AST.Print expr
+                                                                                        generateCodePrint astInst $2
                                                                                     }
     | EXPR new '.'                                                                  {% do
-                                                                                        let ptrType = AST.getType $1
+                                                                                        let expr = TAC.getExpr $1
+                                                                                            ptrType = AST.getType expr
                                                                                         case ptrType of
-                                                                                            T.PointerT _ -> do checkValidLValue $1
+                                                                                            T.PointerT _ -> do checkValidLValue expr
                                                                                             _            -> do
                                                                                                 let error = Err.UnexpectedType (show ptrType) (show Err.Pointer) (Tk.position $2)
                                                                                                 ST.insertError $ Err.TE error
-                                                                                        return $ AST.New $1
+                                                                                        let astInst = AST.New expr
+                                                                                        generateCodeNew astInst $1
                                                                                     }
     | EXPR free '.'                                                                 {% do
-                                                                                        let ptrType = AST.getType $1
-
+                                                                                        let expr = TAC.getExpr $1
+                                                                                            ptrType = AST.getType expr
                                                                                         case ptrType of
-                                                                                            T.PointerT _ -> do checkValidLValue $1
+                                                                                            T.PointerT _ -> do checkValidLValue expr
                                                                                             _            -> do
                                                                                                 let error = Err.UnexpectedType (show ptrType) (show Err.Pointer) (Tk.position $2)
                                                                                                 ST.insertError $ Err.TE error
 
-                                                                                        return $ AST.Free $1
+                                                                                        let astInst = AST.Free expr
+                                                                                        generateCodeFree astInst $1
                                                                                     }
     | continue '.'                                                                  {% do
                                                                                         openLoops <- ST.currentOpenLoops
                                                                                         when (openLoops == 0) $ do
                                                                                             ST.insertError $ Err.PE $ Err.NoLoop (Tk.position $1)
-                                                                                        return $ AST.Continue
+                                                                                        generateCodeContinue AST.Continue
                                                                                     }
     | break '.'                                                                     {% do
                                                                                         openLoops <- ST.currentOpenLoops
                                                                                         when (openLoops == 0) $ do
                                                                                             ST.insertError $ Err.PE $ Err.NoLoop (Tk.position $1)
-                                                                                        return $ AST.Break
+                                                                                        generateCodeBreak AST.Break
                                                                                     }
     | returnOpen EXPRLIST returnClose                                               {% do
                                                                                         let returns = reverse $2
@@ -514,7 +537,7 @@ INSTRUCTION :: { AST.Instruction }
                                                                                         checkValidReturn $1 []
                                                                                         return $ AST.Return []
                                                                                     }
-    | IF '.'                                                                        {% return $ AST.If $1 }
+    | IF '.'                                                                        {% return $1 }
     | SWITCHCASE '.'                                                                {% return $1 }
     | FOR '.'                                                                       {% return $1 }
     | WHILE '.'                                                                     {% return $1 }
@@ -523,24 +546,34 @@ INSTRUCTION :: { AST.Instruction }
                                                                                         Just inst -> return inst
                                                                                     }
 
-IF :: { AST.IfInst }
+IF :: { TAC.Instruction }
     : if EXPR then GEN_LABEL CODE_BLOCK endif                                       {% do
-                                                                                        let exprType = AST.getType $2
+                                                                                        let boolExpr = TAC.getExpr $2
+                                                                                            codeBlock = reverse $ TAC.getInstructions $5
+                                                                                            exprType = AST.getType boolExpr
                                                                                         unless (exprType `elem` [T.BoolT, T.TypeError]) $ do
-                                                                                            let exprType = AST.getType $2
-                                                                                                err = Err.UnexpectedType (show exprType) (show Err.Bool) (Tk.position $ AST.getToken $2)
+                                                                                            let exprType = AST.getType boolExpr
+                                                                                                err = Err.UnexpectedType (show exprType) (show Err.Bool) (Tk.position $ AST.getToken boolExpr)
                                                                                             ST.insertError $ Err.TE err
 
-                                                                                        return $ AST.IfThen $2 (reverse $4)
+                                                                                        let astInst = AST.If $ AST.IfThen boolExpr codeBlock
+
+                                                                                        generateCodeIf astInst $2 $5 $4
                                                                                     }
     | if EXPR then GEN_LABEL GEN_JUMP CODE_BLOCK else GEN_LABEL CODE_BLOCK endif    {% do
+                                                                                        let boolExpr = TAC.getExpr $2
+                                                                                            thenBlock = reverse $ TAC.getInstructions $6
+                                                                                            elseBlock = reverse $ TAC.getInstructions $9
+                                                                                            exprType = AST.getType boolExpr
 
-                                                                                        let exprType = AST.getType $2
                                                                                         unless (exprType `elem` [T.BoolT, T.TypeError]) $ do
-                                                                                            let exprType = AST.getType $2
-                                                                                                err = Err.UnexpectedType (show exprType) (show Err.Bool) (Tk.position $ AST.getToken $2)
+                                                                                            let exprType = AST.getType boolExpr
+                                                                                                err = Err.UnexpectedType (show exprType) (show Err.Bool) (Tk.position $ AST.getToken boolExpr)
                                                                                             ST.insertError $ Err.TE err
-                                                                                        return $ AST.IfThenElse $2 (reverse $4) (reverse $6)
+
+                                                                                        let astInst = AST.If $ AST.IfThenElse boolExpr thenBlock elseBlock
+
+                                                                                        generateCodeIfElse astInst $2 $6 $9 $4 $8 $5
                                                                                     }
 
 SWITCHCASE :: { AST.Instruction }
@@ -563,26 +596,36 @@ CASE :: { AST.Case }
                                                                                     }
     | case nothing '.' CODE_BLOCK                                                   {% return $ AST.Default (reverse $4) }
 
-FOR :: { AST.Instruction }
-    : OPEN_SCOPE OPEN_LOOP FOR_DEC INSTRUCTIONS endFor CLOSE_SCOPE CLOSE_LOOP       { let (id, lb, ub) = $3 in AST.For id lb ub (reverse $4) }
+FOR :: { TAC.Instruction }
+    : OPEN_SCOPE OPEN_LOOP FOR_DEC INSTRUCTIONS endFor CLOSE_SCOPE CLOSE_LOOP       {% do
+                                                                                        let (id, lb, ub, offset, blockLabel, endCycle) = $3
+                                                                                            codeBlock = reverse $ TAC.getInstructions $4
+                                                                                            astInst = AST.For id (TAC.getExpr lb) (TAC.getExpr ub) codeBlock
+                                                                                        generateCodeFor astInst $4 blockLabel offset endCycle
+                                                                                    }
 
-FOR_DEC :: { (AST.Id, AST.Expression, AST.Expression) }
+FOR_DEC :: { (AST.Id, TAC.Expression, TAC.Expression, Int, String, Int) }
     : for id type int '.' forLB EXPR forUB EXPR '.'                                 {% do
-
                                                                                         ST.insertId $2 ST.Variable ST.int Nothing
-                                                                                        TC.checkIntegerType $7
-                                                                                        TC.checkIntegerType $9
-                                                                                        return (Tk.cleanedString $2, $7, $9)
+                                                                                        TC.checkIntegerType $ TAC.getExpr $7
+                                                                                        TC.checkIntegerType $ TAC.getExpr $9
+                                                                                        currOffset <- ST.currentOffset
+                                                                                        let offset = currOffset - 4
+                                                                                        (blockLabel, endCycle) <- generateCodeForInit $7 $9 offset
+                                                                                        return (Tk.cleanedString $2, $7, $9, offset, blockLabel, endCycle)
                                                                                     }
 
 WHILE :: { AST.Instruction }
-    : while EXPR whileDec OPEN_LOOP CODE_BLOCK CLOSE_LOOP endWhile                  {% do
-                                                                                        let exprType = AST.getType $2
-                                                                                        unless (elem exprType [T.BoolT, T.TypeError]) $ do
-                                                                                                let error = Err.UnexpectedType (show exprType) (show Err.Bool) (Tk.position $ AST.getToken $2)
-                                                                                                ST.insertError $ Err.TE error
-                                                                                        return $ AST.While $2 (reverse $5)
-                                                                                    }
+    : while GEN_LABEL EXPR whileDec OPEN_LOOP GEN_LABEL CODE_BLOCK CLOSE_LOOP endWhile  {% do
+                                                                                            let boolExpr = TAC.getExpr $3
+                                                                                                codeBlock = reverse $ TAC.getInstructions $7
+                                                                                                exprType = AST.getType boolExpr
+                                                                                            unless (elem exprType [T.BoolT, T.TypeError]) $ do
+                                                                                                    let error = Err.UnexpectedType (show exprType) (show Err.Bool) (Tk.position $ AST.getToken boolExpr)
+                                                                                                    ST.insertError $ Err.TE error
+                                                                                            let astInst = AST.While boolExpr codeBlock
+                                                                                            generateCodeWhile astInst $3 $7 $2 $6
+                                                                                        }
 
 -- Expresions --
 EXPR :: { TAC.Expression }

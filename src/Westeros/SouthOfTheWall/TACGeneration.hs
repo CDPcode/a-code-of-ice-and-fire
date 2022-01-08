@@ -965,9 +965,9 @@ generateCodeForInit lbExpr ubExpr offset = do
 
     endCycle <- getNextInstruction
     generateCode $ TAC.TACCode
-        { TAC.tacOperation  = TAC.Goto
+        { TAC.tacOperation  = TAC.Goif
         , TAC.tacLValue     = Just $ TAC.Label "_"
-        , TAC.tacRValue1    = Nothing
+        , TAC.tacRValue1    = Just $ TAC.Id cond
         , TAC.tacRValue2    = Nothing
         }
 
