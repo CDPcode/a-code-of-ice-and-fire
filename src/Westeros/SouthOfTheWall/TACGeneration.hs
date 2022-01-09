@@ -38,9 +38,10 @@ module Westeros.SouthOfTheWall.TACGeneration (
     , generateCodeCaseInit
     , generateCodeCase
     , generateCodeSwitch
-    ,generateCodeOpenFunction
-    ,generateCodeCloseFunction
-    ,patchFunctionSize) where
+    , generateCodeOpenFunction
+    , generateCodeCloseFunction
+    , patchFunction
+    ) where
 
 
 import Control.Monad.RWS                (get, put, gets)
@@ -1328,7 +1329,7 @@ patchFunction inst = do
     symT <- get
     (function, params) <- ST.currentOpenFunction
     let offset = ST.maxOffset symT
-        name = function ++ "_" : show params
+        name = function ++ '_' : show params
     put symT { ST.tacCode = backpatch' name offset inst (ST.tacCode symT) }
     where
         updateCode :: String -> Int -> TAC.TACCode -> TAC.TACCode
