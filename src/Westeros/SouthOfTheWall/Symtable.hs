@@ -161,6 +161,7 @@ data SymbolTable = SymbolTable
     , nextTemp        :: Int
     , nextAtom        :: Int
     , atomMapping     :: M.Map String Int
+    , maxOffset       :: Offset
     }
 
 
@@ -241,9 +242,10 @@ checkExistingAlias st sym = case findSymbol st sym of
 openScope :: MonadParser ()
 openScope = do
     symT <- get
+    currOffset <- currentOffset
     let newScope = nextScope symT
         newStack = newScope : scopeStack symT
-        newOffsetStack = 0 : offsetStack symT
+        newOffsetStack = currOffset : offsetStack symT
     put $ symT { scopeStack = newStack, nextScope = succ newScope, offsetStack = newOffsetStack }
 
 closeScope :: MonadParser ()
@@ -251,7 +253,8 @@ closeScope = do
     symT <- get
     let newStack        = tail $ scopeStack symT
         newOffsetStack  = tail $ offsetStack symT
-    put $ symT { scopeStack = newStack, offsetStack = newOffsetStack }
+        newMaxOffset    = max (maxOffset symT) (head $ offsetStack symT)
+    put $ symT { scopeStack = newStack, offsetStack = newOffsetStack, maxOffset = newMaxOffset }
 
 openLoop :: MonadParser ()
 openLoop = do
@@ -280,7 +283,7 @@ closeRecord = do
 openFunction :: Symbol -> Int -> MonadParser ()
 openFunction sym params = do
     symT <- get
-    put $ symT { currentFunction = (sym, params) }
+    put $ symT { currentFunction = (sym, params), maxOffset = 0 }
 
 
 findBest :: [SymbolInfo] -> [Int] -> Maybe SymbolInfo
@@ -514,6 +517,7 @@ initialST = foldl' insertST st (stringEntry:tErrorEntry:entries)
         , nextTemp        = 0
         , nextAtom        = 0
         , atomMapping     = M.empty
+        , maxOffset       = 0
         }
 
 typesSymbolInfo :: TypeInfo -> SymbolInfo

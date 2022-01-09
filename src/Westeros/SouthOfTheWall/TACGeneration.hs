@@ -34,8 +34,10 @@ module Westeros.SouthOfTheWall.TACGeneration (
     , generateCodeNew
     , generateCodeFree
     , generateCodeContinue
-    , generateCodeBreak,
+    , generateCodeBreak
     , generateCodeCaseInit
+    , generateCodeCase
+    , generateCodeSwitch
     ) where
 
 
@@ -1258,11 +1260,11 @@ generateCodeCase astCaseExpr caseInit codeBlock label jumpInst = do
     return $ Case
         { getAstCaseExpr = astCaseExpr
         , getCaseInit = caseInit
-        , getCodeBlock = codeBlock
-        , getJumpInst = jumpInst
+        , getCaseCodeBlock = codeBlock
+        , getCaseJumpInst = jumpInst
         }
 
-generateCodeSwitch :: AST.Switch -> Expression -> [Case] -> MonadParser Instruction
+generateCodeSwitch :: AST.Instruction -> Expression -> [Case] -> MonadParser Instruction
 generateCodeSwitch astInst expr cases = do
 
     t0 <- getTempFromAddress False $ getAddress expr
@@ -1279,23 +1281,23 @@ generateCodeSwitch astInst expr cases = do
         }
 
     where
-        backpatchCompInst :: [Case] -> String -> ModadParser ()
+        backpatchCompInst :: [Case] -> String -> MonadParser ()
         backpatchCompInst cases t0 = do
             maybeInst <- mapM (getCompInst . getCaseInit) cases
             insts <- mapM fromJust $ filter isJust maybeInst
             backpatch insts t0
-        backpatchJumpInsts :: [Case] -> ModadParser ()
+        backpatchJumpInsts :: [Case] -> MonadParser ()
         backpatchJumpInsts cases = do
             maybeInsts <- mapM (getJumpInst . getCaseInit) cases
             insts <- mapM fromJust $ filter isJust maybeInst
             labels <- mapM (fromJust . getCaseLabel . getCaseInit) cases
             backpatchJumpInsts' insts (tail labels)
-        backpatchJumpInsts' :: [Int] -> [String] -> ModadParser ()
+        backpatchJumpInsts' :: [Int] -> [String] -> MonadParser ()
         backpatchJumpInsts' [] _ = return ()
         backpatchJumpInsts' (inst:insts) (label:labels) = do
             backpatch [inst] label
             backpatchJumpInsts' insts labels
-        getBackPatchLists :: [Case] -> ModadParser ([Int], [Int], [Int])
+        getBackPatchLists :: [Case] -> MonadParser ([Int], [Int], [Int])
         getBackPatchLists cases = do
             nextList <- mapM getCaseJumpInst cases
             continueList <- mapM (getBlockContinueList . getCaseCodeBlock) cases
