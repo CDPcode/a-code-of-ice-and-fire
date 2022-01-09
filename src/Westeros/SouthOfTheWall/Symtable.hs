@@ -65,7 +65,7 @@ module Westeros.SouthOfTheWall.Symtable (
     , getAtomNumber
     , string
     , nullptr
-    ) where
+    ,clearMaxOffset) where
 
 import Data.Bifunctor       (second)
 import Data.Foldable        (foldl')
@@ -285,6 +285,10 @@ openFunction sym params = do
     symT <- get
     put $ symT { currentFunction = (sym, params), maxOffset = 0 }
 
+clearMaxOffset :: MonadParser ()
+clearMaxOffset = do
+    symT <- get
+    put $ symT { maxOffset = 0 }
 
 findBest :: [SymbolInfo] -> [Int] -> Maybe SymbolInfo
 findBest _ [] = Nothing
@@ -484,7 +488,7 @@ initialTypes = [int, float, char, bool, atom, nullptr] --array, union, struct, t
 initialTypesInfo :: [TypeInfo]
 initialTypesInfo = zipWith TypeInfo initWidths initWidths
   where
-    initWidths = [4, 4, 4, 4, 4, 4]
+    initWidths = [4, 4, 1, 4, 4, 4]
 
 initialST :: SymbolTable
 initialST = foldl' insertST st (stringEntry:tErrorEntry:entries)

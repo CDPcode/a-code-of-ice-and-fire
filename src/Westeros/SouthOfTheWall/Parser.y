@@ -206,7 +206,10 @@ GLOBAL :: { [AST.Instruction] }
     : globalDec '{' DECLARATIONS '}'                                                { reverse $3 }
 
 MAIN :: { [AST.Instruction] }
-    : main FUNCTION_BODY                                                            { $2 }
+    : MAIN_DEC FUNCTION_BODY                                                        { $2 }
+
+MAIN_DEC :: { }
+    : main                                                                          {% ST.openFunction "Epilogue" 0 }
 
 ALIASES :: { }
     : aliasDec ALIAS_DECLARATIONS                                                   { }
@@ -222,10 +225,16 @@ FUNCTIONS :: { [AST.FunctionDeclaration] }
     | FUNCTIONS FUNCTION                                                            { $2 : $1 }
 
 FUNCTION :: { AST.FunctionDeclaration }
-    : FUNCTION_DEF FUNCTION_BODY CLOSE_SCOPE                                        { $2 }
+    : FUNCTION_DEF FUNCTION_BODY F_CLOSE CLOSE_SCOPE                                {% do
+                                                                                        TAC.patchFunction $1
+                                                                                        return $2
+                                                                                    }
 
-FUNCTION_DEF :: { () }
-    : id OPEN_SCOPE FUNCTION_PARAMETERS FUNCTION_RETURN                             {% ST.openFunction (Tk.cleanedString $1) $3 }
+FUNCTION_DEF :: { Int }
+    : id OPEN_SCOPE OPEN_F FUNCTION_PARAMETERS FUNCTION_RETURN                      {% do
+                                                                                        ST.openFunction (Tk.cleanedString $1) $4
+                                                                                        return $3
+                                                                                    }
 
 FUNCTION_PARAMETERS :: { Int }
     : beginFuncParams PARAMETER_LIST endFuncParams                                  { $2 }
@@ -269,6 +278,14 @@ TYPES :: { [ST.Type] }
 
 FUNCTION_BODY :: { [AST.Instruction] }
     : '{' CODE_BLOCK '}'                                                            { reverse $2 }
+
+OPEN_F:: { Int }
+    : {- empty -}                                                                   {% do
+                                                                                        ST.clearMaxOffset
+                                                                                        TAC.generateCodeOpenFunction }
+
+CLOSE_F :: {}
+    : {- empty -}                                                                   {% TAC.generateCodeCloseFunction }
 
 TYPE :: { ST.Type }
     : PRIMITIVE_TYPE                                                                { $1 }
@@ -957,27 +974,33 @@ checkValidLValue maybeLVal = do
 checkValidReturn :: Tk.Token -> [AST.Expression] -> ST.MonadParser ()
 checkValidReturn statement exprs = do
     (fn, params) <- ST.currentOpenFunction
-    maybeEntry <- ST.lookupFunction fn params
-    case maybeEntry of
-        Just ST.SymbolInfo{
-            ST.additional = (Just (ST.FunctionMetaData ST.FunctionInfo{ST.returns=returns}))
-        } -> do
-            let exprsTypes = map AST.getType exprs
-            returnTypes <- mapM T.getTypeFromString returns
-            if all T.notTypeError (returnTypes ++ exprsTypes)
-                then do
-                    if length returnTypes == length exprsTypes
-                        then do
-                            let matches = zipWith T.checkAssignable returnTypes exprsTypes
-                            case findIndex not matches of
-                                Nothing -> return ()
-                                Just pos -> do
-                                    let err = Err.UnexpectedType (show $ exprsTypes !! pos) (show $ returnTypes !! pos) (Tk.position statement)
-                                    ST.insertError $ Err.TE err
-                        else do
-                            ST.insertError $ Err.PE $ Err.ReturnLengthMissmatch fn params (length returnTypes) (length exprsTypes) (Tk.position statement)
+    if fn == "Epilogue"
+        then do
+            if length exprs > 0
+                then ST.insertError $ Err.PE $ Err.ReturnLengthMissmatch fn params 0 (length exprs) (Tk.position statement)
                 else return ()
-        _ -> return ()
+        else do
+            maybeEntry <- ST.lookupFunction fn params
+            case maybeEntry of
+                Just ST.SymbolInfo{
+                    ST.additional = (Just (ST.FunctionMetaData ST.FunctionInfo{ST.returns=returns}))
+                } -> do
+                    let exprsTypes = map AST.getType exprs
+                    returnTypes <- mapM T.getTypeFromString returns
+                    if all T.notTypeError (returnTypes ++ exprsTypes)
+                        then do
+                            if length returnTypes == length exprsTypes
+                                then do
+                                    let matches = zipWith T.checkAssignable returnTypes exprsTypes
+                                    case findIndex not matches of
+                                        Nothing -> return ()
+                                        Just pos -> do
+                                            let err = Err.UnexpectedType (show $ exprsTypes !! pos) (show $ returnTypes !! pos) (Tk.position statement)
+                                            ST.insertError $ Err.TE err
+                                else do
+                                    ST.insertError $ Err.PE $ Err.ReturnLengthMissmatch fn params (length returnTypes) (length exprsTypes) (Tk.position statement)
+                        else return ()
+                _ -> return ()
 
 -- We can only return primitive or pointers
 checkValidReturnTypes :: Tk.Token -> [ST.Type] -> ST.MonadParser ()

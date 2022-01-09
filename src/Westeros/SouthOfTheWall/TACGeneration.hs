@@ -38,7 +38,9 @@ module Westeros.SouthOfTheWall.TACGeneration (
     , generateCodeCaseInit
     , generateCodeCase
     , generateCodeSwitch
-    ) where
+    ,generateCodeOpenFunction
+    ,generateCodeCloseFunction
+    ,patchFunctionSize) where
 
 
 import Control.Monad.RWS                (get, put, gets)
@@ -1297,3 +1299,43 @@ generateCodeSwitch astInst expr cases = do
             backpatch [inst] label
             backpatchJumpInsts' insts labels
         backpatchJumpInsts' _ _ = return ()
+
+generateCodeOpenFunction :: MonadParser Int
+generateCodeOpenFunction = do
+
+    n <- getNextInstruction
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation = TAC.MetaBeginFunc
+        , TAC.tacLValue    = Just $ TAC.Id "_"
+        , TAC.tacRValue1   = Just $ TAC.Constant $ TAC.Int 0
+        , TAC.tacRValue2   = Nothing
+        }
+    return n
+
+generateCodeCloseFunction :: MonadParser ()
+generateCodeCloseFunction = do
+
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation = TAC.MetaEndFunc
+        , TAC.tacLValue    = Just $ TAC.Constant $ TAC.Int 0
+        , TAC.tacRValue1   = Nothing
+        , TAC.tacRValue2   = Nothing
+        }
+
+patchFunction :: Int -> MonadParser ()
+patchFunction inst = do
+
+    symT <- get
+    (function, params) <- ST.currentOpenFunction
+    let offset = ST.maxOffset symT
+        name = function ++ "_" : show params
+    put symT { ST.tacCode = backpatch' name offset inst (ST.tacCode symT) }
+    where
+        updateCode :: String -> Int -> TAC.TACCode -> TAC.TACCode
+        updateCode name offset tac@TAC.TACCode { TAC.tacOperation = TAC.MetaBeginFunc } =
+            tac { TAC.tacLValue   = Just $ TAC.Id name
+                , TAC.tacRValue2  = Just $ TAC.Constant $ TAC.Int offset
+            }
+        updateCode _ _ tac = tac
+        backpatch' :: String -> Int -> Int -> Seq TAC.TACCode -> Seq TAC.TACCode
+        backpatch' name offset n s = Seq.adjust' (updateCode name offset) n s
