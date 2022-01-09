@@ -42,7 +42,7 @@ module Westeros.SouthOfTheWall.TACGeneration (
 
 
 import Control.Monad.RWS                (get, put, gets)
-import Data.Maybe                       (fromMaybe)
+import Data.Maybe                       (fromMaybe, mapMaybe)
 import Data.Sequence                    (Seq, (|>))
 import Westeros.SouthOfTheWall.Symtable (MonadParser)
 
@@ -1271,7 +1271,9 @@ generateCodeSwitch astInst expr cases = do
 
     backpatchCompInst cases t0
     backpatchJumpInsts cases
-    (nextList, continueList, breakList) <- getBackPatchLists cases
+    let nextList = map getCaseJumpInst cases
+        continueList = concatMap (getBlockContinueList . getCaseCodeBlock) cases
+        breakList = concatMap (getBlockBreakList . getCaseCodeBlock) cases
 
     return $ Instruction
         { getInstruction   = astInst
@@ -1282,25 +1284,16 @@ generateCodeSwitch astInst expr cases = do
 
     where
         backpatchCompInst :: [Case] -> String -> MonadParser ()
-        backpatchCompInst cases t0 = do
-            maybeInst <- mapM (getCompInst . getCaseInit) cases
-            insts <- mapM fromJust $ filter isJust maybeInst
+        backpatchCompInst list t0 = do
+            let insts = mapMaybe (getCompInst . getCaseInit) list
             backpatch insts t0
         backpatchJumpInsts :: [Case] -> MonadParser ()
-        backpatchJumpInsts cases = do
-            maybeInsts <- mapM (getJumpInst . getCaseInit) cases
-            insts <- mapM fromJust $ filter isJust maybeInst
-            labels <- mapM (fromJust . getCaseLabel . getCaseInit) cases
+        backpatchJumpInsts list = do
+            let insts = mapMaybe (getJumpInst . getCaseInit) list
+                labels = map (getCaseLabel . getCaseInit) list
             backpatchJumpInsts' insts (tail labels)
         backpatchJumpInsts' :: [Int] -> [String] -> MonadParser ()
-        backpatchJumpInsts' [] _ = return ()
         backpatchJumpInsts' (inst:insts) (label:labels) = do
             backpatch [inst] label
             backpatchJumpInsts' insts labels
-        getBackPatchLists :: [Case] -> MonadParser ([Int], [Int], [Int])
-        getBackPatchLists cases = do
-            nextList <- mapM getCaseJumpInst cases
-            continueList <- mapM (getBlockContinueList . getCaseCodeBlock) cases
-            breakList <- mapM (getBlockBreakList . getCaseCodeBlock) cases
-            return (nextList, continueList, breakList)
-
+        backpatchJumpInsts' _ _ = return ()
