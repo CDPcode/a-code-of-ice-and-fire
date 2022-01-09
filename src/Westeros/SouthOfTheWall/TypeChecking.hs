@@ -24,6 +24,7 @@ import Data.Maybe (fromJust)
 import Control.Monad.RWS (unless, get)
 import Data.Bifunctor (second)
 import qualified Data.Map.Strict as M
+import qualified Westeros.SouthOfTheWall.AST as T
 
 -- This interface will provide type check consistency for their instances.
 --
@@ -94,11 +95,16 @@ instance Typeable AST.Expr where
                                 let paramTypes = map snd params'
                                 if all T.notTypeError paramTypes && all T.notTypeError returnTypes
                                     then case findIndex not $ zipWith T.checkAssignable paramTypes types of
-                                        Nothing ->
-                                            case returnTypes of
-                                                [] -> return (T.NothingT, "")
-                                                [t] -> return (t, head returns)
-                                                _ -> return (T.MultiReturnT returnTypes, "")
+                                        Nothing -> do
+                                            valid <- checkValidLValueArgs (map (second head) $ M.toList params) args
+                                            if valid
+                                                then
+                                                    case returnTypes of
+                                                        [] -> return (T.NothingT, "")
+                                                        [t] -> return (t, head returns)
+                                                        _ -> return (T.MultiReturnT returnTypes, "")
+                                                else
+                                                    return (T.TypeError, ST.tError)
                                         Just idx -> do
                                             let errorExpr = args !! idx
                                                 errorTk   = AST.getToken errorExpr
@@ -318,6 +324,15 @@ binOpCheck bop a b = do
         relationalOp = [AST.Eq, AST.Neq, AST.Lt, AST.Gt, AST.Leq, AST.Geq]
         primitiveTypes = [T.IntT, T.BoolT, T.FloatT, T.CharT, T.AtomT]
 
+checkValidLValueArgs :: [(String, ST.SymbolInfo)] -> [AST.Expression] -> ST.MonadParser  Bool
+checkValidLValueArgs [] _ = return True
+checkValidLValueArgs _ [] = return True
+checkValidLValueArgs ((_, info):xs) (expr : exprs)= do
+    rest <- checkValidLValueArgs xs exprs
+    case ST.additional info of
+        Just (ST.ParameterType ST.Reference) -> do
+            return $ rest && T.isValidLValue expr
+        _ -> return rest
 
 buildAndCheckExpr :: Tk.Token -> AST.Expr -> ST.MonadParser AST.Expression
 buildAndCheckExpr tk expr = do

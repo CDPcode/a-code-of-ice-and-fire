@@ -255,6 +255,8 @@ PARAMETER :: { () }
     | beginCompTypeId PARAMETER_TYPE id endCompTypeId TYPE                          {% do
                                                                                         expr <- TC.buildAndCheckExpr $3 $ AST.IdExpr (Tk.cleanedString $3)
                                                                                         TC.checkCompositeType expr
+                                                                                        when (T.isArrayType $ AST.getType expr && $2 == ST.Value) $ do
+                                                                                            TAC.generateCodeParamArray (Tk.cleanedString $3)
                                                                                     }
     | beginCompTypeId PARAMETER_TYPE pointerVar id endCompTypeId TYPE               {% do
                                                                                         expr <- TC.buildAndCheckExpr $4 $ AST.IdExpr (Tk.cleanedString $4)
@@ -282,7 +284,8 @@ FUNCTION_BODY :: { [AST.Instruction] }
 OPEN_F:: { Int }
     : {- empty -}                                                                   {% do
                                                                                         ST.clearMaxOffset
-                                                                                        TAC.generateCodeOpenFunction }
+                                                                                        TAC.generateCodeOpenFunction
+                                                                                    }
 
 CLOSE_F :: {}
     : {- empty -}                                                                   {% TAC.generateCodeCloseFunction }
@@ -477,12 +480,10 @@ INSTRUCTION :: { TAC.Instruction }
                                                                                         checkAssignment $2 exprList $3 False
                                                                                         return $ AST.MultAssign exprList $3
                                                                                     }
-    | void ':=' FUNCTIONCALL '.'                                                    {% do
-                                                                                        checkFunctionCallInstr $3
+    | void ':=' FUNCTIONCALL '.'                                                    {%
                                                                                         return $ AST.FuncCallInst $3
                                                                                     }
-    | void ':==' FUNCTIONCALL '.'                                                   {% do
-                                                                                        checkFunctionCallInstr $3
+    | void ':==' FUNCTIONCALL '.'                                                   {%
                                                                                         return $ AST.FuncCallInst $3
                                                                                     }
     | pass '.'                                                                      {% return AST.EmptyInst }
@@ -548,10 +549,12 @@ INSTRUCTION :: { TAC.Instruction }
     | returnOpen EXPRLIST returnClose                                               {% do
                                                                                         let returns = reverse $2
                                                                                         checkValidReturn $1 returns
+                                                                                        TAC.generateCodeReturn returns
                                                                                         return $ AST.Return returns
                                                                                     }
     | returnOpen returnClose                                                        {% do
                                                                                         checkValidReturn $1 []
+                                                                                        TAC.generateCodeReturn []
                                                                                         return $ AST.Return []
                                                                                     }
     | IF '.'                                                                        {% return $1 }
@@ -799,10 +802,7 @@ EXPR :: { TAC.Expression }
     | '(' EXPR ')'                                                                  { $2 }
     | ARRAYLIT                                                                      { $1 }
     | TUPLELIT                                                                      { $1 }
-    | FUNCTIONCALL                                                                  {% do
-                                                                                        checkFunctionCallInstr $1
-                                                                                        return $1
-                                                                                    }
+    | FUNCTIONCALL                                                                  { $1}
     | intLit                                                                        {% do
                                                                                         let expr = AST.IntLit ((read $ Tk.cleanedString $1) :: Int)
                                                                                         astExpr <- TC.buildAndCheckExpr $1 expr
@@ -860,8 +860,13 @@ EXPR :: { TAC.Expression }
                                                                                         TAC.generateCodeId astExpr offset
                                                                                     }
 
-FUNCTIONCALL :: { AST.Expression }
-    : id '((' procCallArgs EXPRLIST '))'                                            {% TC.buildAndCheckExpr $1 $ AST.FuncCall (Tk.cleanedString $1) (reverse $4) }
+FUNCTIONCALL :: { TAC.Expression }
+    : id '((' procCallArgs EXPRLIST '))'                                            {% do
+                                                                                        exprs <- map TAC.getExpr $ reverse $4
+                                                                                        astExpr <- TC.buildAndCheckExpr $1 $ AST.FuncCall (Tk.cleanedString $1) exprs
+                                                                                        checkFunctionCallInstr astExpr
+                                                                                        TAC.generateCodeFuncCall astExpr $ reverse $4
+                                                                                    }
     | id '((' procCallArgs void '))'                                                {% TC.buildAndCheckExpr $1 $ AST.FuncCall (Tk.cleanedString $1) [] }
     | id '(('  '))'                                                                 {% TC.buildAndCheckExpr $1 $ AST.FuncCall (Tk.cleanedString $1) [] }
 
@@ -1006,7 +1011,7 @@ checkValidReturn statement exprs = do
 checkValidReturnTypes :: Tk.Token -> [ST.Type] -> ST.MonadParser ()
 checkValidReturnTypes tk types = do
     abstTypes <- mapM T.getTypeFromString types
-    case findIndex (\t -> not $ T.isPrimitiveOrPointerType t) abstTypes of
+    case findIndex (\t -> not $ T.isPrimitiveType t) abstTypes of
         Nothing -> return ()
         Just pos ->
             ST.insertError $ Err.TE $ Err.InvalidExprType (show $ abstTypes !! pos) (Tk.position tk)

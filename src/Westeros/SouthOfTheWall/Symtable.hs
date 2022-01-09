@@ -585,10 +585,14 @@ insertId tk ctg tp addInfo = do
     sc <- currentScope
     currOffset <- currentOffset
     tpInfo <- getTypeInfo tp
-    let offs = getAlignedOffset currOffset (align tpInfo)
+    let offs = case addInfo of
+            Just (ParameterType Reference) -> getAlignedOffset currOffset 4
+            _ -> getAlignedOffset currOffset (align tpInfo)
         name  = Tk.cleanedString tk
         entry = idEntry name sc ctg tp addInfo offs (Just tpInfo)
-        newOffset = offs + width tpInfo
+        newOffset = case addInfo of
+            Just (ParameterType Reference) -> offs + 4
+            _ -> offs + width tpInfo
 
     symT  <- get
     maybeInfo <- lookupST name
