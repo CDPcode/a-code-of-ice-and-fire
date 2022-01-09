@@ -41,6 +41,7 @@ module Westeros.SouthOfTheWall.TACGeneration (
     , generateCodeOpenFunction
     , generateCodeCloseFunction
     , generateCodeAssign
+    , generateCodePrintString
     , patchFunction
     ) where
 
@@ -1424,6 +1425,29 @@ generateCodeAssign astInst lExpr rExpr lLabel = do
                 , TAC.tacRValue1 = Just $ TAC.Id srcAddress
                 , TAC.tacRValue2 = Just $ TAC.Constant $ TAC.Int width
                 }
+
+    return $ Instruction
+        { getInstruction  = astInst
+        , getNextList     = []
+        , getBreakList    = []
+        , getContinueList = []
+        }
+
+generateCodePrintString :: AST.Instruction -> String -> MonadParser Instruction
+generateCodePrintString astInst str = do
+    label <- getNextLabel
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation = TAC.MetaStaticStr
+        , TAC.tacLValue    = Just $ TAC.Label label
+        , TAC.tacRValue1   = Just $ TAC.Constant $ TAC.String str
+        , TAC.tacRValue2   = Nothing
+        }
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation = TAC.Print
+        , TAC.tacLValue    = Just $ TAC.Label label
+        , TAC.tacRValue1   = Nothing
+        , TAC.tacRValue2   = Nothing
+        }
 
     return $ Instruction
         { getInstruction  = astInst
