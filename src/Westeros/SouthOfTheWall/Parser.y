@@ -464,13 +464,15 @@ INSTRUCTIONS :: { TAC.CodeBlock }
     | INSTRUCTIONS comment                                                          {% return $1 }
 
 INSTRUCTION :: { TAC.Instruction }
-    : EXPR ':=' EXPR '.'                                                            {% do
-                                                                                        checkAssignment $2 [$1] $3 False
-                                                                                        return $ AST.SimpleAssign $1 $3
+    : EXPR ':=' GEN_LABEL EXPR '.'                                                  {% do
+                                                                                        checkAssignment $2 [$1] $4 False
+                                                                                        let astInst = AST.SimpleAssign $1 $4
+                                                                                        TAC.generateCodeAssign astInst $1 $4 $3
                                                                                     }
-    | EXPR ':==' EXPR '.'                                                           {% do
-                                                                                        checkAssignment $2 [$1] $3 False
-                                                                                        return $ AST.SimpleAssign $1 $3
+    | EXPR ':==' GEN_LABEL EXPR '.'                                                 {% do
+                                                                                        checkAssignment $2 [$1] $4 False
+                                                                                        let astInst = AST.SimpleAssign $1 $4
+                                                                                        TAC.generateCodeAssign astInst $1 $4 $3
                                                                                     }
     | EXPRLIST ':==' EXPR '.'                                                       {% do
                                                                                         let exprList = reverse $1

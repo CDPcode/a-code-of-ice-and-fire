@@ -40,6 +40,7 @@ module Westeros.SouthOfTheWall.TACGeneration (
     , generateCodeSwitch
     , generateCodeOpenFunction
     , generateCodeCloseFunction
+    , generateCodeAssign
     , patchFunction
     ) where
 
@@ -1340,3 +1341,93 @@ patchFunction inst = do
         updateCode _ _ tac = tac
         backpatch' :: String -> Int -> Int -> Seq TAC.TACCode -> Seq TAC.TACCode
         backpatch' name offset n s = Seq.adjust' (updateCode name offset) n s
+
+generateCodeAssign :: AST.Instruction -> Expression -> Expression -> String -> MonadParser Instruction
+generateCodeAssign astInst lExpr rExpr lLabel = do
+    backpatch (getTrueList lExpr ++ getFalseList lExpr) lLabel
+    rLabel <- generateLabel
+    backpatch (getTrueList rExpr ++ getFalseList rExpr) rLabel
+
+    dstAddress <- case getAddress lExpr of
+        -- TODO: Check if this is right
+        Temp t   -> return t
+        Memory t -> do
+            temp <- getNextTemp
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation = TAC.Add
+                , TAC.tacLValue = Just $ TAC.Id temp
+                , TAC.tacRValue1 = Just $ TAC.Id TAC.base
+                , TAC.tacRValue2 = Just $ TAC.Id t
+                }
+            return temp
+        Heap t   -> return t
+
+    case AST.getType (getExpr rExpr) of
+        T.FloatT -> do
+            t0 <- getFloatFromAddress (getAddress rExpr)
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation = TAC.LDeref
+                , TAC.tacLValue = Just $ TAC.Id dstAddress
+                , TAC.tacRValue1 = Just $ TAC.Constant $ TAC.Int 0
+                , TAC.tacRValue2 = Just $ TAC.Id t0
+                }
+        T.IntT -> do
+            t0 <- getTempFromAddress False (getAddress rExpr)
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation = TAC.LDeref
+                , TAC.tacLValue = Just $ TAC.Id dstAddress
+                , TAC.tacRValue1 = Just $ TAC.Constant $ TAC.Int 0
+                , TAC.tacRValue2 = Just $ TAC.Id t0
+                }
+        T.AtomT -> do
+            t0 <- getTempFromAddress False (getAddress rExpr)
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation = TAC.LDeref
+                , TAC.tacLValue = Just $ TAC.Id dstAddress
+                , TAC.tacRValue1 = Just $ TAC.Constant $ TAC.Int 0
+                , TAC.tacRValue2 = Just $ TAC.Id t0
+                }
+        T.BoolT -> do
+            t0 <- getTempFromAddress False (getAddress rExpr)
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation = TAC.LDeref
+                , TAC.tacLValue = Just $ TAC.Id dstAddress
+                , TAC.tacRValue1 = Just $ TAC.Constant $ TAC.Int 0
+                , TAC.tacRValue2 = Just $ TAC.Id t0
+                }
+        T.CharT -> do
+            t0 <- getTempFromAddress True (getAddress rExpr)
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation = TAC.LDerefb
+                , TAC.tacLValue = Just $ TAC.Id dstAddress
+                , TAC.tacRValue1 = Just $ TAC.Constant $ TAC.Int 0
+                , TAC.tacRValue2 = Just $ TAC.Id t0
+                }
+        _ -> do
+            srcAddress <- case getAddress rExpr of
+                Temp t -> return t
+                Memory t -> do
+                    temp <- getNextTemp
+                    generateCode $ TAC.TACCode
+                        { TAC.tacOperation = TAC.Add
+                        , TAC.tacLValue = Just $ TAC.Id temp
+                        , TAC.tacRValue1 = Just $ TAC.Id TAC.base
+                        , TAC.tacRValue2 = Just $ TAC.Id t
+                        }
+                    return temp
+                Heap t   -> return t
+            mWidth <- T.getTypeWidth $ AST.getTypeStr $ getExpr rExpr
+            let width = fromMaybe 0 mWidth
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation = TAC.MemCopy
+                , TAC.tacLValue = Just $ TAC.Id dstAddress
+                , TAC.tacRValue1 = Just $ TAC.Id srcAddress
+                , TAC.tacRValue2 = Just $ TAC.Constant $ TAC.Int width
+                }
+
+    return $ Instruction
+        { getInstruction  = astInst
+        , getNextList     = []
+        , getBreakList    = []
+        , getContinueList = []
+        }
