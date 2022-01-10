@@ -10,7 +10,7 @@ import qualified Westeros.SouthOfTheWall.TypeChecking as TC
 import qualified Westeros.SouthOfTheWall.TACGeneration as TAC
 import qualified TACTypes.TAC as TACTypes
 import Data.Maybe (fromJust)
-import Control.Monad.RWS ( MonadState(put, get), RWST, when, unless )
+import Control.Monad.RWS ( MonadState(put, get), RWST, when, unless, liftIO )
 import Data.List (find, findIndex)
 
 
@@ -493,16 +493,14 @@ CODE_BLOCK :: { TAC.CodeBlock }
 
 INSTRUCTIONS :: { TAC.CodeBlock }
     : {- empty -}                                                                   {% return $ TAC.CodeBlock [] [] [] [] }
-    | INSTRUCTIONS INSTRUCTION                                                      {% do
-                                                                                        let insts = (TAC.getInstruction $2) : (TAC.getInstructions $1)
+    | INSTRUCTIONS GEN_LABEL INSTRUCTION                                            {% do
+                                                                                        let insts = (TAC.getInstruction $3) : (TAC.getInstructions $1)
                                                                                             backpatchList = TAC.getBlockNextList $1
-                                                                                            nextList = TAC.getNextList $2
-                                                                                            breakList = (TAC.getBreakList $2) ++ (TAC.getBlockBreakList $1)
-                                                                                            continueList = (TAC.getContinueList $2) ++ (TAC.getBlockContinueList $1)
+                                                                                            nextList = TAC.getNextList $3
+                                                                                            breakList = (TAC.getBreakList $3) ++ (TAC.getBlockBreakList $1)
+                                                                                            continueList = (TAC.getContinueList $3) ++ (TAC.getBlockContinueList $1)
 
-                                                                                        unless (null backpatchList) $ do
-                                                                                            label <- TAC.generateLabel
-                                                                                            TAC.backpatch backpatchList label
+                                                                                        TAC.backpatch backpatchList $2
 
                                                                                         return $ TAC.CodeBlock
                                                                                             { TAC.getInstructions = insts
@@ -649,9 +647,9 @@ IF :: { TAC.Instruction }
 
                                                                                         TAC.generateCodeIf astInst $2 $5 $4
                                                                                     }
-    | if EXPR then GEN_LABEL GEN_JUMP CODE_BLOCK else GEN_LABEL CODE_BLOCK endif    {% do
+    | if EXPR then GEN_LABEL CODE_BLOCK GEN_JUMP else GEN_LABEL CODE_BLOCK endif    {% do
                                                                                         let boolExpr = TAC.getExpr $2
-                                                                                            thenBlock = reverse $ TAC.getInstructions $6
+                                                                                            thenBlock = reverse $ TAC.getInstructions $5
                                                                                             elseBlock = reverse $ TAC.getInstructions $9
                                                                                             exprType = AST.getType boolExpr
 
@@ -662,7 +660,7 @@ IF :: { TAC.Instruction }
 
                                                                                         let astInst = AST.If $ AST.IfThenElse boolExpr thenBlock elseBlock
 
-                                                                                        TAC.generateCodeIfElse astInst $2 $6 $9 $4 $8 $5
+                                                                                        TAC.generateCodeIfElse astInst $2 $5 $9 $4 $8 $6
                                                                                     }
 
 SWITCHCASE :: { TAC.Instruction }
@@ -783,7 +781,7 @@ EXPR :: { TAC.Expression }
     | EXPR '>' EXPR                                                                 {% do
                                                                                         let astExpr1 = TAC.getExpr $1
                                                                                             astExpr2 = TAC.getExpr $3
-                                                                                        astExpr <- TC.buildAndCheckExpr $2 $ AST.BinOp AST.Lt astExpr1 astExpr2
+                                                                                        astExpr <- TC.buildAndCheckExpr $2 $ AST.BinOp AST.Gt astExpr1 astExpr2
                                                                                         TAC.generateCodeComparison astExpr $1 $3
                                                                                     }
     | EXPR '<=' EXPR                                                                {% do

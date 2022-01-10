@@ -7,11 +7,13 @@ import Westeros.SouthOfTheWall.PreParser    (preParse)
 import Westeros.SouthOfTheWall.PrettyPrint  (pretty)
 
 import qualified Westeros.SouthOfTheWall.Symtable as ST
+import qualified Westeros.SouthOfTheWall.TACGeneration as TACG
 import qualified TACTypes.TAC as TAC
 
 import Data.Foldable (toList)
 import Control.Monad.RWS ( RWST(runRWST), unless )
 import System.Environment (getArgs)
+import qualified Westeros.SouthOfTheWall.TACGeneration as TACG
 
 main :: IO ()
 main = do
@@ -67,6 +69,9 @@ testTAC = do
             unless (null errs') $ do
                 mapM_ pretty errs
             let tacSeq = ST.tacCode finalSt
-                tacProgram = TAC.TACProgram $ toList tacSeq
+                tacList = toList tacSeq
+                globalTac = filter TACG.isGlobalCode tacList
+                otherTac = filter (not . TACG.isGlobalCode) tacList
+                tacProgram = TAC.TACProgram $ globalTac ++ otherTac
             print tacProgram
         else mapM_ pretty errs

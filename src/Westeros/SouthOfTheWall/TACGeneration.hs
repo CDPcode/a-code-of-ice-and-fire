@@ -46,18 +46,20 @@ module Westeros.SouthOfTheWall.TACGeneration (
     , generateCodeAssign
     , generateCodePrintString
     , patchFunction
-    ,generateCodeAllocArray
-    ,generateCodeParamArray
-    ,generateCodeArraySize
-    ,generateCodeFunctionCall
-    ,generateCodeReturn
-    ,generateCodeArrayDec
-    ,generateCodeCallMain) where
+    , generateCodeAllocArray
+    , generateCodeParamArray
+    , generateCodeArraySize
+    , generateCodeFunctionCall
+    , generateCodeReturn
+    , generateCodeArrayDec
+    , generateCodeCallMain
+    , isGlobalCode
+    ) where
 
 
 import Control.Monad.RWS                (get, put, gets)
 import Data.Maybe                       (fromMaybe, mapMaybe, fromJust)
-import Data.Sequence                    (Seq, (|>), (<|))
+import Data.Sequence                    (Seq, (|>))
 import Westeros.SouthOfTheWall.Symtable (MonadParser)
 import qualified Data.Map                           as M
 import qualified Data.Sequence                      as Seq
@@ -126,11 +128,6 @@ generateCode :: TAC.TACCode -> MonadParser ()
 generateCode tac = do
     st <- get
     put st { ST.tacCode = ST.tacCode st |> tac }
-
-generateGlobalCode :: TAC.TACCode -> MonadParser ()
-generateGlobalCode tac = do
-    st <- get
-    put st { ST.tacCode = tac <| ST.tacCode st }
 
 getNextTemp :: MonadParser String
 getNextTemp = do
@@ -1348,7 +1345,7 @@ generateCodeOpenFunction = do
     generateCode $ TAC.TACCode
         { TAC.tacOperation = TAC.MetaBeginFunc
         , TAC.tacLValue    = Just $ TAC.Id "_"
-        , TAC.tacRValue1   = Just $ TAC.Constant $ TAC.Int 0
+        , TAC.tacRValue1   = Nothing
         , TAC.tacRValue2   = Nothing
         }
     return n
@@ -1375,7 +1372,7 @@ patchFunction inst = do
         updateCode :: String -> Int -> TAC.TACCode -> TAC.TACCode
         updateCode name offset tac@TAC.TACCode { TAC.tacOperation = TAC.MetaBeginFunc } =
             tac { TAC.tacLValue   = Just $ TAC.Id name
-                , TAC.tacRValue2  = Just $ TAC.Constant $ TAC.Int offset
+                , TAC.tacRValue1  = Just $ TAC.Constant $ TAC.Int offset
             }
         updateCode _ _ tac = tac
         backpatch' :: String -> Int -> Int -> Seq TAC.TACCode -> Seq TAC.TACCode
@@ -1524,7 +1521,7 @@ generateCodeFunctionCall astExpr@AST.Expression{AST.getExpr = AST.FuncCall symbo
             generateCode $ TAC.TACCode
                 { TAC.tacOperation = TAC.Call
                 , TAC.tacLValue    = Just $ TAC.Id result
-                , TAC.tacRValue1   = Just $ TAC.Id symbol
+                , TAC.tacRValue1   = Just $ TAC.Id $ symbol ++ '_' : show (length exprs)
                 , TAC.tacRValue2   = Nothing
                 }
 
@@ -1715,10 +1712,10 @@ generateCodeAssign astInst lExpr rExpr lLabel = do
 generateCodePrintString :: AST.Instruction -> String -> MonadParser Instruction
 generateCodePrintString astInst str = do
     label <- getNextLabel
-    generateGlobalCode $ TAC.TACCode
+    generateCode $ TAC.TACCode
         { TAC.tacOperation = TAC.MetaStaticStr
         , TAC.tacLValue    = Just $ TAC.Label label
-        , TAC.tacRValue1   = Just $ TAC.Constant $ TAC.String str
+        , TAC.tacRValue1   = Just $ TAC.Constant $ TAC.String $ show str
         , TAC.tacRValue2   = Nothing
         }
 
@@ -1859,7 +1856,7 @@ generateCodeCallMain = do
     generateCode $ TAC.TACCode
         { TAC.tacOperation = TAC.Call
         , TAC.tacLValue    = Just $ TAC.Id t0
-        , TAC.tacRValue1   = Just $ TAC.Id "Epilogue"
+        , TAC.tacRValue1   = Just $ TAC.Id "Epilogue_0"
         , TAC.tacRValue2   = Nothing
         }
 
@@ -1869,3 +1866,8 @@ generateCodeCallMain = do
         , TAC.tacRValue1   = Nothing
         , TAC.tacRValue2   = Nothing
         }
+
+isGlobalCode :: TAC.TACCode -> Bool
+isGlobalCode TAC.TACCode { TAC.tacOperation = TAC.MetaStaticStr } = True
+isGlobalCode TAC.TACCode { TAC.tacOperation = TAC.MetaStaticv } = True
+isGlobalCode _ = False
