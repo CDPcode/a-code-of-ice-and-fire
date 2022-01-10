@@ -1499,10 +1499,12 @@ generateCodeFunctionCall astExpr@AST.Expression{AST.getExpr = AST.FuncCall symbo
     label <- generateLabel
     backpatch [dummyInst] label
 
-    let expr = last exprs
+    let expr = head exprs
     backpatch (getTrueList expr ++ getFalseList expr) label
 
-    result <- getNextTemp
+    result <- case tp of
+        T.FloatT -> getNextFloat
+        _ -> getNextTemp
     case tp of
         T.TypeError ->
             return $ Expression

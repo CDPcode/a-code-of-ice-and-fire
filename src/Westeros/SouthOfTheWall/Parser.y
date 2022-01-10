@@ -965,7 +965,7 @@ FUNCTIONCALL :: { TAC.Expression }
                                                                                         let exprs = map TAC.getExpr $ reverse $4
                                                                                         astExpr <- TC.buildAndCheckExpr $1 $ AST.FuncCall (Tk.cleanedString $1) exprs
                                                                                         checkFunctionCallInstr astExpr
-                                                                                        TAC.generateCodeFunctionCall astExpr $ reverse $4
+                                                                                        TAC.generateCodeFunctionCall astExpr $4
                                                                                     }
     | id '((' procCallArgs void '))'                                                {% do
                                                                                         astExpr <- TC.buildAndCheckExpr $1 $ AST.FuncCall (Tk.cleanedString $1) []
