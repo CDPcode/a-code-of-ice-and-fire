@@ -3,6 +3,9 @@ module Westeros.SouthOfTheWall.TACGeneration (
     , Address (..)
     , Instruction (..)
     , CodeBlock (..)
+    , Case (..)
+    , CaseInit (..)
+    , Label
     , backpatch
     , generateCode
     , getNextTemp
