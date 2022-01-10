@@ -340,15 +340,23 @@ DECLARATIONS :: { [AST.Instruction] }
                                                                                         Just inst -> inst : $1 }
     | DECLARATIONS comment                                                          { $1 }
 
-DECLARATION :: { Maybe AST.Instruction }
+DECLARATION :: { Maybe TAC.Instruction }
     : SIMPLE_DECLARATION '.'                                                        { Nothing }
-    | SIMPLE_DECLARATION ':=' EXPR '.'                                              {% do
-                                                                                        checkAssignment $2 [$1] $3 True
-                                                                                        return $ Just (AST.SimpleAssign $1 $3)
+    | SIMPLE_DECLARATION ':=' GEN_LABEL EXPR '.'                                    {% do
+                                                                                        let lExpr = TAC.getExpr $1
+                                                                                            rExpr = TAC.getExpr $4
+                                                                                        checkAssignment $2 [lExpr] rExpr True
+                                                                                        let astInst = AST.SimpleAssign lExpr rExpr
+                                                                                        inst <- TAC.generateCodeAssign astInst lExpr rExpr $3
+                                                                                        return $ Just inst
                                                                                     }
-    | SIMPLE_DECLARATION ':==' EXPR '.'                                             {% do
-                                                                                        checkAssignment $2 [$1] $3 True
-                                                                                        return $ Just (AST.SimpleAssign $1 $3)
+    | SIMPLE_DECLARATION ':==' GEN_LABEL EXPR '.'                                   {% do
+                                                                                        let lExpr = TAC.getExpr $1
+                                                                                            rExpr = TAC.getExpr $4
+                                                                                        checkAssignment $2 [lExpr] rExpr True
+                                                                                        let astInst = AST.SimpleAssign lExpr rExpr
+                                                                                        inst <- TAC.generateCodeAssign astInst lExpr rExpr $3
+                                                                                        return $ Just inst
                                                                                     }
     | CONST_DECLARATION '.'                                                         {% return $ Just $1 }
 
@@ -356,11 +364,11 @@ SIMPLE_DECLARATIONS :: { }
     : SIMPLE_DECLARATION                                                            {  }
     | SIMPLE_DECLARATIONS ',' SIMPLE_DECLARATION                                    {  }
 
-SIMPLE_DECLARATION :: { AST.Expression }
+SIMPLE_DECLARATION :: { TAC.Expression }
     : PRIMITIVE_DECLARATION                                                         { $1 }
     | COMPOSITE_DECLARATION                                                         { $1 }
 
-PRIMITIVE_DECLARATION :: { AST.Expression }
+PRIMITIVE_DECLARATION :: { TAC.Expression }
     : var id type TYPE                                                              {% do
                                                                                         countOpenRecords <- ST.currentOpenRecords
                                                                                         unless (countOpenRecords > 0) $ do
@@ -368,10 +376,14 @@ PRIMITIVE_DECLARATION :: { AST.Expression }
                                                                                         let symbol = Tk.cleanedString $2
                                                                                         expr <- TC.buildAndCheckExpr $2 $ AST.IdExpr symbol
                                                                                         TC.checkPrimitiveType expr
-                                                                                        return expr
+                                                                                        maybeEntry <- ST.lookupST symbol
+                                                                                        let offset = case maybeEntry of
+                                                                                            Just ST.SymbolInfo{ST.offset=Just o} -> return o
+                                                                                            _ -> return 0
+                                                                                        generateCodeId expr offset
                                                                                     }
 
-COMPOSITE_DECLARATION :: { AST.Expression }
+COMPOSITE_DECLARATION :: { TAC.Expression }
     : beginCompTypeId var id endCompTypeId TYPE                                     {% do
                                                                                         countOpenRecords <- ST.currentOpenRecords
                                                                                         unless (countOpenRecords > 0) $ do
@@ -411,22 +423,38 @@ COMPOSITE_DECLARATION :: { AST.Expression }
                                                                                         return expr
                                                                                     }
 
-CONST_DECLARATION :: { AST.Instruction }
+CONST_DECLARATION :: { TAC.Instruction }
     : const id type TYPE constValue EXPR                                            {% do
                                                                                         ST.insertId $3 ST.Constant $4 Nothing
                                                                                         let symbol = Tk.cleanedString $2
+                                                                                            rExpr = TAC.getExpr $6
                                                                                         expr <- TC.buildAndCheckExpr $2 $ AST.IdExpr symbol
-                                                                                        checkAssignment $5 [expr] $6 True
+                                                                                        checkAssignment $5 [expr] rExpr True
                                                                                         TC.checkPrimitiveType expr
-                                                                                        return $ AST.SimpleAssign expr $6
+                                                                                        let astInst = AST.SimpleAssign expr rExpr
+                                                                                        maybeEntry <- ST.lookupST symbol
+                                                                                        let offset = case maybeEntry of
+                                                                                            Just ST.SymbolInfo{ST.offset=Just o} -> return o
+                                                                                            _ -> return 0
+                                                                                        lExpr <- TAC.generateCodeId expr offset
+                                                                                        label <- TAC.generateLabel
+                                                                                        TAC.generateCodeAssign astInst lExpr $6 label
                                                                                     }
     | beginCompTypeId const id endCompTypeId TYPE constValue EXPR                   {% do
                                                                                         ST.insertId $3 ST.Constant $5 Nothing
                                                                                         let symbol = Tk.cleanedString $3
+                                                                                            rExpr = TAC.getExpr $7
                                                                                         expr <- TC.buildAndCheckExpr $3 $ AST.IdExpr symbol
-                                                                                        checkAssignment $6 [expr] $7 True
+                                                                                        checkAssignment $6 [expr] rExpr True
                                                                                         TC.checkCompositeType expr
-                                                                                        return $ AST.SimpleAssign expr $7
+                                                                                        let astInst = AST.SimpleAssign expr rExpr
+                                                                                        maybeEntry <- ST.lookupST symbol
+                                                                                        let offset = case maybeEntry of
+                                                                                            Just ST.SymbolInfo{ST.offset=Just o} -> return o
+                                                                                            _ -> return 0
+                                                                                        lExpr <- TAC.generateCodeId expr offset
+                                                                                        label <- TAC.generateLabel
+                                                                                        TAC.generateCodeAssign astInst lExpr $7 label
                                                                                     }
 
 ALIAS_DECLARATION :: { }
