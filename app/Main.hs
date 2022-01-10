@@ -7,6 +7,7 @@ import Westeros.SouthOfTheWall.PreParser    (preParse)
 import Westeros.SouthOfTheWall.PrettyPrint  (pretty)
 
 import qualified Westeros.SouthOfTheWall.Symtable as ST
+import qualified TACTypes.TAC as TAC
 
 import Control.Monad.RWS ( RWST(runRWST), unless )
 import System.Environment (getArgs)
@@ -18,6 +19,7 @@ main = do
         "lex"   -> testLexer
         "preparse" -> testPreParser
         "parse" -> testParser
+        "tac"   -> testTAC
         _       -> putStrLn "Invalid option"
 
 testLexer :: IO ()
@@ -52,3 +54,18 @@ testParser = do
             mapM_ pretty errs'
         else mapM_ pretty errs
 
+testTAC :: IO ()
+testTAC = do
+    str <- getContents
+    let(errors, tokens) = scanTokens str
+    unless (null errors) (mapM_ print errors)
+    (_, preSymbolTable, errs) <- runRWST (preParse tokens) () ST.initialST
+    if null errs
+        then do
+            (ast, finalSt, errs') <- runRWST (parse tokens) () preSymbolTable{ ST.scopeStack=[1,0], ST.nextSymAlias = 0, ST.offsetStack = [0], ST.nextScope = 2 }
+            unless (null errs') $ do
+                let tacSeq = ST.tacCode finalSt
+                    tacProgram = TAC.TACProgram $ toList tacSeq
+                print tacProgram
+            mapM_ pretty errs'
+        else mapM_ pretty errs
