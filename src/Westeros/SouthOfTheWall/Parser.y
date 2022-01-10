@@ -467,27 +467,39 @@ INSTRUCTIONS :: { TAC.CodeBlock }
     | INSTRUCTIONS comment                                                          {% return $1 }
 
 INSTRUCTION :: { TAC.Instruction }
-    : EXPR ':=' EXPR '.'                                                            {% do
-                                                                                        checkAssignment $2 [$1] $3 False
-                                                                                        return $ AST.SimpleAssign $1 $3
+    : EXPR ':=' GEN_LABEL EXPR '.'                                                  {% do
+                                                                                        checkAssignment $2 [$1] $4 False
+                                                                                        let astInst = AST.SimpleAssign $1 $4
+                                                                                        TAC.generateCodeAssign astInst $1 $4 $3
                                                                                     }
-    | EXPR ':==' EXPR '.'                                                           {% do
-                                                                                        checkAssignment $2 [$1] $3 False
-                                                                                        return $ AST.SimpleAssign $1 $3
+    | EXPR ':==' GEN_LABEL EXPR '.'                                                 {% do
+                                                                                        checkAssignment $2 [$1] $4 False
+                                                                                        let astInst = AST.SimpleAssign $1 $4
+                                                                                        TAC.generateCodeAssign astInst $1 $4 $3
                                                                                     }
-    | EXPRLIST ':==' EXPR '.'                                                       {% do
+{-     | EXPRLIST ':==' EXPR '.'                                                       {% do
                                                                                         let exprList = reverse $1
                                                                                         checkAssignment $2 exprList $3 False
                                                                                         return $ AST.MultAssign exprList $3
+                                                                                    } -}
+    | void ':=' FUNCTIONCALL '.'                                                    {% do
+                                                                                        let astInst = AST.FuncCallInst $3
+                                                                                        return $ TAC.Instruction astInst [] [] []
                                                                                     }
-    | void ':=' FUNCTIONCALL '.'                                                    {%
-                                                                                        return $ AST.FuncCallInst $3
+    | void ':==' FUNCTIONCALL '.'                                                   {% do
+                                                                                        let astInst = AST.FuncCallInst $3
+                                                                                        return $ TAC.Instruction astInst [] [] []
                                                                                     }
-    | void ':==' FUNCTIONCALL '.'                                                   {%
-                                                                                        return $ AST.FuncCallInst $3
+    | pass '.'                                                                      {% return $ TAC.Instruction AST.EmptyInst [] [] [] }
+    | beginExit programName endExit '.'                                             {% do
+                                                                                        TAC.generateCode $ TAC.TACCode
+                                                                                            { TAC.tacOperation = TAC.Exit
+                                                                                            , TAC.tacLValue = Nothing
+                                                                                            , TAC.tacRValue1 = Nothing
+                                                                                            , TAC.tacRValue2 = Nothing
+                                                                                            }
+                                                                                        return $ TAC.Instruction (AST.ExitInst (Tk.cleanedString $3)) [] [] []
                                                                                     }
-    | pass '.'                                                                      {% return AST.EmptyInst }
-    | beginExit programName endExit '.'                                             {% return $ AST.ExitInst (Tk.cleanedString $3) }
     | read EXPR '.'                                                                 {% do
                                                                                         let expr = TAC.getExpr $2
                                                                                         if AST.isValidLValue expr
@@ -510,6 +522,11 @@ INSTRUCTION :: { TAC.Instruction }
                                                                                             ST.insertError $ Err.TE err
                                                                                         let astInst = AST.Print expr
                                                                                         generateCodePrint astInst $2
+                                                                                    }
+    | print stringLit '.'                                                           {% do
+                                                                                        let str = Tk.cleanedString $2
+                                                                                            astInst = AST.PrintStr str
+                                                                                        generateCodePrintString astInst str
                                                                                     }
     | EXPR new '.'                                                                  {% do
                                                                                         let expr = TAC.getExpr $1
@@ -548,14 +565,15 @@ INSTRUCTION :: { TAC.Instruction }
                                                                                     }
     | returnOpen EXPRLIST returnClose                                               {% do
                                                                                         let returns = reverse $2
+                                                                                            astReturn = AST.Return $ map TAC.getExpr returns
                                                                                         checkValidReturn $1 returns
-                                                                                        TAC.generateCodeReturn returns
-                                                                                        return $ AST.Return returns
+                                                                                        TAC.generateCodeReturn astReturn returns
+
                                                                                     }
     | returnOpen returnClose                                                        {% do
+                                                                                        let astReturn = AST.Return $ map TAC.getExpr []
                                                                                         checkValidReturn $1 []
-                                                                                        TAC.generateCodeReturn []
-                                                                                        return $ AST.Return []
+                                                                                        TAC.generateCodeReturn astReturn []
                                                                                     }
     | IF '.'                                                                        {% return $1 }
     | SWITCHCASE '.'                                                                {% return $1 }
@@ -798,11 +816,9 @@ EXPR :: { TAC.Expression }
                                                                                         astExpr <- TC.buildAndCheckExpr $3 $ AST.TupleIndex tupleExpr idx
                                                                                         TAC.generateCodeTupleAccess astExpr $4 idx
                                                                                     }
-    | EXPR cast TYPE                                                                {% TC.buildAndCheckExpr $2 $ AST.Cast $1 $3 }
+--    | EXPR cast TYPE                                                                {% TC.buildAndCheckExpr $2 $ AST.Cast $1 $3 }
     | '(' EXPR ')'                                                                  { $2 }
-    | ARRAYLIT                                                                      { $1 }
-    | TUPLELIT                                                                      { $1 }
-    | FUNCTIONCALL                                                                  { $1}
+    | FUNCTIONCALL                                                                  { $1 }
     | intLit                                                                        {% do
                                                                                         let expr = AST.IntLit ((read $ Tk.cleanedString $1) :: Int)
                                                                                         astExpr <- TC.buildAndCheckExpr $1 expr
@@ -824,7 +840,6 @@ EXPR :: { TAC.Expression }
                                                                                         astExpr <- TC.buildAndCheckExpr $1 expr
                                                                                         TAC.generateCodeLiteral astExpr
                                                                                     }
-    | stringLit                                                                     {% TC.buildAndCheckExpr $1 $ AST.StringLit $ Tk.cleanedString $1 }
     | true                                                                          {% do
                                                                                         let expr = AST.TrueLit
                                                                                         astExpr <- TC.buildAndCheckExpr $1 expr
@@ -878,9 +893,13 @@ TUPLELIT :: { AST.Expression }
     : '[[' EXPRLIST ']]'                                                            {% TC.buildAndCheckExpr $1 $ AST.TupleLit $ reverse $2 }
     | '[[' ']]'                                                                     {% TC.buildAndCheckExpr $1 $ AST.TupleLit [] }
 
-EXPRLIST :: { [AST.Expression] }
+EXPRLIST :: { [TAC.Expression] }
     : EXPR                                                                          { [$1] }
-    | EXPRLIST ',' EXPR                                                             { $3 : $1 }
+    | EXPRLIST ',' GEN_LABEL EXPR                                                   {% do
+                                                                                        let lastExpr = head $1
+                                                                                        TAC.backpatch (TAC.getTrueList lastExpr ++ TAC.getFalseList lastExpr) $3
+                                                                                        return $ $4 : $1
+                                                                                    }
 
 GEN_LABEL :: { TAC.Label }
     : {- empty -}                                                                   {% TAC.generateLabel }

@@ -40,8 +40,10 @@ module Westeros.SouthOfTheWall.TACGeneration (
     , generateCodeSwitch
     , generateCodeOpenFunction
     , generateCodeCloseFunction
+    , generateCodeAssign
+    , generateCodePrintString
     , patchFunction
-    ,generateCodeAllocArray,generateCodeParamArray,generateCodeArraySize,generateCodeFunctionCall) where
+    ,generateCodeAllocArray,generateCodeParamArray,generateCodeArraySize,generateCodeFunctionCall,generateCodeReturn) where
 
 
 import Control.Monad.RWS                (get, put, gets)
@@ -513,19 +515,41 @@ generateCodeLiteral astExpr = do
         }
 
 generateCodeId :: AST.Expression -> Int -> MonadParser Expression
-generateCodeId astExpr offset = do
-    temp <- getNextTemp
+generateCodeId astExpr@AST.Expression{AST.getExpr=AST.IdExpr sym} offset = do
 
-    generateCode $ TAC.TACCode
-        { TAC.tacOperation  = TAC.Assign
-        , TAC.tacLValue     = Just $ TAC.Id temp
-        , TAC.tacRValue1    = Just $ TAC.Constant $ TAC.Int offset
-        , TAC.tacRValue2    = Nothing
-        }
+    temp <- getNextTemp
+    maybeInfo <- ST.lookupST sym
+    address <- case maybeInfo of
+        Just info -> do
+            case ST.additional info of
+                Just (ST.ParameterType ST.Reference) -> do
+                    generateCode $ TAC.TACCode
+                        { TAC.tacOperation  = TAC.Add
+                        , TAC.tacLValue     = Just $ TAC.Id temp
+                        , TAC.tacRValue1    = Just $ TAC.Id TAC.base
+                        , TAC.tacRValue2    = Just $ TAC.Constant $ TAC.Int offset
+                        }
+                    return $ Heap temp
+                _ -> do
+                    generateCode $ TAC.TACCode
+                        { TAC.tacOperation  = TAC.Assign
+                        , TAC.tacLValue     = Just $ TAC.Id temp
+                        , TAC.tacRValue1    = Just $ TAC.Constant $ TAC.Int offset
+                        , TAC.tacRValue2    = Nothing
+                        }
+                    return $ Memory temp
+        _ -> do
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation  = TAC.Assign
+                , TAC.tacLValue     = Just $ TAC.Id temp
+                , TAC.tacRValue1    = Just $ TAC.Constant $ TAC.Int offset
+                , TAC.tacRValue2    = Nothing
+                }
+            return $ Memory temp
 
     (trueList, falseList) <- case AST.getType astExpr of
         T.BoolT -> do
-            temp' <- getTempFromAddress False (Memory temp)
+            temp' <- getTempFromAddress False address
             trueInst <- getNextInstruction
             generateCode $ TAC.TACCode
                 { TAC.tacOperation  = TAC.Goif
@@ -547,8 +571,9 @@ generateCodeId astExpr offset = do
         { getExpr       = astExpr
         , getTrueList   = trueList
         , getFalseList  = falseList
-        , getAddress    = Memory temp
+        , getAddress    = address
         }
+generateCodeId _ _ = error "Function 'generateCodeId' called without an Id"
 
 generateCodeStructAccess :: AST.Expression -> String -> Expression -> MonadParser Expression
 generateCodeStructAccess astExpr sym structExpr = do
@@ -1421,6 +1446,14 @@ generateCodeParamArray arrayId = do
 generateCodeFunctionCall :: AST.Expression -> [Expression] -> MonadParser Expression
 generateCodeFunctionCall astExpr@AST.Expression{AST.getExpr = AST.FuncCall symbol _, AST.getType = tp} exprs = do
 
+    temp <- getNextTemp
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation = TAC.Assign
+        , TAC.tacLValue    = Just $ TAC.Id temp
+        , TAC.tacRValue1   = Just $ TAC.Constant $ TAC.Int 0
+        , TAC.tacRValue2   = Nothing
+        }
+
     label <- generateLabel
     let expr = last exprs
     backpatch (getTrueList expr ++ getFalseList expr) label
@@ -1541,3 +1574,155 @@ generateCodeFunctionCall astExpr@AST.Expression{AST.getExpr = AST.FuncCall symbo
                                 }
             generateCodeParams params tacExprs
 generateCodeFunctionCall _ _ = error "generateCodeFunctionCall: invalid function call"
+
+generateCodeAssign :: AST.Instruction -> Expression -> Expression -> String -> MonadParser Instruction
+generateCodeAssign astInst lExpr rExpr lLabel = do
+    backpatch (getTrueList lExpr ++ getFalseList lExpr) lLabel
+    rLabel <- generateLabel
+    backpatch (getTrueList rExpr ++ getFalseList rExpr) rLabel
+
+    dstAddress <- case getAddress lExpr of
+        -- TODO: Check if this is right
+        Temp t   -> return t
+        Memory t -> do
+            temp <- getNextTemp
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation = TAC.Add
+                , TAC.tacLValue = Just $ TAC.Id temp
+                , TAC.tacRValue1 = Just $ TAC.Id TAC.base
+                , TAC.tacRValue2 = Just $ TAC.Id t
+                }
+            return temp
+        Heap t   -> return t
+
+    case AST.getType (getExpr rExpr) of
+        T.FloatT -> do
+            t0 <- getFloatFromAddress (getAddress rExpr)
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation = TAC.LDeref
+                , TAC.tacLValue = Just $ TAC.Id dstAddress
+                , TAC.tacRValue1 = Just $ TAC.Constant $ TAC.Int 0
+                , TAC.tacRValue2 = Just $ TAC.Id t0
+                }
+        T.IntT -> do
+            t0 <- getTempFromAddress False (getAddress rExpr)
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation = TAC.LDeref
+                , TAC.tacLValue = Just $ TAC.Id dstAddress
+                , TAC.tacRValue1 = Just $ TAC.Constant $ TAC.Int 0
+                , TAC.tacRValue2 = Just $ TAC.Id t0
+                }
+        T.AtomT -> do
+            t0 <- getTempFromAddress False (getAddress rExpr)
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation = TAC.LDeref
+                , TAC.tacLValue = Just $ TAC.Id dstAddress
+                , TAC.tacRValue1 = Just $ TAC.Constant $ TAC.Int 0
+                , TAC.tacRValue2 = Just $ TAC.Id t0
+                }
+        T.BoolT -> do
+            t0 <- getTempFromAddress False (getAddress rExpr)
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation = TAC.LDeref
+                , TAC.tacLValue = Just $ TAC.Id dstAddress
+                , TAC.tacRValue1 = Just $ TAC.Constant $ TAC.Int 0
+                , TAC.tacRValue2 = Just $ TAC.Id t0
+                }
+        T.CharT -> do
+            t0 <- getTempFromAddress True (getAddress rExpr)
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation = TAC.LDerefb
+                , TAC.tacLValue = Just $ TAC.Id dstAddress
+                , TAC.tacRValue1 = Just $ TAC.Constant $ TAC.Int 0
+                , TAC.tacRValue2 = Just $ TAC.Id t0
+                }
+        _ -> do
+            srcAddress <- case getAddress rExpr of
+                Temp t -> return t
+                Memory t -> do
+                    temp <- getNextTemp
+                    generateCode $ TAC.TACCode
+                        { TAC.tacOperation = TAC.Add
+                        , TAC.tacLValue = Just $ TAC.Id temp
+                        , TAC.tacRValue1 = Just $ TAC.Id TAC.base
+                        , TAC.tacRValue2 = Just $ TAC.Id t
+                        }
+                    return temp
+                Heap t   -> return t
+            mWidth <- T.getTypeWidth $ AST.getTypeStr $ getExpr rExpr
+            let width = fromMaybe 0 mWidth
+            generateCode $ TAC.TACCode
+                { TAC.tacOperation = TAC.MemCopy
+                , TAC.tacLValue = Just $ TAC.Id dstAddress
+                , TAC.tacRValue1 = Just $ TAC.Id srcAddress
+                , TAC.tacRValue2 = Just $ TAC.Constant $ TAC.Int width
+                }
+
+    return $ Instruction
+        { getInstruction  = astInst
+        , getNextList     = []
+        , getBreakList    = []
+        , getContinueList = []
+        }
+
+generateCodePrintString :: AST.Instruction -> String -> MonadParser Instruction
+generateCodePrintString astInst str = do
+    label <- getNextLabel
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation = TAC.MetaStaticStr
+        , TAC.tacLValue    = Just $ TAC.Label label
+        , TAC.tacRValue1   = Just $ TAC.Constant $ TAC.String str
+        , TAC.tacRValue2   = Nothing
+        }
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation = TAC.Print
+        , TAC.tacLValue    = Just $ TAC.Label label
+        , TAC.tacRValue1   = Nothing
+        , TAC.tacRValue2   = Nothing
+        }
+
+    return $ Instruction
+        { getInstruction  = astInst
+        , getNextList     = []
+        , getBreakList    = []
+        , getContinueList = []
+        }
+
+generateCodeReturn :: AST.Instruction -> [Expression] -> MonadParser Instruction
+generateCodeReturn astInst [] = do
+
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation = TAC.Return
+        , TAC.tacLValue    = Nothing
+        , TAC.tacRValue1   = Nothing
+        , TAC.tacRValue2   = Nothing
+        }
+
+    return $ Instruction
+        { getInstruction  = astInst
+        , getNextList     = []
+        , getBreakList    = []
+        , getContinueList = []
+        }
+
+generateCodeReturn astInst [expr] = do
+
+    t0 <- case AST.getType $ getExpr expr of
+        T.CharT -> getTempFromAddress True (getAddress expr)
+        _       -> getTempFromAddress False (getAddress expr)
+
+    generateCode $ TAC.TACCode
+        { TAC.tacOperation = TAC.Return
+        , TAC.tacLValue    = Just $ TAC.Id t0
+        , TAC.tacRValue1   = Nothing
+        , TAC.tacRValue2   = Nothing
+        }
+
+    return $ Instruction
+        { getInstruction  = astInst
+        , getNextList     = []
+        , getBreakList    = []
+        , getContinueList = []
+        }
+
+generateCodeReturn _ _ = error "Multivalue return not implemented"

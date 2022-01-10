@@ -86,6 +86,7 @@ data Instruction
     = SimpleAssign      Expression Expression
     | MultAssign        [Expression] Expression
     | Print             Expression
+    | PrintStr          String
     | Read              Expression
     | Return            [Expression]
     | If                IfInst
