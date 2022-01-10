@@ -7,3 +7,4 @@
 *.yaml.lock
 .vscode
 temp.tac
+out.asm
