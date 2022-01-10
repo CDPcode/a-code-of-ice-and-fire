@@ -5,6 +5,7 @@ import Westeros.SouthOfTheWall.Lexer        (scanTokens)
 import Westeros.SouthOfTheWall.Parser       (parse)
 import Westeros.SouthOfTheWall.PreParser    (preParse)
 import Westeros.SouthOfTheWall.PrettyPrint  (pretty)
+import System.Exit                          (exitFailure)
 
 import qualified Westeros.SouthOfTheWall.Symtable as ST
 import qualified Westeros.SouthOfTheWall.TACGeneration as TACG
@@ -13,7 +14,6 @@ import qualified TACTypes.TAC as TAC
 import Data.Foldable (toList)
 import Control.Monad.RWS ( RWST(runRWST), unless )
 import System.Environment (getArgs)
-import qualified Westeros.SouthOfTheWall.TACGeneration as TACG
 
 main :: IO ()
 main = do
@@ -65,13 +65,16 @@ testTAC = do
     (_, preSymbolTable, errs) <- runRWST (preParse tokens) () ST.initialST
     if null errs
         then do
-            (ast, finalSt, errs') <- runRWST (parse tokens) () preSymbolTable{ ST.scopeStack=[1,0], ST.nextSymAlias = 0, ST.offsetStack = [0], ST.nextScope = 2 }
+            (_, finalSt, errs') <- runRWST (parse tokens) () preSymbolTable{ ST.scopeStack=[1,0], ST.nextSymAlias = 0, ST.offsetStack = [0], ST.nextScope = 2 }
             unless (null errs') $ do
-                mapM_ pretty errs
+                mapM_ pretty errs'
+                exitFailure
             let tacSeq = ST.tacCode finalSt
                 tacList = toList tacSeq
                 globalTac = filter TACG.isGlobalCode tacList
                 otherTac = filter (not . TACG.isGlobalCode) tacList
                 tacProgram = TAC.TACProgram $ globalTac ++ otherTac
             print tacProgram
-        else mapM_ pretty errs
+        else do
+            mapM_ pretty errs
+            exitFailure
