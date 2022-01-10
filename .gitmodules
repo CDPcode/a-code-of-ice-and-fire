@@ -7,3 +7,6 @@
 [submodule "tac2mips"]
 	path = tac2mips
 	url = https://github.com/KevinMena/tac2mips
+[submodule "optimips-prime"]
+	path = optimips-prime
+	url = https://github.com/CDPCode/optimips-prime
