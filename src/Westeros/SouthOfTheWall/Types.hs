@@ -20,7 +20,7 @@ module Westeros.SouthOfTheWall.Types (
     , getContainedTypeString
     , getTupleContainedTypeString
     , getTypeWidth
-    ) where
+    ,getTypeAlign) where
 
 import qualified Westeros.SouthOfTheWall.Symtable as ST
 
@@ -151,6 +151,13 @@ getTypeWidth typeString = do
     espType <- ST.lookupST typeString
     case espType of
         Just ST.SymbolInfo { ST.typeInfo = Just ST.TypeInfo { ST.width = w } } -> return $ Just w
+        _ -> return Nothing
+
+getTypeAlign :: ST.Type -> ST.MonadParser (Maybe Int)
+getTypeAlign typeString = do
+    espType <- ST.lookupST typeString
+    case espType of
+        Just ST.SymbolInfo { ST.typeInfo = Just ST.TypeInfo { ST.align = a } } -> return $ Just a
         _ -> return Nothing
 
 

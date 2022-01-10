@@ -177,8 +177,11 @@ comment         { Tk.Token { Tk.aToken=Tk.TknComment }  }
 
 -- Program --
 PROGRAM :: { AST.Program }
-    : HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                         { AST.Program (map TAC.getInstruction $3) (reverse $4) (map TAC.getInstruction $5) }
-    | ALIASES HEADER CONTENTS GLOBAL FUNCTIONS MAIN                                 { AST.Program (map TAC.getInstruction $4) (reverse $5) (map TAC.getInstruction $6) }
+    : HEADER CONTENTS GEN_CALL_MAIN GLOBAL FUNCTIONS MAIN                           { AST.Program $4 (reverse $5) $6 }
+    | ALIASES HEADER CONTENTS GEN_CALL_MAIN GLOBAL FUNCTIONS MAIN                   { AST.Program $5 (reverse $6) $7 }
+
+GEN_CALL_MAIN :: { () }
+    : {- empty -}                                                                   {% TAC.generateCodeCallMain }
 
 HEADER :: { }
     : programStart programName                                                      { }
@@ -206,7 +209,7 @@ FUNCTION_NAMES :: { }
 GLOBAL :: { [TAC.Instruction] }
     : globalDec '{' DECLARATIONS '}'                                                { reverse $3 }
 
-MAIN :: { [TAC.Instruction] }
+MAIN :: { [AST.Instruction] }
     : MAIN_DEC FUNCTION_BODY                                                        { $2 }
 
 MAIN_DEC :: { }
@@ -221,11 +224,11 @@ ALIAS_DECLARATIONS :: { }
 
 -- Subrutines --
 
-FUNCTIONS :: { [AST.FunctionDeclaration] }
+FUNCTIONS :: { [[AST.Instruction]] }
     : {- empty -}                                                                   { [] }
     | FUNCTIONS FUNCTION                                                            { $2 : $1 }
 
-FUNCTION :: { AST.FunctionDeclaration }
+FUNCTION :: { [AST.Instruction] }
     : FUNCTION_DEF FUNCTION_BODY CLOSE_F CLOSE_SCOPE                                {% do
                                                                                         TAC.patchFunction $1
                                                                                         return $2
@@ -279,8 +282,8 @@ TYPES :: { [ST.Type] }
     : TYPE                                                                          { [$1] }
     | TYPES ',' TYPE                                                                { $3 : $1 }
 
-FUNCTION_BODY :: { TAC.CodeBlock }
-    : '{' CODE_BLOCK '}'                                                            { $2 }
+FUNCTION_BODY :: { [AST.Instruction] }
+    : '{' CODE_BLOCK '}'                                                            {% TAC.getInstructions $2 }
 
 OPEN_F:: { Int }
     : {- empty -}                                                                   {% do
@@ -395,7 +398,11 @@ COMPOSITE_DECLARATION :: { TAC.Expression }
                                                                                         let symbol = Tk.cleanedString $3
                                                                                         expr <- TC.buildAndCheckExpr $3 $ AST.IdExpr symbol
                                                                                         TC.checkCompositeType expr
-                                                                                        return expr
+                                                                                        maybeEntry <- ST.lookupST symbol
+                                                                                        let offset = case maybeEntry of
+                                                                                                Just ST.SymbolInfo{ST.offset=Just o} -> return o
+                                                                                                _ -> return 0
+                                                                                        TAC.generateCodeId expr offset
                                                                                     }
     | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz              {% do
                                                                                         countOpenRecords <- ST.currentOpenRecords
@@ -404,8 +411,12 @@ COMPOSITE_DECLARATION :: { TAC.Expression }
                                                                                         let symbol = Tk.cleanedString $3
                                                                                         expr <- TC.buildAndCheckExpr $3 $ AST.IdExpr symbol
                                                                                         TC.checkArrayType expr
-                                                                                        TC.checkIntegerTypes $7
-                                                                                        return expr
+                                                                                        TC.checkIntegerTypes (reverse $7)
+                                                                                        maybeEntry <- ST.lookupST symbol
+                                                                                        let offset = case maybeEntry of
+                                                                                                Just ST.SymbolInfo{ST.offset=Just o} -> return o
+                                                                                                _ -> return 0
+                                                                                        TAC.generateCodeArrayDec expr offset (reverse $7)
                                                                                     }
     | beginCompTypeId pointerVar id endCompTypeId TYPE                              {% do
                                                                                         countOpenRecords <- ST.currentOpenRecords
@@ -414,9 +425,13 @@ COMPOSITE_DECLARATION :: { TAC.Expression }
                                                                                         let symbol = Tk.cleanedString $3
                                                                                         expr <- TC.buildAndCheckExpr $3 $ AST.IdExpr symbol
                                                                                         TC.checkPointerType expr
-                                                                                        return expr
+                                                                                        maybeEntry <- ST.lookupST symbol
+                                                                                        let offset = case maybeEntry of
+                                                                                                Just ST.SymbolInfo{ST.offset=Just o} -> return o
+                                                                                                _ -> return 0
+                                                                                        TAC.generateCodeId expr offset
                                                                                     }
-    | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz       {% do
+{-     | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz       {% do
                                                                                         countOpenRecords <- ST.currentOpenRecords
                                                                                         unless (countOpenRecords > 0) $ do
                                                                                             ST.insertId $3 ST.Variable $5 Nothing
@@ -425,7 +440,7 @@ COMPOSITE_DECLARATION :: { TAC.Expression }
                                                                                         TC.checkPointerToArrayType expr
                                                                                         TC.checkIntegerTypes $7
                                                                                         return expr
-                                                                                    }
+                                                                                    } -}
 
 CONST_DECLARATION :: { TAC.Instruction }
     : const id type TYPE constValue EXPR                                            {% do
@@ -915,8 +930,16 @@ FUNCTIONCALL :: { TAC.Expression }
                                                                                         checkFunctionCallInstr astExpr
                                                                                         TAC.generateCodeFuncCall astExpr $ reverse $4
                                                                                     }
-    | id '((' procCallArgs void '))'                                                {% TC.buildAndCheckExpr $1 $ AST.FuncCall (Tk.cleanedString $1) [] }
-    | id '(('  '))'                                                                 {% TC.buildAndCheckExpr $1 $ AST.FuncCall (Tk.cleanedString $1) [] }
+    | id '((' procCallArgs void '))'                                                {% do
+                                                                                        astExpr <- TC.buildAndCheckExpr $1 $ AST.FuncCall (Tk.cleanedString $1) []
+                                                                                        checkFunctionCallInstr astExpr
+                                                                                        TAC.generateCodeFuncCall astExpr []
+                                                                                    }
+    | id '(('  '))'                                                                 {% do
+                                                                                        astExpr <- TC.buildAndCheckExpr $1 $ AST.FuncCall (Tk.cleanedString $1) []
+                                                                                        checkFunctionCallInstr astExpr
+                                                                                        TAC.generateCodeFuncCall astExpr []
+                                                                                    }
 
 -- ARRAYLIT :: { AST.Expression }
 --     : '{{' EXPRLIST '}}'                                                            {% TC.buildAndCheckExpr $1 $ AST.ArrayLit $ reverse $2 }
