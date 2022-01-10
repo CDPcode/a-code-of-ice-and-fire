@@ -248,26 +248,62 @@ FUNCTION_PARAMETERS :: { Int }
 
 PARAMETER_LIST :: { Int }
     : void                                                                          { 0 }
-    | PARAMETERS                                                                    { $1 }
+    | PARAMETERS                                                                    {% do
+                                                                                        ST.setCurrentOffset $ snd $1
+                                                                                        return $ fst $1
+                                                                                    }
 
-PARAMETERS :: { Int }
-    : PARAMETER                                                                     { 1 }
-    | PARAMETERS ',' PARAMETER                                                      { $1 + 1 }
+PARAMETERS :: { (Int, Int) }
+    : PARAMETER                                                                     { (1, $1) }
+    | PARAMETERS ',' PARAMETER                                                      { ((fst $1) + 1, (snd $1) `max` $3) }
 
-PARAMETER :: { () }
+PARAMETER :: { Int }
     : PARAMETER_TYPE id type TYPE                                                   {% do
-                                                                                        expr <- TC.buildAndCheckExpr $2 $ AST.IdExpr (Tk.cleanedString $2)
+                                                                                        let symbol = Tk.cleanedString $2
+                                                                                        expr <- TC.buildAndCheckExpr $2 $ AST.IdExpr symbol
                                                                                         TC.checkPrimitiveType expr
+                                                                                        maybeEntry <- ST.lookupST symbol
+                                                                                        mWidht <- T.getTypeWidth $ AST.getTypeStr expr
+                                                                                        let offset = case maybeEntry of
+                                                                                                Just ST.SymbolInfo{ST.offset=Just o} -> o
+                                                                                                _ -> 0
+                                                                                            width = case (mWidht, $1) of
+                                                                                                (Just w, ST.Value) -> w
+                                                                                                (Just w, ST.Reference) -> 4
+                                                                                                _ -> 0
+                                                                                        return $ offset + width
                                                                                     }
     | beginCompTypeId PARAMETER_TYPE id endCompTypeId TYPE                          {% do
-                                                                                        expr <- TC.buildAndCheckExpr $3 $ AST.IdExpr (Tk.cleanedString $3)
+                                                                                        let symbol = Tk.cleanedString $3
+                                                                                        expr <- TC.buildAndCheckExpr $3 $ AST.IdExpr symbol
                                                                                         TC.checkCompositeType expr
                                                                                         when ((T.isArrayType $ AST.getType expr) && $2 == ST.Value) $ do
                                                                                             TAC.generateCodeParamArray (Tk.cleanedString $3)
+                                                                                        maybeEntry <- ST.lookupST symbol
+                                                                                        mWidht <- T.getTypeWidth $ AST.getTypeStr expr
+                                                                                        let offset = case maybeEntry of
+                                                                                                Just ST.SymbolInfo{ST.offset=Just o} -> o
+                                                                                                _ -> 0
+                                                                                            width = case (mWidht, $2) of
+                                                                                                (Just w, ST.Value) -> w
+                                                                                                (Just w, ST.Reference) -> 4
+                                                                                                _ -> 0
+                                                                                        return $ offset + width
                                                                                     }
     | beginCompTypeId PARAMETER_TYPE pointerVar id endCompTypeId TYPE               {% do
-                                                                                        expr <- TC.buildAndCheckExpr $4 $ AST.IdExpr (Tk.cleanedString $4)
+                                                                                        let symbol = Tk.cleanedString $4
+                                                                                        expr <- TC.buildAndCheckExpr $4 $ AST.IdExpr symbol
                                                                                         TC.checkPointerType expr
+                                                                                        maybeEntry <- ST.lookupST symbol
+                                                                                        mWidht <- T.getTypeWidth $ AST.getTypeStr expr
+                                                                                        let offset = case maybeEntry of
+                                                                                                Just ST.SymbolInfo{ST.offset=Just o} -> o
+                                                                                                _ -> 0
+                                                                                            width = case (mWidht, $2) of
+                                                                                                (Just w, ST.Value) -> w
+                                                                                                (Just w, ST.Reference) -> 4
+                                                                                                _ -> 0
+                                                                                        return $ offset + width
                                                                                     }
 
 PARAMETER_TYPE :: { ST.ParameterType }

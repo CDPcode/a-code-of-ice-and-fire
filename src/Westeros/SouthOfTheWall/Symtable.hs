@@ -45,6 +45,7 @@ module Westeros.SouthOfTheWall.Symtable (
     , insertType
     , checkNotRepeated
     , currentOffset
+    , setCurrentOffset
     , currentOpenLoops
     , currentOpenFunction
     , currentOpenRecords
