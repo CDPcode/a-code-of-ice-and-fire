@@ -197,7 +197,7 @@ FUNCTION_NAMES :: { () }
                                                                                                 if (ST.checkExistingAlias symT name)
                                                                                                     then ST.insertError $ Err.PE (Err.RedeclaredName name (Tk.position $3))
                                                                                                     else put $ ST.insertST symT $ ST.functionDecEntry name params
-                                                                                            Just entry -> 
+                                                                                            Just entry ->
                                                                                                 ST.insertError $ Err.PE (Err.RedeclareFunction name params (Tk.position $3))
                                                                                     }
 
@@ -206,7 +206,10 @@ GLOBAL :: {}
     : globalDec '{' DECLARATIONS '}'                                                {}
 
 MAIN :: {}
-    : main FUNCTION_BODY                                                            {}
+    : MAIN_DEC FUNCTION_BODY                                                        {}
+
+MAIN_DEC :: { }
+    : main                                                                          {}
 
 ALIASES :: {}
     : aliasDec ALIAS_DECLARATIONS                                                   {}
@@ -216,12 +219,12 @@ ALIAS_DECLARATIONS :: {}
     | ALIAS_DECLARATIONS ALIAS_DECLARATION                                          {}
 
 -- Subrutines --
- 
+
 FUNCTIONS :: {}
     : {- empty -}                                                                   {}
     | FUNCTIONS FUNCTION                                                            {}
 
-FUNCTION :: {} 
+FUNCTION :: {}
     : FUNCTION_DEF FUNCTION_BODY CLOSE_SCOPE                                        {}
 
 FUNCTION_DEF :: { () }
@@ -250,7 +253,7 @@ PARAMETER_LIST :: { Int }
 
 PARAMETERS :: { Int }
     : PARAMETER                                                                     { 1 }
-    | PARAMETERS ',' PARAMETER                                                      { $1 + 1}
+    | PARAMETERS ',' PARAMETER                                                      { $1 + 1 }
 
 PARAMETER :: { () }
     : PARAMETER_TYPE id type TYPE                                                   {% ST.insertId $2 ST.Parameter $4 (Just $ ST.ParameterType $1) }
@@ -273,7 +276,7 @@ TYPES :: { [ST.Type] }
     | TYPES ',' TYPE                                                                { $3 : $1 }
 
 FUNCTION_BODY :: {}
-    : '{' INSTRUCTIONS '}'                                                          {}
+    : '{' CODE_BLOCK '}'                                                            {}
 
 -- Types ---
 TYPE :: { ST.Type }
@@ -347,7 +350,7 @@ COMPOSITE_TYPE :: { ST.Type }
                                                                                     }
 
 BEGIN_RECORD :: { ST.Scope }
-    : OPEN_SCOPE                                                                    {% do 
+    : OPEN_SCOPE                                                                    {% do
                                                                                         ST.openRecord
                                                                                         return $1
                                                                                     }
@@ -443,13 +446,15 @@ INSTRUCTIONS :: {}
 
 INSTRUCTION :: {}
     : EXPR ':=' EXPR '.'                                                            {}
+    | EXPR ':==' EXPR '.'                                                           {}
     | void ':=' EXPR '.'                                                            {}
-    | EXPRLIST ':==' EXPR '.'                                                       {}
+  --  | EXPRLIST ':==' EXPR '.'                                                       {}
     | void ':==' EXPR '.'                                                           {}
     | pass '.'                                                                      {}
     | beginExit programName endExit '.'                                             {}
     | read EXPR '.'                                                                 {}
     | print EXPR '.'                                                                {}
+    | print stringLit '.'                                                                {}
     | EXPR new '.'                                                                  {}
     | EXPR free '.'                                                                 {}
     | continue '.'                                                                  {}
@@ -475,13 +480,16 @@ CASES :: {}
     | CASES CASE                                                                    {}
 
 CASE :: {}
-    : case atomLit '.' CODE_BLOCK                                                   {}
-    | case nothing '.' CODE_BLOCK                                                   {}
+    : CASE_INIT CODE_BLOCK                                                          {}
+
+CASE_INIT :: { }
+    : case atomLit '.'                                                              {}
+    | case nothing '.'                                                              {}
 
 FOR :: {}
     : OPEN_SCOPE FOR_DEC INSTRUCTIONS endFor CLOSE_SCOPE                            {}
 
-FOR_DEC :: {}                                                                       
+FOR_DEC :: {}
     : for id type int '.' forLB EXPR forUB EXPR '.'                                 {}
 
 WHILE :: {}
@@ -511,16 +519,16 @@ EXPR :: { }
     | EXPR '->' id                                                                  { }
     | EXPR '?' id                                                                   { }
     | '[(' naturalLit ']' EXPR                                                      { }
-    | EXPR cast TYPE                                                                { }
+    --| EXPR cast TYPE                                                                { }
     | '(' EXPR ')'                                                                  { }
-    | ARRAYLIT                                                                      { }
-    | TUPLELIT                                                                      { }
+    --| ARRAYLIT                                                                      { }
+   -- | TUPLELIT                                                                      { }
     | FUNCTIONCALL                                                                  { }
     | intLit                                                                        { }
     | floatLit                                                                      { }
     | charLit                                                                       { }
     | atomLit                                                                       { }
-    | stringLit                                                                     { }
+    --| stringLit                                                                     { }
     | true                                                                          { }
     | false                                                                         { }
     | id                                                                            { }
@@ -531,13 +539,13 @@ FUNCTIONCALL :: { }
     | id '((' procCallArgs void '))'                                                { }
     | id '(('  '))'                                                                 { }
 
-ARRAYLIT :: { }
-    : '{{' EXPRLIST '}}'                                                            { }
-    | '{{' '}}'                                                                     { }
+-- ARRAYLIT :: { }
+--     : '{{' EXPRLIST '}}'                                                            { }
+--     | '{{' '}}'                                                                     { }
 
-TUPLELIT :: { }
-    : '[[' EXPRLIST ']]'                                                            { }
-    | '[[' ']]'                                                                     { }
+-- TUPLELIT :: { }
+--     : '[[' EXPRLIST ']]'                                                            { }
+--     | '[[' ']]'                                                                     { }
 
 EXPRLIST :: { }
     : EXPR                                                                          { }

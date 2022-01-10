@@ -206,11 +206,14 @@ FUNCTION_NAMES :: { }
                                                                                                 else ST.insertError $ Err.PE (Err.UndefinedFunction name params pos)
                                                                                     }
 
-GLOBAL :: { [TAC.Instruction] }
-    : globalDec '{' DECLARATIONS '}'                                                { reverse $3 }
+GLOBAL :: { [AST.Instruction] }
+    : globalDec '{' DECLARATIONS '}'                                                { map TAC.getInstruction $ reverse $3 }
 
 MAIN :: { [AST.Instruction] }
-    : MAIN_DEC FUNCTION_BODY                                                        { $2 }
+    : MAIN_DEC OPEN_F FUNCTION_BODY CLOSE_F                                         {% do
+                                                                                        TAC.patchFunction $2
+                                                                                        return $3
+                                                                                    }
 
 MAIN_DEC :: { }
     : main                                                                          {% ST.openFunction "Epilogue" 0 }
@@ -259,7 +262,7 @@ PARAMETER :: { () }
     | beginCompTypeId PARAMETER_TYPE id endCompTypeId TYPE                          {% do
                                                                                         expr <- TC.buildAndCheckExpr $3 $ AST.IdExpr (Tk.cleanedString $3)
                                                                                         TC.checkCompositeType expr
-                                                                                        when (T.isArrayType $ AST.getType expr && $2 == ST.Value) $ do
+                                                                                        when ((T.isArrayType $ AST.getType expr) && $2 == ST.Value) $ do
                                                                                             TAC.generateCodeParamArray (Tk.cleanedString $3)
                                                                                     }
     | beginCompTypeId PARAMETER_TYPE pointerVar id endCompTypeId TYPE               {% do
@@ -283,7 +286,7 @@ TYPES :: { [ST.Type] }
     | TYPES ',' TYPE                                                                { $3 : $1 }
 
 FUNCTION_BODY :: { [AST.Instruction] }
-    : '{' CODE_BLOCK '}'                                                            {% TAC.getInstructions $2 }
+    : '{' CODE_BLOCK '}'                                                            { TAC.getInstructions $2 }
 
 OPEN_F:: { Int }
     : {- empty -}                                                                   {% do
@@ -385,8 +388,8 @@ PRIMITIVE_DECLARATION :: { TAC.Expression }
                                                                                         TC.checkPrimitiveType expr
                                                                                         maybeEntry <- ST.lookupST symbol
                                                                                         let offset = case maybeEntry of
-                                                                                                Just ST.SymbolInfo{ST.offset=Just o} -> return o
-                                                                                                _ -> return 0
+                                                                                                Just ST.SymbolInfo{ST.offset=Just o} -> o
+                                                                                                _ -> 0
                                                                                         TAC.generateCodeId expr offset
                                                                                     }
 
@@ -400,8 +403,8 @@ COMPOSITE_DECLARATION :: { TAC.Expression }
                                                                                         TC.checkCompositeType expr
                                                                                         maybeEntry <- ST.lookupST symbol
                                                                                         let offset = case maybeEntry of
-                                                                                                Just ST.SymbolInfo{ST.offset=Just o} -> return o
-                                                                                                _ -> return 0
+                                                                                                Just ST.SymbolInfo{ST.offset=Just o} -> o
+                                                                                                _ -> 0
                                                                                         TAC.generateCodeId expr offset
                                                                                     }
     | beginCompTypeId var id endCompTypeId TYPE beginSz EXPRLIST endSz              {% do
@@ -411,11 +414,11 @@ COMPOSITE_DECLARATION :: { TAC.Expression }
                                                                                         let symbol = Tk.cleanedString $3
                                                                                         expr <- TC.buildAndCheckExpr $3 $ AST.IdExpr symbol
                                                                                         TC.checkArrayType expr
-                                                                                        TC.checkIntegerTypes (reverse $7)
+                                                                                        TC.checkIntegerTypes $ map TAC.getExpr (reverse $7)
                                                                                         maybeEntry <- ST.lookupST symbol
                                                                                         let offset = case maybeEntry of
-                                                                                                Just ST.SymbolInfo{ST.offset=Just o} -> return o
-                                                                                                _ -> return 0
+                                                                                                Just ST.SymbolInfo{ST.offset=Just o} -> o
+                                                                                                _ -> 0
                                                                                         TAC.generateCodeArrayDec expr offset (reverse $7)
                                                                                     }
     | beginCompTypeId pointerVar id endCompTypeId TYPE                              {% do
@@ -427,8 +430,8 @@ COMPOSITE_DECLARATION :: { TAC.Expression }
                                                                                         TC.checkPointerType expr
                                                                                         maybeEntry <- ST.lookupST symbol
                                                                                         let offset = case maybeEntry of
-                                                                                                Just ST.SymbolInfo{ST.offset=Just o} -> return o
-                                                                                                _ -> return 0
+                                                                                                Just ST.SymbolInfo{ST.offset=Just o} -> o
+                                                                                                _ -> 0
                                                                                         TAC.generateCodeId expr offset
                                                                                     }
 {-     | beginCompTypeId pointerVar id endCompTypeId TYPE beginSz EXPRLIST endSz       {% do
@@ -453,8 +456,8 @@ CONST_DECLARATION :: { TAC.Instruction }
                                                                                         let astInst = AST.SimpleAssign expr rExpr
                                                                                         maybeEntry <- ST.lookupST symbol
                                                                                         let offset = case maybeEntry of
-                                                                                                Just ST.SymbolInfo{ST.offset=Just o} -> return o
-                                                                                                _ -> return 0
+                                                                                                Just ST.SymbolInfo{ST.offset=Just o} -> o
+                                                                                                _ -> 0
                                                                                         lExpr <- TAC.generateCodeId expr offset
                                                                                         label <- TAC.generateLabel
                                                                                         TAC.generateCodeAssign astInst lExpr $6 label
@@ -469,8 +472,8 @@ CONST_DECLARATION :: { TAC.Instruction }
                                                                                         let astInst = AST.SimpleAssign expr rExpr
                                                                                         maybeEntry <- ST.lookupST symbol
                                                                                         let offset = case maybeEntry of
-                                                                                                Just ST.SymbolInfo{ST.offset=Just o} -> return o
-                                                                                                _ -> return 0
+                                                                                                Just ST.SymbolInfo{ST.offset=Just o} -> o
+                                                                                                _ -> 0
                                                                                         lExpr <- TAC.generateCodeId expr offset
                                                                                         label <- TAC.generateLabel
                                                                                         TAC.generateCodeAssign astInst lExpr $7 label
@@ -531,11 +534,11 @@ INSTRUCTION :: { TAC.Instruction }
                                                                                         return $ AST.MultAssign exprList $3
                                                                                     } -}
     | void ':=' FUNCTIONCALL '.'                                                    {% do
-                                                                                        let astInst = AST.FuncCallInst $3
+                                                                                        let astInst = AST.FuncCallInst $ TAC.getExpr $3
                                                                                         return $ TAC.Instruction astInst [] [] []
                                                                                     }
     | void ':==' FUNCTIONCALL '.'                                                   {% do
-                                                                                        let astInst = AST.FuncCallInst $3
+                                                                                        let astInst = AST.FuncCallInst $ TAC.getExpr $3
                                                                                         return $ TAC.Instruction astInst [] [] []
                                                                                     }
     | pass '.'                                                                      {% return $ TAC.Instruction AST.EmptyInst [] [] [] }
@@ -612,10 +615,10 @@ INSTRUCTION :: { TAC.Instruction }
                                                                                         TAC.generateCodeBreak AST.Break
                                                                                     }
     | returnOpen EXPRLIST returnClose                                               {% do
-                                                                                        let returns = reverse $2
-                                                                                            astReturn = AST.Return $ map TAC.getExpr returns
+                                                                                        let returns = map TAC.getExpr $ reverse $2
+                                                                                            astReturn = AST.Return returns
                                                                                         checkValidReturn $1 returns
-                                                                                        TAC.generateCodeReturn astReturn returns
+                                                                                        TAC.generateCodeReturn astReturn (reverse $2)
 
                                                                                     }
     | returnOpen returnClose                                                        {% do
@@ -664,9 +667,9 @@ IF :: { TAC.Instruction }
 
 SWITCHCASE :: { TAC.Instruction }
     : switch EXPR switchDec '.' CASES endSwitch                                     {% do
-                                                                                        let exprType = AST.getType $2
+                                                                                        let exprType = AST.getType $ TAC.getExpr $2
                                                                                         unless (exprType `elem` [T.AtomT, T.TypeError]) $ do
-                                                                                            let err = Err.UnexpectedType (show exprType) (show Err.Atom) (Tk.position $ AST.getToken $2)
+                                                                                            let err = Err.UnexpectedType (show exprType) (show Err.Atom) (Tk.position $ AST.getToken $ TAC.getExpr $2)
                                                                                             ST.insertError $ Err.TE err
 
                                                                                         let cases = map TAC.getAstCaseExpr $ reverse $5
@@ -832,11 +835,11 @@ EXPR :: { TAC.Expression }
                                                                                         let astExpr = TAC.getExpr $3
                                                                                             sym = Tk.cleanedString $1
                                                                                         expr <- TC.buildAndCheckExpr $2 $ AST.AccesField astExpr sym
-                                                                                        case AST.getType $3 of
+                                                                                        case AST.getType astExpr of
                                                                                             T.StructT _ _ -> return ()
                                                                                             T.TypeError -> return ()
                                                                                             _           -> do
-                                                                                                let error = Err.InvalidExprType (show $ AST.getType $3) (Tk.position $2)
+                                                                                                let error = Err.InvalidExprType (show $ AST.getType astExpr) (Tk.position $2)
                                                                                                 ST.insertError $ Err.TE error
                                                                                         TAC.generateCodeStructAccess expr sym $3
                                                                                     }
@@ -844,11 +847,11 @@ EXPR :: { TAC.Expression }
                                                                                         let astExpr = TAC.getExpr $1
                                                                                             sym = Tk.cleanedString $3
                                                                                         expr <- TC.buildAndCheckExpr $2 $ AST.AccesField astExpr sym
-                                                                                        case AST.getType $1 of
+                                                                                        case AST.getType astExpr of
                                                                                                 T.UnionT _ _ -> return ()
                                                                                                 T.TypeError -> return ()
                                                                                                 _           -> do
-                                                                                                    let error = Err.InvalidExprType (show $ AST.getType $1) (Tk.position $2)
+                                                                                                    let error = Err.InvalidExprType (show $ AST.getType astExpr) (Tk.position $2)
                                                                                                     ST.insertError $ Err.TE error
                                                                                         TAC.generateCodeUnionAccess expr $1
                                                                                     }
@@ -908,7 +911,7 @@ EXPR :: { TAC.Expression }
                                                                                         astExpr <- TC.buildAndCheckExpr $1 $ AST.IdExpr symbol
                                                                                         maybeEntry <- ST.lookupST symbol
                                                                                         maybeOffset <- case maybeEntry of
-                                                                                            Just ST.SymbolInfo{ST.category=category, ST.symbolType=tp, ST.offset=mOffset} -> do
+                                                                                            Just ST.SymbolInfo{ST.category=category, ST.offset=mOffset} -> do
                                                                                                 if category `elem` [ST.Variable, ST.Constant, ST.Parameter]
                                                                                                     then return mOffset
                                                                                                     else do
@@ -925,20 +928,20 @@ EXPR :: { TAC.Expression }
 
 FUNCTIONCALL :: { TAC.Expression }
     : id '((' procCallArgs EXPRLIST '))'                                            {% do
-                                                                                        exprs <- map TAC.getExpr $ reverse $4
+                                                                                        let exprs = map TAC.getExpr $ reverse $4
                                                                                         astExpr <- TC.buildAndCheckExpr $1 $ AST.FuncCall (Tk.cleanedString $1) exprs
                                                                                         checkFunctionCallInstr astExpr
-                                                                                        TAC.generateCodeFuncCall astExpr $ reverse $4
+                                                                                        TAC.generateCodeFunctionCall astExpr $ reverse $4
                                                                                     }
     | id '((' procCallArgs void '))'                                                {% do
                                                                                         astExpr <- TC.buildAndCheckExpr $1 $ AST.FuncCall (Tk.cleanedString $1) []
                                                                                         checkFunctionCallInstr astExpr
-                                                                                        TAC.generateCodeFuncCall astExpr []
+                                                                                        TAC.generateCodeFunctionCall astExpr []
                                                                                     }
     | id '(('  '))'                                                                 {% do
                                                                                         astExpr <- TC.buildAndCheckExpr $1 $ AST.FuncCall (Tk.cleanedString $1) []
                                                                                         checkFunctionCallInstr astExpr
-                                                                                        TAC.generateCodeFuncCall astExpr []
+                                                                                        TAC.generateCodeFunctionCall astExpr []
                                                                                     }
 
 -- ARRAYLIT :: { AST.Expression }
@@ -986,7 +989,7 @@ parseError []     = do
     fail "The scriptures do not follow the desired structure"
 parseError (tk:_) = do
     ST.insertError $ Err.PE $ Err.SyntaxErr (Tk.cleanedString tk) (Tk.position tk)
-    fail "The scriptures do not follow the desired structure"
+    fail $ "The scriptures do not follow the desired structure" ++ " "  ++ (Tk.cleanedString tk)
 
 checkFunctionCallInstr :: AST.Expression -> ST.MonadParser ()
 checkFunctionCallInstr AST.Expression{AST.getExpr=(AST.FuncCall id args), AST.getToken=tk} = do

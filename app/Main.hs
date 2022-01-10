@@ -9,6 +9,7 @@ import Westeros.SouthOfTheWall.PrettyPrint  (pretty)
 import qualified Westeros.SouthOfTheWall.Symtable as ST
 import qualified TACTypes.TAC as TAC
 
+import Data.Foldable (toList)
 import Control.Monad.RWS ( RWST(runRWST), unless )
 import System.Environment (getArgs)
 
@@ -57,15 +58,15 @@ testParser = do
 testTAC :: IO ()
 testTAC = do
     str <- getContents
-    let(errors, tokens) = scanTokens str
+    let (errors, tokens) = scanTokens str
     unless (null errors) (mapM_ print errors)
     (_, preSymbolTable, errs) <- runRWST (preParse tokens) () ST.initialST
     if null errs
         then do
             (ast, finalSt, errs') <- runRWST (parse tokens) () preSymbolTable{ ST.scopeStack=[1,0], ST.nextSymAlias = 0, ST.offsetStack = [0], ST.nextScope = 2 }
             unless (null errs') $ do
-                let tacSeq = ST.tacCode finalSt
-                    tacProgram = TAC.TACProgram $ toList tacSeq
-                print tacProgram
-            mapM_ pretty errs'
+                mapM_ pretty errs
+            let tacSeq = ST.tacCode finalSt
+                tacProgram = TAC.TACProgram $ toList tacSeq
+            print tacProgram
         else mapM_ pretty errs

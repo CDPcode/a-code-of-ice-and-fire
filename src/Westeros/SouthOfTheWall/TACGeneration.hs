@@ -57,7 +57,7 @@ module Westeros.SouthOfTheWall.TACGeneration (
 
 import Control.Monad.RWS                (get, put, gets)
 import Data.Maybe                       (fromMaybe, mapMaybe, fromJust)
-import Data.Sequence                    (Seq, (|>))
+import Data.Sequence                    (Seq, (|>), (<|))
 import Westeros.SouthOfTheWall.Symtable (MonadParser)
 import qualified Data.Map                           as M
 import qualified Data.Sequence                      as Seq
@@ -126,6 +126,11 @@ generateCode :: TAC.TACCode -> MonadParser ()
 generateCode tac = do
     st <- get
     put st { ST.tacCode = ST.tacCode st |> tac }
+
+generateGlobalCode :: TAC.TACCode -> MonadParser ()
+generateGlobalCode tac = do
+    st <- get
+    put st { ST.tacCode = tac <| ST.tacCode st }
 
 getNextTemp :: MonadParser String
 getNextTemp = do
@@ -1710,12 +1715,13 @@ generateCodeAssign astInst lExpr rExpr lLabel = do
 generateCodePrintString :: AST.Instruction -> String -> MonadParser Instruction
 generateCodePrintString astInst str = do
     label <- getNextLabel
-    generateCode $ TAC.TACCode
+    generateGlobalCode $ TAC.TACCode
         { TAC.tacOperation = TAC.MetaStaticStr
         , TAC.tacLValue    = Just $ TAC.Label label
         , TAC.tacRValue1   = Just $ TAC.Constant $ TAC.String str
         , TAC.tacRValue2   = Nothing
         }
+
     generateCode $ TAC.TACCode
         { TAC.tacOperation = TAC.Print
         , TAC.tacLValue    = Just $ TAC.Label label
