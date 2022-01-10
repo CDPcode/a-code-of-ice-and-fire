@@ -1,3 +1,9 @@
 [submodule "src/Westeros/BeyondTheWall/TACTypes"]
 	path = src/TACTypes
 	url = git@github.com:LDiazN/TACTypes.git
+[submodule "tac-interpreter"]
+	path = tac-interpreter
+	url = https://github.com/LDiazN/tac-interpreter
+[submodule "tac2mips"]
+	path = tac2mips
+	url = https://github.com/KevinMena/tac2mips
