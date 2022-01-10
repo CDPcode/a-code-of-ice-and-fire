@@ -1,9 +1,14 @@
 #!/bin/bash
 
 stack run -- tac < "$2" > temp.tac
-if [ "interpreter" == "$1" ]; then
-    ./tac-interpreter/tac-runner temp.tac
-else if [ "compiler" == "$1" ]; then
-    ./tac2mips/tac2mips temp.tac
-fi
-fi
+case $1 in
+    "interpreter")
+        ./tac-interpreter/tac-runner temp.tac
+        ;;
+    "compiler")
+        ./tac2mips/tac2mips temp.tac
+        ;;
+    "optimizer")
+        ./tac2mips/tac2mips temp.tac | ./optimips-prime/.stack-work/dist/x86_64-linux-tinfo6/Cabal-3.2.1.0/build/optimips-prime-exe/optimips-prime-exe
+        ;;
+esac
