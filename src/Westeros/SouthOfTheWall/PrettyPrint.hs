@@ -25,6 +25,8 @@ import Westeros.SouthOfTheWall.Error
     , ParserError(..)
     , TypeError(..) )
 
+import System.IO (stderr)
+
 import qualified Data.ByteString.Lazy.Char8 as BS
 import qualified Data.Map as M (toList)
 
@@ -53,7 +55,7 @@ chunkFromStr = chunk . pack
 {- Pretty printing for Tokens -}
 
 instance Pretty Tk.Token where
-    pretty = BS.putStrLn . chunksToLazyBS tokenChunks
+    pretty = BS.hPutStrLn stderr . chunksToLazyBS tokenChunks
 
 tokenChunks :: Tk.Token -> [Chunk]
 tokenChunks token = [ chunk "-Token "
@@ -65,7 +67,7 @@ tokenChunks token = [ chunk "-Token "
 {- Pretty printing for ST -}
 
 instance Pretty SymbolTable where
-    pretty = BS.putStrLn . chunksToLazyBS symTableChunk
+    pretty = BS.hPutStrLn stderr . chunksToLazyBS symTableChunk
 
 
 symTableChunk :: SymbolTable -> [Chunk]
@@ -118,7 +120,7 @@ instance Pretty Error where
 {- Pretty printing for parse errors -}
 
 instance Pretty ParserError where
-    pretty = BS.putStrLn . chunksToLazyBS
+    pretty = BS.hPutStrLn stderr . chunksToLazyBS
                     ( (parseErrorHead :) . parseErrorChunks )
 
 parseErrorChunks :: ParserError -> [Chunk]
@@ -196,7 +198,7 @@ parseErrorHead = chunk "Your scriptures contain some semantic error: " & fore re
 {- Pretty printing for type errors -}
 
 instance Pretty TypeError where
-    pretty = BS.putStrLn . chunksToLazyBS ( (typeErrorHead :) . typeErrorChunks)
+    pretty = BS.hPutStrLn stderr . chunksToLazyBS ( (typeErrorHead :) . typeErrorChunks)
 
 typeErrorChunks :: TypeError -> [Chunk]
 typeErrorChunks (HeterogeneusArrayType pos) =
